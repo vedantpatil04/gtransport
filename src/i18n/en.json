@@ -1,0 +1,1131 @@
+{
+  "brand": {
+    "name": "Gangamata Roadlines",
+    "short": "Gangamata",
+    "tagline": "Transport & Logistics · Belagavi"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "back": "Back",
+    "done": "Done",
+    "close": "Close",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "retry": "Try again",
+    "view": "View",
+    "viewAll": "View all",
+    "seeAll": "See all",
+    "search": "Search",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "optional": "optional",
+    "amount": "Amount",
+    "date": "Date",
+    "note": "Note",
+    "status": "Status",
+    "total": "Total",
+    "change": "Change",
+    "replace": "Replace",
+    "remove": "Remove",
+    "upload": "Upload",
+    "all": "All",
+    "yes": "Yes",
+    "no": "No",
+    "on": "ON",
+    "off": "OFF",
+    "select": "Select",
+    "next": "Next",
+    "loading": "Loading…",
+    "notAvailable": "—",
+    "somethingWrong": "Something went wrong. Please try again.",
+    "saved": "Saved"
+  },
+  "units": {
+    "litres": "{{value}} Litres",
+    "litresShort": "{{value}} L",
+    "kmh": "{{value}} km/h",
+    "km": "{{value}} km"
+  },
+  "greeting": {
+    "morning": "Good Morning, {{name}}",
+    "afternoon": "Good Afternoon, {{name}}",
+    "evening": "Good Evening, {{name}}"
+  },
+  "enum": {
+    "fuelType": {
+      "petrol": "Petrol",
+      "diesel": "Diesel"
+    },
+    "category": {
+      "fuel": "Fuel",
+      "toll": "Toll",
+      "parking": "Parking",
+      "repair": "Repair",
+      "food": "Food",
+      "maintenance": "Maintenance",
+      "trip": "Trip Expense",
+      "other": "Other",
+      "advance": "Advance Received"
+    },
+    "categoryShort": {
+      "fuel": "Fuel",
+      "toll": "Toll",
+      "parking": "Parking",
+      "repair": "Repair",
+      "food": "Food",
+      "maintenance": "Maintenance",
+      "trip": "Trip",
+      "other": "Other",
+      "advance": "Advance"
+    },
+    "paymentType": {
+      "salary": "Salary",
+      "fuel_advance": "Fuel Advance",
+      "trip_allowance": "Trip Allowance",
+      "other_advance": "Other Advance",
+      "reimbursement": "Reimbursement"
+    },
+    "paymentStatus": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "paid": "Paid",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "paymentStatusDriver": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "paid": "Received",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "paymentEvent": {
+      "created": "Payment created",
+      "approved": "Approved by office",
+      "pending": "Pending",
+      "processing": "Sent to bank",
+      "paid": "Money received",
+      "failed": "Payment failed",
+      "cancelled": "Cancelled"
+    },
+    "method": {
+      "upi": "UPI",
+      "bank": "Bank transfer",
+      "cash": "Cash"
+    },
+    "docType": {
+      "rc": "RC",
+      "insurance": "Insurance",
+      "puc": "PUC",
+      "licence": "Driving Licence",
+      "fitness": "Fitness Certificate",
+      "permit": "National Permit",
+      "other": "Other Document"
+    },
+    "docTypeLong": {
+      "rc": "Registration Certificate (RC)",
+      "insurance": "Vehicle Insurance",
+      "puc": "Pollution Under Control (PUC)",
+      "licence": "Driving Licence",
+      "fitness": "Fitness Certificate",
+      "permit": "National Permit",
+      "other": "Other Document"
+    },
+    "verification": {
+      "pending": "Waiting for check",
+      "approved": "Approved",
+      "verified": "Verified",
+      "rejected": "Rejected"
+    },
+    "expenseStatus": {
+      "submitted": "Sent to office",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "motion": {
+      "moving": "Moving",
+      "stopped": "Stopped",
+      "offline": "Offline",
+      "none": "No location"
+    },
+    "driverStatus": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "vehicleStatus": {
+      "active": "On duty",
+      "maintenance": "In workshop",
+      "idle": "Idle"
+    },
+    "vehicleKind": {
+      "lcv": "Mini truck",
+      "pickup": "Pickup",
+      "truck": "Truck"
+    },
+    "tripStatus": {
+      "assigned": "Assigned",
+      "in_transit": "On the way",
+      "delivered": "Delivered"
+    },
+    "sync": {
+      "pending": "Pending sync",
+      "synced": "Synced"
+    }
+  },
+  "city": {
+    "pune": "Pune",
+    "satara": "Satara",
+    "karad": "Karad",
+    "kolhapur": "Kolhapur",
+    "sangli": "Sangli",
+    "nipani": "Nipani",
+    "chikkodi": "Chikkodi",
+    "gokak": "Gokak",
+    "belagavi": "Belagavi",
+    "khanapur": "Khanapur",
+    "panaji": "Panaji",
+    "dharwad": "Dharwad",
+    "hubballi": "Hubballi",
+    "gadag": "Gadag",
+    "haveri": "Haveri",
+    "davanagere": "Davanagere",
+    "chitradurga": "Chitradurga",
+    "tumakuru": "Tumakuru",
+    "bengaluru": "Bengaluru",
+    "bagalkot": "Bagalkot",
+    "vijayapura": "Vijayapura",
+    "solapur": "Solapur",
+    "karwar": "Karwar",
+    "hosapete": "Hosapete",
+    "ballari": "Ballari",
+    "sirsi": "Sirsi"
+  },
+  "expiry": {
+    "valid": "Valid",
+    "expiringSoon": "Expiring soon",
+    "expired": "Expired",
+    "noExpiry": "No expiry",
+    "inDays_one": "Expires in {{count}} day",
+    "inDays_other": "Expires in {{count}} days",
+    "today": "Expires today",
+    "agoDays_one": "Expired {{count}} day ago",
+    "agoDays_other": "Expired {{count}} days ago",
+    "docInDays_one": "{{doc}} expires in {{count}} day",
+    "docInDays_other": "{{doc}} expires in {{count}} days",
+    "docToday": "{{doc}} expires today",
+    "docExpired": "{{doc}} has expired",
+    "validTill": "Valid till {{date}}"
+  },
+  "demo": {
+    "badge": "Prototype Demo",
+    "viewAs": "View as",
+    "driver": "Driver",
+    "admin": "Admin",
+    "settings": "Demo settings",
+    "simulateOffline": "Simulate offline",
+    "simulateOfflineHint": "Driver phone loses network. Fuel updates still save.",
+    "driverProfile": "Driver app shows",
+    "reset": "Reset demo data",
+    "resetConfirm": "All changes made during the demo will be removed. Continue?",
+    "resetDone": "Demo data has been reset",
+    "note": "Frontend prototype · data stays in this browser"
+  },
+  "offline": {
+    "banner": "No network. Updates are saved on your phone.",
+    "syncing": "Uploading saved updates…",
+    "synced": "Synced successfully",
+    "syncedCount_one": "{{count}} saved update uploaded",
+    "syncedCount_other": "{{count}} saved updates uploaded",
+    "waiting_one": "{{count}} update waiting for network",
+    "waiting_other": "{{count}} updates waiting for network"
+  },
+  "driver": {
+    "nav": {
+      "home": "Home",
+      "updates": "Updates",
+      "payments": "Payments",
+      "documents": "Documents",
+      "profile": "Profile"
+    },
+    "location": {
+      "on": "Location Sharing ON",
+      "off": "Location Sharing OFF",
+      "updated": "Updated {{time}}",
+      "offHint": "Office cannot see your vehicle",
+      "title": "Location Sharing",
+      "nearCity": "Near {{city}}",
+      "onTheWay": "{{from}} to {{to}}",
+      "demoNote": "Demo location — simulated on the highway map",
+      "turnOn": "Turn ON",
+      "turnOff": "Turn OFF",
+      "lastUpdated": "Last updated",
+      "currentStatus": "Current status",
+      "turnedOn": "Location sharing turned ON",
+      "turnedOff": "Location sharing turned OFF",
+      "near": "Near"
+    },
+    "home": {
+      "yourVehicle": "Your vehicle",
+      "noVehicle": "No vehicle assigned",
+      "noVehicleHint": "Please call the office to get a vehicle.",
+      "todaySummary": "Today's Summary",
+      "fuel": "Fuel",
+      "otherExpenses": "Other Expenses",
+      "received": "Received",
+      "addFuel": "Add Fuel",
+      "addFuelHint": "Petrol / Diesel",
+      "otherUpdates": "Other Daily Updates",
+      "latestPayment": "Payments",
+      "documentStatus": "Documents",
+      "allDocsValid": "All documents are valid",
+      "fuelToday_one": "{{count}} fuel update today",
+      "fuelToday_other": "{{count}} fuel updates today",
+      "notifications": "Notifications"
+    },
+    "fuel": {
+      "title": "Add Fuel",
+      "vehicle": "Vehicle",
+      "type": "Fuel Type",
+      "amount": "Amount",
+      "amountPlaceholder": "0",
+      "litres": "Litres",
+      "litresPlaceholder": "0.0",
+      "station": "Fuel Station",
+      "stationOther": "Other station",
+      "stationPlaceholder": "Type the pump name",
+      "date": "Date",
+      "changeDate": "Change date",
+      "receipt": "Receipt",
+      "save": "Save Fuel",
+      "saving": "Saving…",
+      "rateCheck": "Amount and litres do not match. Please check once.",
+      "errAmount": "Please enter the amount",
+      "errAmountHigh": "Amount looks too high. Please check.",
+      "errLitres": "Please enter litres",
+      "errLitresHigh": "Litres look too high. Please check.",
+      "errStation": "Please choose the fuel station",
+      "errDate": "Date cannot be in the future",
+      "successTitle": "Fuel update saved",
+      "receiptUploaded": "Receipt uploaded successfully",
+      "noReceipt": "No receipt photo added",
+      "savedOnPhone": "Saved on your phone",
+      "willUpload": "It will upload automatically when the network returns.",
+      "addAnother": "Add another",
+      "goHome": "Go to Home",
+      "history": "Fuel history"
+    },
+    "receipt": {
+      "takePhoto": "Take Receipt Photo",
+      "gallery": "Choose from Gallery",
+      "uploading": "Uploading…",
+      "uploaded": "Receipt uploaded",
+      "savedOnPhone": "Saved on phone · uploads when network returns",
+      "replace": "Replace",
+      "remove": "Remove",
+      "error": "Could not open this photo. Please try again.",
+      "view": "View receipt",
+      "preview": "Receipt photo"
+    },
+    "updates": {
+      "title": "Daily Updates",
+      "addTitle": "Add an update",
+      "history": "Recent updates",
+      "empty": "No updates yet",
+      "emptyHint": "Your fuel and expense updates will appear here.",
+      "fuelPrimary": "Petrol / Diesel"
+    },
+    "update": {
+      "amount": "Amount",
+      "quick": "Quick amounts",
+      "note": "Note",
+      "notePlaceholder": "Example: Hattargi toll plaza",
+      "receipt": "Bill photo",
+      "save": "Save {{type}}",
+      "saved": "{{type}} saved",
+      "advanceHint": "Money you received on the road (cash or UPI).",
+      "advanceNotePlaceholder": "Example: From office, cash",
+      "errAmount": "Please enter the amount",
+      "errAmountHigh": "Amount looks too high. Please check."
+    },
+    "payments": {
+      "title": "My Payments",
+      "receivedThisMonth": "Received this month",
+      "empty": "No payments yet",
+      "detail": "Payment Details",
+      "amount": "Amount",
+      "type": "Type",
+      "status": "Status",
+      "date": "Date",
+      "method": "Payment Method",
+      "reference": "Reference",
+      "note": "Note",
+      "progress": "Payment progress",
+      "notYet": "Not generated yet",
+      "recordedByYou": "Recorded by you",
+      "hintPending": "Waiting for office approval.",
+      "hintProcessing": "Money is on the way. It usually takes 1–2 hours.",
+      "hintPaid": "Money has reached your account.",
+      "hintPaidCash": "Cash received.",
+      "hintFailed": "The bank could not send this payment. The office will send it again.",
+      "hintCancelled": "This payment was cancelled by the office.",
+      "askOffice": "Questions about this payment?",
+      "callOffice": "Call office",
+      "notFound": "Payment not found"
+    },
+    "docs": {
+      "title": "Documents",
+      "vehicle": "Vehicle Documents",
+      "driver": "Driver Documents",
+      "uploaded": "Uploaded",
+      "notUploaded": "Not uploaded",
+      "upload": "Upload",
+      "addOther": "Add another document",
+      "issuer": "Issued by",
+      "number": "Document number",
+      "policyNumber": "Policy number",
+      "expiry": "Expiry date",
+      "uploadedOn": "Uploaded on",
+      "replace": "Replace Document",
+      "office": "Office check",
+      "uploadTitle": "Upload {{doc}}",
+      "replaceTitle": "Replace {{doc}}",
+      "photo": "Take Photo",
+      "file": "Choose File",
+      "errExpiry": "Please select the expiry date",
+      "errFile": "Please add a photo of the document",
+      "errName": "Please enter the document name",
+      "saved": "Document uploaded",
+      "savedHint": "The office will check it soon.",
+      "name": "Document name",
+      "namePlaceholder": "Example: Goods permit",
+      "chooseType": "Which document?",
+      "noVehicle": "Vehicle documents appear once a vehicle is assigned.",
+      "tapToZoom": "Tap to zoom",
+      "notFound": "Document not found",
+      "pdf": "PDF document",
+      "keepsQuality": "Full quality is kept for official documents."
+    },
+    "profile": {
+      "title": "Profile",
+      "driverId": "Driver ID",
+      "phone": "Phone",
+      "vehicle": "Assigned Vehicle",
+      "language": "Language",
+      "location": "Location Sharing",
+      "notifications": "Notifications",
+      "notificationPrefs": "Notification Preferences",
+      "prefPayments": "Payment updates",
+      "prefDocuments": "Document reminders",
+      "prefTrips": "Trip updates",
+      "help": "Help & Support",
+      "logout": "Logout",
+      "logoutConfirm": "Log out from this phone?",
+      "changeLanguage": "Change Language",
+      "languageChanged": "Language changed",
+      "on": "On",
+      "off": "Off",
+      "allOn": "All on",
+      "someOn": "{{count}} of 3 on"
+    },
+    "help": {
+      "title": "Help & Support",
+      "callOffice": "Call Office",
+      "hours": "Office: 9 AM – 7 PM, Monday to Saturday",
+      "faq": "Common questions",
+      "q1": "How do I add fuel?",
+      "a1": "Tap ADD FUEL on Home. Enter amount and litres, take a photo of the bill and tap Save.",
+      "q2": "My payment failed. What now?",
+      "a2": "The office is informed automatically and will send it again.",
+      "q3": "My insurance is expiring.",
+      "a3": "Tell the office. When the new policy comes, upload it in Documents.",
+      "q4": "There is no network.",
+      "a4": "You can still save fuel updates. They upload by themselves when the network returns."
+    },
+    "login": {
+      "title": "Driver App",
+      "welcome": "Welcome",
+      "phone": "Mobile number",
+      "sendOtp": "Send OTP",
+      "otpSent": "OTP sent to {{phone}}",
+      "enterOtp": "Enter OTP",
+      "verify": "Verify & Continue",
+      "demoOtp": "Demo OTP: {{otp}}",
+      "errOtp": "Please enter the 4-digit OTP",
+      "wrongOtp": "Wrong OTP. Please check."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "empty": "No notifications yet",
+      "markAllRead": "Mark all as read",
+      "new": "New"
+    }
+  },
+  "notif": {
+    "payment_created": {
+      "title": "New payment added",
+      "body": "{{amount}} {{type}} · waiting for approval"
+    },
+    "payment_processing": {
+      "title": "Payment processing",
+      "body": "{{amount}} {{type}} is being sent"
+    },
+    "payment_paid": {
+      "title": "Payment received",
+      "body": "{{amount}} {{type}} received"
+    },
+    "payment_failed": {
+      "title": "Payment failed",
+      "body": "{{amount}} {{type}} failed. The office will send it again."
+    },
+    "doc_expiring": {
+      "title_one": "{{doc}} expires in {{count}} day",
+      "title_other": "{{doc}} expires in {{count}} days",
+      "body": "{{owner}} · please renew it soon"
+    },
+    "doc_expired": {
+      "title": "{{doc}} has expired",
+      "body": "{{owner}} · renew it immediately"
+    },
+    "doc_verified": {
+      "title": "{{doc}} verified",
+      "body": "The office has checked your document"
+    },
+    "doc_rejected": {
+      "title": "{{doc}} rejected",
+      "body": "Please upload a clear photo again"
+    },
+    "doc_reminder": {
+      "title": "Reminder: {{doc}}",
+      "body": "{{owner}} · please renew and upload the new copy"
+    },
+    "expense_approved": {
+      "title": "Expense approved",
+      "body": "{{category}} {{amount}} approved"
+    },
+    "expense_rejected": {
+      "title": "Expense rejected",
+      "body": "{{category}} {{amount}} · please call the office"
+    },
+    "trip_assigned": {
+      "title": "New trip assigned",
+      "body": "{{from}} → {{to}}"
+    }
+  },
+  "pages": {
+    "notFound": "Page not found",
+    "notFoundHint": "This screen does not exist or was moved.",
+    "goHome": "Go to Home"
+  },
+  "map": {
+    "label": "Fleet map",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit to vehicles",
+    "simulated": "Simulated positions",
+    "region": {
+      "maharashtra": "Maharashtra",
+      "karnataka": "Karnataka",
+      "goa": "Goa",
+      "sea": "Arabian Sea"
+    }
+  },
+  "notifAdmin": {
+    "fuel_added": {
+      "title": "{{driver}} added fuel",
+      "body": "{{amount}} {{fuelType}} · {{vehicle}}"
+    },
+    "doc_uploaded": {
+      "title": "New {{doc}} uploaded",
+      "body": "{{owner}} · by {{driver}} · needs checking"
+    },
+    "doc_expiring": {
+      "title_one": "{{doc}} expires in {{count}} day",
+      "title_other": "{{doc}} expires in {{count}} days",
+      "body": "{{owner}} · {{driver}}"
+    },
+    "doc_expired": {
+      "title": "{{doc}} has expired",
+      "body": "{{owner}} · {{driver}} · vehicle should not run"
+    },
+    "doc_verified": {
+      "title": "{{doc}} verified",
+      "body": "{{owner}}"
+    },
+    "doc_rejected": {
+      "title": "{{doc}} rejected",
+      "body": "{{owner}}"
+    },
+    "doc_reminder": {
+      "title": "Reminder: {{doc}} renewal",
+      "body": "{{owner}} · follow up today"
+    },
+    "insurer_notified": {
+      "title": "Insurer notified",
+      "body": "{{insurer}} · {{doc}} for {{owner}}"
+    },
+    "payment_created": {
+      "title": "Payment created",
+      "body": "{{amount}} {{type}}"
+    },
+    "payment_processing": {
+      "title": "Payment processing",
+      "body": "{{amount}} {{type}}"
+    },
+    "payment_paid": {
+      "title": "Payment completed",
+      "body": "{{amount}} {{type}}"
+    },
+    "payment_failed": {
+      "title": "Payment failed · {{driver}}",
+      "body": "{{amount}} {{type}} · retry or pay another way"
+    },
+    "payment_pending": {
+      "title": "Approval needed · {{driver}}",
+      "body": "{{amount}} {{type}} is waiting for approval"
+    },
+    "expense_approved": {
+      "title": "Expense approved",
+      "body": "{{category}} {{amount}}"
+    },
+    "expense_rejected": {
+      "title": "Expense rejected",
+      "body": "{{category}} {{amount}}"
+    },
+    "driver_offline": {
+      "title": "{{driver}} is offline",
+      "body": "{{vehicle}} · no location update for a while"
+    },
+    "trip_assigned": {
+      "title": "Trip assigned",
+      "body": "{{from}} → {{to}}"
+    },
+    "advance_reported": {
+      "title": "{{driver}} reported an advance",
+      "body": "{{amount}} received · please confirm"
+    }
+  },
+  "admin": {
+    "user": {
+      "name": "Anand Hegde",
+      "role": "Fleet Manager",
+      "email": "office@gangamataroadlines.in"
+    },
+    "login": {
+      "title": "Office sign in",
+      "subtitle": "Manage drivers, vehicles, fuel and payments",
+      "email": "Email",
+      "password": "Password",
+      "signIn": "Sign in",
+      "demoNote": "Demo · credentials are pre-filled"
+    },
+    "nav": {
+      "label": "Main navigation",
+      "more": "More",
+      "dashboard": "Dashboard",
+      "fleet": "Live Fleet",
+      "drivers": "Drivers",
+      "vehicles": "Vehicles",
+      "fuel": "Fuel",
+      "expenses": "Expenses",
+      "payments": "Payments",
+      "documents": "Documents",
+      "reports": "Reports",
+      "calculator": "Calculator",
+      "notifications": "Notifications",
+      "settings": "Settings"
+    },
+    "top": {
+      "search": "Search drivers, vehicles, records…",
+      "calculator": "Calculator",
+      "language": "Language",
+      "light": "Light theme",
+      "dark": "Dark theme",
+      "profile": "Profile",
+      "logout": "Log out",
+      "markAllRead": "Mark all as read",
+      "noNotifications": "You're all caught up",
+      "viewAll": "View all",
+      "collapse": "Collapse",
+      "expand": "Expand sidebar"
+    },
+    "common": {
+      "actions": "Actions",
+      "allDrivers": "All drivers",
+      "allVehicles": "All vehicles",
+      "amount": "Amount",
+      "clear": "Clear",
+      "clearFilters": "Clear filters",
+      "date": "Date",
+      "driver": "Driver",
+      "vehicle": "Vehicle",
+      "status": "Status",
+      "type": "Type",
+      "exportExcel": "Export Excel",
+      "exported": "File downloaded",
+      "next": "Next page",
+      "prev": "Previous page",
+      "noResults": "No records match these filters",
+      "pageOf": "Page {{page}} of {{total}}",
+      "records_one": "{{count}} record",
+      "records_other": "{{count}} records"
+    },
+    "range": {
+      "today": "Today",
+      "7d": "Last 7 days",
+      "month": "This month",
+      "lastMonth": "Last month",
+      "all": "All time"
+    },
+    "search": {
+      "title": "Search",
+      "placeholder": "Search drivers, vehicles, fuel, payments, documents…",
+      "hint": "Type a name, vehicle number, pump or payment reference.",
+      "empty": "Nothing found for “{{query}}”",
+      "viewAll": "View all {{count}}",
+      "groups": {
+        "drivers": "Drivers",
+        "vehicles": "Vehicles",
+        "fuel": "Fuel entries",
+        "expenses": "Expenses",
+        "payments": "Payments",
+        "documents": "Documents"
+      }
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "office": "Belagavi head office",
+      "vehicles": "Vehicles",
+      "vehiclesSub": "{{active}} on duty · {{workshop}} in workshop",
+      "drivers": "Drivers",
+      "driversSub": "{{count}} active",
+      "moving": "Moving now",
+      "movingSub": "{{stopped}} stopped · {{offline}} offline",
+      "alerts": "Alerts",
+      "alertsSub": "{{docs}} documents · {{payments}} payments · {{offline}} offline",
+      "todayOverview": "Today's overview",
+      "fuelToday": "Fuel today",
+      "fuelUpdates_one": "{{count}} fuel update",
+      "fuelUpdates_other": "{{count}} fuel updates",
+      "otherToday": "Other expenses",
+      "entries_one": "{{count}} entry",
+      "entries_other": "{{count}} entries",
+      "paymentsToday": "Payments made",
+      "paidCount_one": "{{count}} payment",
+      "paidCount_other": "{{count}} payments",
+      "pending": "Pending approval",
+      "pendingSub_one": "{{count}} payment waiting",
+      "pendingSub_other": "{{count}} payments waiting",
+      "recentFuel": "Recent fuel updates",
+      "attention": "Needs attention",
+      "paymentFailed": "Payment failed · {{amount}}",
+      "driverOffline": "{{name}} is offline",
+      "fuelTrend": "Fuel spend · last 14 days",
+      "openMap": "Open map"
+    },
+    "fleet": {
+      "title": "Live Fleet",
+      "subtitle": "{{count}} of {{total}} vehicles moving",
+      "search": "Search driver or vehicle",
+      "towards": "towards {{city}}",
+      "near": "Near {{city}}",
+      "sharingOff": "Location sharing is off",
+      "speed": "Speed",
+      "lastUpdated": "Last updated",
+      "todayFuel": "Fuel today",
+      "todayExpenses": "Expenses",
+      "todayPaid": "Paid today",
+      "viewDriver": "View Driver"
+    },
+    "drivers": {
+      "title": "Drivers",
+      "subtitle": "{{active}} active of {{total}}",
+      "search": "Search name, ID, town or vehicle",
+      "allStatus": "All status",
+      "allLanguages": "All languages",
+      "add": "Add driver",
+      "addHint": "The driver can sign in with this phone number.",
+      "added": "{{name}} added",
+      "name": "Full name",
+      "phone": "Phone",
+      "language": "App language",
+      "salary": "Monthly salary",
+      "homeTown": "Home town",
+      "assignLater": "Assign later",
+      "location": "Location",
+      "fuelMonth": "Fuel this month",
+      "noVehicle": "No vehicle",
+      "view": "View profile",
+      "assignVehicle": "Assign vehicle",
+      "assignHint": "Choose the vehicle {{name}} will drive.",
+      "withDriver": "with {{name}}",
+      "reassignWarn": "This vehicle is with {{name}}. They will be left without a vehicle.",
+      "assigned": "{{reg}} assigned to {{name}}",
+      "unassigned": "Vehicle removed from {{name}}",
+      "changeLanguage": "Change app language",
+      "appLanguage": "Driver app language",
+      "languageSet": "{{name}}'s app is now in {{lang}}",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "activated": "{{name}} activated",
+      "deactivated": "{{name}} deactivated",
+      "call": "Call driver",
+      "notFound": "Driver not found",
+      "code": "Driver ID",
+      "joined": "Joined",
+      "locationSharing": "Location sharing",
+      "profile": "Profile",
+      "currentLocation": "Current location",
+      "recentActivity": "Recent activity",
+      "expensesMonth": "Expenses this month",
+      "receivedMonth": "Paid this month",
+      "pendingPayments": "Pending payments",
+      "assignTrip": "Assign trip",
+      "from": "From",
+      "to": "To",
+      "goods": "Goods",
+      "approxDistance": "About {{km}} km by road",
+      "errTrip": "Choose two different cities",
+      "errTripVehicle": "Assign a vehicle to this driver first",
+      "tripAssigned": "Trip assigned to {{name}}",
+      "noTrips": "No trips this month",
+      "errName": "Enter the driver's full name",
+      "errPhone": "Enter a 10-digit mobile number",
+      "errSalary": "Enter a salary between ₹5,000 and ₹1,00,000",
+      "errTown": "Enter the home town",
+      "tab": {
+        "overview": "Overview",
+        "fuel": "Fuel",
+        "expenses": "Expenses",
+        "payments": "Payments",
+        "documents": "Documents",
+        "trips": "Trips",
+        "location": "Location history"
+      }
+    },
+    "vehicles": {
+      "title": "Vehicles",
+      "subtitle": "{{total}} vehicles · {{active}} on duty",
+      "search": "Search number, model or driver",
+      "allStatus": "All status",
+      "add": "Add vehicle",
+      "addHint": "Documents can be uploaded after the vehicle is added.",
+      "added": "{{reg}} added",
+      "reg": "Registration number",
+      "model": "Make & model",
+      "kind": "Type",
+      "capacity": "Capacity (tonnes)",
+      "year": "Year",
+      "mileage": "Mileage (km/L)",
+      "documents": "Documents",
+      "unassigned": "No driver",
+      "noVehicle": "No vehicle",
+      "notFound": "Vehicle not found",
+      "details": "Vehicle details",
+      "litresMonth": "Litres this month",
+      "recentFuel": "Fuel history",
+      "assignDriver": "Assign driver",
+      "noDriver": "No driver",
+      "free": "Free",
+      "driverRemoved": "Driver removed from {{reg}}",
+      "statusSet": "{{reg}} is now {{status}}",
+      "errReg": "Enter a valid number, e.g. KA 22 AB 1234",
+      "errModel": "Enter the make and model",
+      "errNumber": "Enter a valid number",
+      "errYear": "Enter a valid year",
+      "errDuplicate": "This vehicle already exists"
+    },
+    "fuel": {
+      "title": "Fuel",
+      "subtitle": "Every fuel update from the driver app, with receipts",
+      "today": "Today",
+      "month": "This month",
+      "litresMonth": "Litres this month",
+      "entries": "Fuel entries",
+      "waitingSync_one": "{{count}} waiting on a phone",
+      "waitingSync_other": "{{count}} waiting on phones",
+      "allSynced": "All phones synced",
+      "search": "Search driver, vehicle or pump",
+      "allTypes": "Petrol & diesel",
+      "allStations": "All pumps",
+      "type": "Fuel type",
+      "litres": "Litres",
+      "station": "Fuel station",
+      "receipt": "Receipt",
+      "noReceipt": "No receipt photo was added",
+      "entryTitle": "Fuel entry",
+      "enteredBy": "Entered by",
+      "driverApp": "Driver app",
+      "edited": "Edited",
+      "editError": "Check amount, litres, station and date",
+      "updated": "Fuel entry updated",
+      "deleteTitle": "Delete this fuel entry?",
+      "deleteBody": "{{amount}} by {{driver}} will be removed from all totals.",
+      "deleted": "Fuel entry deleted"
+    },
+    "expenses": {
+      "title": "Expenses",
+      "subtitle": "Tolls, repairs, food and other daily costs",
+      "monthByCategory": "This month by category",
+      "search": "Search driver, vehicle or note",
+      "allCategories": "All categories",
+      "allStatus": "All status",
+      "category": "Category",
+      "add": "Add expense",
+      "addHint": "For bills paid by the office, e.g. workshop or tyre work.",
+      "recorded": "Expense recorded",
+      "errVehicle": "Choose a vehicle",
+      "errNote": "Add a short description",
+      "notePlaceholder": "e.g. Clutch overhaul at Sri Basaveshwar Auto Works",
+      "bill": "Bill photo",
+      "noBill": "No bill photo was added",
+      "office": "Office",
+      "enteredBy": "Entered by",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approvedToast": "Expense approved",
+      "rejectedToast": "Expense rejected",
+      "approveAll": "Approve {{count}} waiting",
+      "approveAllTitle_one": "Approve {{count}} expense?",
+      "approveAllTitle_other": "Approve {{count}} expenses?",
+      "approveAllBody": "Total {{amount}} · drivers will be notified.",
+      "approvedMany_one": "{{count}} expense approved",
+      "approvedMany_other": "{{count}} expenses approved"
+    },
+    "payments": {
+      "title": "Payments",
+      "subtitle": "Salaries, advances and allowances to drivers",
+      "create": "Create payment",
+      "createHint": "The driver sees it in their app right away.",
+      "created": "Payment created",
+      "paidMonth": "Paid this month",
+      "count_one": "{{count}} payment",
+      "count_other": "{{count}} payments",
+      "search": "Search driver, reference or note",
+      "allTypes": "All types",
+      "method": "Method",
+      "reference": "Reference",
+      "viewDetails": "View details",
+      "detail": "Payment details",
+      "approved": "Approved",
+      "createdOn": "Created",
+      "history": "History",
+      "source": "Source",
+      "reportedByDriver": "Reported by driver",
+      "errDriver": "Choose a driver",
+      "errAmount": "Enter an amount",
+      "errAmountHigh": "Amount is too high",
+      "action": {
+        "approve": "Approve",
+        "processing": "Mark Processing",
+        "paid": "Mark Paid",
+        "failed": "Mark Failed",
+        "retry": "Retry payment",
+        "cancel": "Cancel payment"
+      },
+      "done": {
+        "approve": "Payment approved",
+        "processing": "Marked as processing",
+        "paid": "Marked as paid",
+        "failed": "Marked as failed",
+        "retry": "Payment sent again",
+        "cancel": "Payment cancelled"
+      }
+    },
+    "documents": {
+      "title": "Documents & Compliance",
+      "subtitle": "RC, insurance, PUC, licences and permits",
+      "compliance": "Insurance & compliance",
+      "band": {
+        "expired": "Expired",
+        "within7": "Within 7 days",
+        "within30": "Within 30 days",
+        "valid": "Valid"
+      },
+      "tab": {
+        "all": "All",
+        "valid": "Valid",
+        "expiring": "Expiring",
+        "expired": "Expired"
+      },
+      "search": "Search vehicle, driver, number or insurer",
+      "allTypes": "All document types",
+      "allOwners": "Vehicles & drivers",
+      "vehicleDocs": "Vehicle documents",
+      "driverDocs": "Driver documents",
+      "document": "Document",
+      "owner": "Belongs to",
+      "expiresOn": "Expires on",
+      "check": "Office check",
+      "lastReminder": "Last reminder",
+      "none": "No documents in this view",
+      "remindUrgent": "Remind all urgent ({{count}})",
+      "bulkTitle": "Send reminders now?",
+      "bulkBody_one": "{{count}} document is expired or due within 7 days. Drivers and insurers will be notified.",
+      "bulkBody_other": "{{count}} documents are expired or due within 7 days. Drivers and insurers will be notified.",
+      "sendNow": "Send reminders",
+      "bulkSent_one": "{{count}} reminder sent",
+      "bulkSent_other": "{{count}} reminders sent",
+      "approve": "Approve",
+      "verify": "Verify",
+      "reject": "Reject",
+      "replace": "Replace document",
+      "sendReminder": "Send reminder",
+      "notify": {
+        "driver": "Notify Driver",
+        "admin": "Notify Admin",
+        "insurer": "Notify Insurer"
+      },
+      "notified": {
+        "driver": "Reminder sent to {{who}}",
+        "admin": "Reminder sent to {{who}}",
+        "insurer": "{{who}} has been notified"
+      },
+      "sentTo": {
+        "driver": "Driver",
+        "admin": "Admin",
+        "insurer": "Insurer"
+      },
+      "verificationSet": {
+        "pending": "Marked for checking",
+        "approved": "Document approved",
+        "verified": "Document verified",
+        "rejected": "Document rejected · driver notified"
+      },
+      "officeTeam": "office team",
+      "validTill": "Valid till {{date}}",
+      "insurer": "Insurer",
+      "issuedOn": "Issued on",
+      "responsible": "Driver responsible",
+      "uploadTitle": "Upload {{doc}}",
+      "replaceTitle": "Replace {{doc}}",
+      "uploaded": "Document uploaded"
+    },
+    "reports": {
+      "title": "Reports",
+      "subtitle": "{{month}} · month to date",
+      "exportPdf": "Export PDF",
+      "exportExcel": "Export Excel",
+      "pdfReady": "PDF report downloaded",
+      "xlsxReady": "Excel report downloaded",
+      "fuel": "Fuel",
+      "salaries": "Salaries",
+      "maintenance": "Maintenance",
+      "tolls": "Tolls",
+      "other": "Other",
+      "total": "Total",
+      "otherExpenses": "Other expenses",
+      "expenses": "Expenses",
+      "payments": "Payments",
+      "monthly": "Monthly expenses",
+      "monthlySub": "Last 7 months",
+      "daily": "Daily expenses",
+      "dailySub": "{{month}}",
+      "categories": "Expense categories",
+      "fuelByVehicle": "Fuel by vehicle",
+      "fuelByDriver": "Fuel by driver",
+      "petrolDiesel": "Petrol vs diesel",
+      "paymentStatus": "Payment status",
+      "top": "Top {{count}}",
+      "summary": "Summary",
+      "head": "Head",
+      "month": "Month",
+      "entries": "Entries",
+      "count": "Count",
+      "pdfTitle": "Expense report · {{month}}",
+      "pdfSubtitle": "Monthly report · {{month}}",
+      "generated": "Generated {{date}}",
+      "pdfFooter": "Gangamata Roadlines · generated from the fleet management system"
+    },
+    "calc": {
+      "title": "Calculator",
+      "subtitle": "Quick fuel, trip, salary and expense calculations",
+      "mode": {
+        "fuel": "Fuel",
+        "trip": "Trip",
+        "salary": "Salary",
+        "expense": "Expense"
+      },
+      "hint": {
+        "fuel": "How much fuel a trip needs and what it will cost.",
+        "trip": "Full trip cost and profit against the freight charged.",
+        "salary": "Net salary after advances and deductions.",
+        "expense": "Add up any list of costs."
+      },
+      "distance": "Distance",
+      "mileage": "Mileage",
+      "price": "Fuel price",
+      "fuelNeeded": "Fuel needed",
+      "fuelCost": "Fuel cost",
+      "costPerKm": "Cost per km",
+      "tolls": "Tolls",
+      "allowance": "Driver allowance",
+      "otherCosts": "Other costs",
+      "freight": "Freight charged",
+      "tripCost": "Total trip cost",
+      "profit": "Profit",
+      "loss": "Loss",
+      "margin": "Margin",
+      "fillFromDriver": "Fill from driver",
+      "manual": "Enter manually",
+      "baseSalary": "Base salary",
+      "advances": "Advances taken",
+      "deductions": "Other deductions",
+      "bonus": "Bonus / allowance",
+      "netSalary": "Net salary payable",
+      "item": "Item",
+      "itemPlaceholder": "e.g. Toll",
+      "addItem": "Add item",
+      "totalExpense": "Total",
+      "items": "Items",
+      "average": "Average per item",
+      "clear": "Clear",
+      "tipTitle": "Tip",
+      "tip": "Choose a driver in Salary mode to fill their salary and this month's advances automatically.",
+      "shortcutTitle": "Always at hand",
+      "shortcut": "The calculator also opens from the calculator button at the top of every screen."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "subtitle_one": "{{count}} unread",
+      "subtitle_other": "{{count}} unread",
+      "filter": {
+        "all": "All",
+        "unread": "Unread",
+        "documents": "Documents",
+        "payments": "Payments",
+        "fleet": "Fleet & fuel"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Company details, reminders and preferences",
+      "company": "Company",
+      "companyName": "Company name",
+      "office": "Office address",
+      "phone": "Phone",
+      "errCompany": "Enter the company name and office address",
+      "saved": "Settings saved",
+      "reminders": "Expiry reminders",
+      "remindersHint": "When to remind about RC, insurance, PUC, licence and permit expiry.",
+      "daysBefore_one": "{{count}} day before",
+      "daysBefore_other": "{{count}} days before",
+      "autoNotify": "Notify automatically",
+      "notify": {
+        "driver": "Driver",
+        "admin": "Office admin",
+        "insurer": "Insurer"
+      },
+      "notifyHint": {
+        "driver": "In the driver app, in their language",
+        "admin": "In this dashboard",
+        "insurer": "Renewal request to the insurance company"
+      },
+      "appearance": "Appearance & language",
+      "theme": "Theme",
+      "driverLangHint": "Each driver's app language is set from their profile.",
+      "demo": "Prototype controls"
+    }
+  }
+}

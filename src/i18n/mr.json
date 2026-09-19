@@ -1,0 +1,521 @@
+{
+  "brand": {
+    "name": "गंगामाता रोडलाइन्स",
+    "short": "गंगामाता",
+    "tagline": "वाहतूक आणि लॉजिस्टिक्स · बेळगाव"
+  },
+  "common": {
+    "save": "जतन करा",
+    "cancel": "रद्द करा",
+    "back": "मागे",
+    "done": "झाले",
+    "close": "बंद करा",
+    "edit": "बदला",
+    "delete": "काढून टाका",
+    "confirm": "खात्री करा",
+    "retry": "पुन्हा प्रयत्न करा",
+    "view": "पहा",
+    "viewAll": "सर्व पहा",
+    "seeAll": "सर्व पहा",
+    "search": "शोधा",
+    "today": "आज",
+    "yesterday": "काल",
+    "optional": "गरजेचे नाही",
+    "amount": "रक्कम",
+    "date": "तारीख",
+    "note": "टीप",
+    "status": "स्थिती",
+    "total": "एकूण",
+    "change": "बदला",
+    "replace": "बदला",
+    "remove": "काढा",
+    "upload": "अपलोड करा",
+    "all": "सर्व",
+    "yes": "हो",
+    "no": "नाही",
+    "on": "चालू",
+    "off": "बंद",
+    "select": "निवडा",
+    "next": "पुढे",
+    "loading": "लोड होत आहे…",
+    "notAvailable": "—",
+    "somethingWrong": "काहीतरी चुकले. कृपया पुन्हा प्रयत्न करा.",
+    "saved": "जतन झाले"
+  },
+  "units": {
+    "litres": "{{value}} लिटर",
+    "litresShort": "{{value}} L",
+    "kmh": "{{value}} km/h",
+    "km": "{{value}} km"
+  },
+  "greeting": {
+    "morning": "सुप्रभात, {{name}}",
+    "afternoon": "नमस्कार, {{name}}",
+    "evening": "शुभ संध्याकाळ, {{name}}"
+  },
+  "enum": {
+    "fuelType": {
+      "petrol": "पेट्रोल",
+      "diesel": "डिझेल"
+    },
+    "category": {
+      "fuel": "इंधन",
+      "toll": "टोल",
+      "parking": "पार्किंग",
+      "repair": "दुरुस्ती",
+      "food": "जेवण",
+      "maintenance": "देखभाल",
+      "trip": "ट्रिप खर्च",
+      "other": "इतर",
+      "advance": "मिळालेली उचल"
+    },
+    "categoryShort": {
+      "fuel": "इंधन",
+      "toll": "टोल",
+      "parking": "पार्किंग",
+      "repair": "दुरुस्ती",
+      "food": "जेवण",
+      "maintenance": "देखभाल",
+      "trip": "ट्रिप",
+      "other": "इतर",
+      "advance": "उचल"
+    },
+    "paymentType": {
+      "salary": "पगार",
+      "fuel_advance": "इंधन उचल",
+      "trip_allowance": "ट्रिप भत्ता",
+      "other_advance": "इतर उचल",
+      "reimbursement": "खर्च परतावा"
+    },
+    "paymentStatus": {
+      "pending": "बाकी",
+      "processing": "प्रक्रियेत",
+      "paid": "दिले",
+      "failed": "अयशस्वी",
+      "cancelled": "रद्द"
+    },
+    "paymentStatusDriver": {
+      "pending": "बाकी",
+      "processing": "प्रक्रियेत",
+      "paid": "मिळाले",
+      "failed": "अयशस्वी",
+      "cancelled": "रद्द"
+    },
+    "paymentEvent": {
+      "created": "पेमेंट तयार केले",
+      "approved": "ऑफिसने मंजूर केले",
+      "pending": "बाकी",
+      "processing": "बँकेला पाठवले",
+      "paid": "पैसे मिळाले",
+      "failed": "पेमेंट अयशस्वी",
+      "cancelled": "रद्द"
+    },
+    "method": {
+      "upi": "UPI",
+      "bank": "बँक ट्रान्सफर",
+      "cash": "रोख"
+    },
+    "docType": {
+      "rc": "RC",
+      "insurance": "विमा",
+      "puc": "PUC",
+      "licence": "ड्रायव्हिंग लायसन्स",
+      "fitness": "फिटनेस प्रमाणपत्र",
+      "permit": "नॅशनल परमिट",
+      "other": "इतर कागदपत्र"
+    },
+    "docTypeLong": {
+      "rc": "नोंदणी प्रमाणपत्र (RC)",
+      "insurance": "वाहन विमा",
+      "puc": "प्रदूषण नियंत्रण (PUC)",
+      "licence": "ड्रायव्हिंग लायसन्स",
+      "fitness": "फिटनेस प्रमाणपत्र",
+      "permit": "नॅशनल परमिट",
+      "other": "इतर कागदपत्र"
+    },
+    "verification": {
+      "pending": "तपासणी बाकी",
+      "approved": "मंजूर",
+      "verified": "तपासले",
+      "rejected": "नामंजूर"
+    },
+    "expenseStatus": {
+      "submitted": "ऑफिसला पाठवले",
+      "approved": "मंजूर",
+      "rejected": "नामंजूर"
+    },
+    "motion": {
+      "moving": "चालू आहे",
+      "stopped": "थांबलेले",
+      "offline": "ऑफलाइन",
+      "none": "लोकेशन नाही"
+    },
+    "driverStatus": {
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय"
+    },
+    "vehicleStatus": {
+      "active": "ड्युटीवर",
+      "maintenance": "वर्कशॉपमध्ये",
+      "idle": "रिकामे उभे"
+    },
+    "vehicleKind": {
+      "lcv": "मिनी ट्रक",
+      "pickup": "पिकअप",
+      "truck": "ट्रक"
+    },
+    "tripStatus": {
+      "assigned": "दिली",
+      "in_transit": "रस्त्यात",
+      "delivered": "पोहोचवली"
+    },
+    "sync": {
+      "pending": "पाठवणे बाकी",
+      "synced": "पाठवले"
+    }
+  },
+  "city": {
+    "pune": "पुणे",
+    "satara": "सातारा",
+    "karad": "कराड",
+    "kolhapur": "कोल्हापूर",
+    "sangli": "सांगली",
+    "nipani": "निपाणी",
+    "chikkodi": "चिक्कोडी",
+    "gokak": "गोकाक",
+    "belagavi": "बेळगाव",
+    "khanapur": "खानापूर",
+    "panaji": "पणजी",
+    "dharwad": "धारवाड",
+    "hubballi": "हुबळी",
+    "gadag": "गदग",
+    "haveri": "हावेरी",
+    "davanagere": "दावणगेरे",
+    "chitradurga": "चित्रदुर्ग",
+    "tumakuru": "तुमकूर",
+    "bengaluru": "बंगळुरू",
+    "bagalkot": "बागलकोट",
+    "vijayapura": "विजयपुरा",
+    "solapur": "सोलापूर",
+    "karwar": "कारवार",
+    "hosapete": "होसपेटे",
+    "ballari": "बळ्ळारी",
+    "sirsi": "शिरसी"
+  },
+  "expiry": {
+    "valid": "वैध",
+    "expiringSoon": "लवकरच संपणार",
+    "expired": "संपले",
+    "noExpiry": "मुदत नाही",
+    "inDays_one": "{{count}} दिवसात संपेल",
+    "inDays_other": "{{count}} दिवसांत संपेल",
+    "today": "आज संपते",
+    "agoDays_one": "{{count}} दिवसापूर्वी संपले",
+    "agoDays_other": "{{count}} दिवसांपूर्वी संपले",
+    "docInDays_one": "{{doc}} {{count}} दिवसात संपेल",
+    "docInDays_other": "{{doc}} {{count}} दिवसांत संपेल",
+    "docToday": "{{doc}} आज संपते",
+    "docExpired": "{{doc}} ची मुदत संपली आहे",
+    "validTill": "{{date}} पर्यंत वैध"
+  },
+  "demo": {
+    "badge": "प्रोटोटाइप डेमो",
+    "viewAs": "या रूपात पहा",
+    "driver": "ड्रायव्हर",
+    "admin": "अ‍ॅडमिन",
+    "settings": "डेमो सेटिंग्ज",
+    "simulateOffline": "ऑफलाइन मोड",
+    "simulateOfflineHint": "ड्रायव्हरच्या फोनचे नेटवर्क जाते. इंधन अपडेट तरीही जतन होतात.",
+    "driverProfile": "ड्रायव्हर अ‍ॅपमध्ये दाखवा",
+    "reset": "डेमो डेटा रीसेट करा",
+    "resetConfirm": "डेमोमध्ये केलेले सर्व बदल काढले जातील. पुढे जायचे?",
+    "resetDone": "डेमो डेटा रीसेट झाला",
+    "note": "फ्रंटएंड प्रोटोटाइप · डेटा याच ब्राउझरमध्ये राहतो"
+  },
+  "offline": {
+    "banner": "नेटवर्क नाही. अपडेट तुमच्या फोनमध्ये जतन होत आहेत.",
+    "syncing": "जतन केलेले अपडेट पाठवत आहे…",
+    "synced": "यशस्वीरित्या पाठवले",
+    "syncedCount_one": "{{count}} जतन केलेला अपडेट पाठवला",
+    "syncedCount_other": "{{count}} जतन केलेले अपडेट पाठवले",
+    "waiting_one": "{{count}} अपडेट नेटवर्कची वाट पाहत आहे",
+    "waiting_other": "{{count}} अपडेट नेटवर्कची वाट पाहत आहेत"
+  },
+  "driver": {
+    "nav": {
+      "home": "होम",
+      "updates": "अपडेट",
+      "payments": "पेमेंट",
+      "documents": "कागदपत्रे",
+      "profile": "प्रोफाइल"
+    },
+    "location": {
+      "on": "लोकेशन शेअरिंग चालू",
+      "off": "लोकेशन शेअरिंग बंद",
+      "updated": "{{time}} अपडेट झाले",
+      "offHint": "ऑफिसला तुमचे वाहन दिसत नाही",
+      "title": "लोकेशन शेअरिंग",
+      "nearCity": "{{city}} जवळ",
+      "onTheWay": "{{from}} ते {{to}}",
+      "demoNote": "डेमो लोकेशन — हायवे नकाशावर सिम्युलेट केलेले",
+      "turnOn": "चालू करा",
+      "turnOff": "बंद करा",
+      "lastUpdated": "शेवटचा अपडेट",
+      "currentStatus": "सध्याची स्थिती",
+      "turnedOn": "लोकेशन शेअरिंग चालू झाले",
+      "turnedOff": "लोकेशन शेअरिंग बंद झाले",
+      "near": "जवळ"
+    },
+    "home": {
+      "yourVehicle": "तुमचे वाहन",
+      "noVehicle": "कोणतेही वाहन दिलेले नाही",
+      "noVehicleHint": "वाहनासाठी ऑफिसला फोन करा.",
+      "todaySummary": "आजचा हिशोब",
+      "fuel": "इंधन",
+      "otherExpenses": "इतर खर्च",
+      "received": "मिळाले",
+      "addFuel": "इंधन जोडा",
+      "addFuelHint": "पेट्रोल / डिझेल",
+      "otherUpdates": "इतर दैनंदिन अपडेट",
+      "latestPayment": "पेमेंट",
+      "documentStatus": "कागदपत्रे",
+      "allDocsValid": "सर्व कागदपत्रे वैध आहेत",
+      "fuelToday_one": "आज {{count}} इंधन अपडेट",
+      "fuelToday_other": "आज {{count}} इंधन अपडेट",
+      "notifications": "सूचना"
+    },
+    "fuel": {
+      "title": "इंधन जोडा",
+      "vehicle": "वाहन",
+      "type": "इंधनाचा प्रकार",
+      "amount": "रक्कम",
+      "amountPlaceholder": "0",
+      "litres": "लिटर",
+      "litresPlaceholder": "0.0",
+      "station": "पेट्रोल पंप",
+      "stationOther": "दुसरा पंप",
+      "stationPlaceholder": "पंपाचे नाव लिहा",
+      "date": "तारीख",
+      "changeDate": "तारीख बदला",
+      "receipt": "पावती",
+      "save": "इंधन जतन करा",
+      "saving": "जतन होत आहे…",
+      "rateCheck": "रक्कम आणि लिटर जुळत नाहीत. एकदा तपासा.",
+      "errAmount": "कृपया रक्कम टाका",
+      "errAmountHigh": "रक्कम खूप जास्त वाटते. तपासा.",
+      "errLitres": "कृपया लिटर टाका",
+      "errLitresHigh": "लिटर खूप जास्त वाटतात. तपासा.",
+      "errStation": "कृपया पेट्रोल पंप निवडा",
+      "errDate": "पुढची तारीख निवडता येणार नाही",
+      "successTitle": "इंधन अपडेट जतन झाला",
+      "receiptUploaded": "पावती यशस्वीरित्या अपलोड झाली",
+      "noReceipt": "पावतीचा फोटो जोडलेला नाही",
+      "savedOnPhone": "तुमच्या फोनमध्ये जतन झाले",
+      "willUpload": "नेटवर्क आल्यावर आपोआप अपलोड होईल.",
+      "addAnother": "आणखी एक जोडा",
+      "goHome": "होमवर जा",
+      "history": "इंधन हिशोब"
+    },
+    "receipt": {
+      "takePhoto": "पावतीचा फोटो काढा",
+      "gallery": "गॅलरीतून निवडा",
+      "uploading": "अपलोड होत आहे…",
+      "uploaded": "पावती अपलोड झाली",
+      "savedOnPhone": "फोनमध्ये जतन · नेटवर्क आल्यावर अपलोड होईल",
+      "replace": "बदला",
+      "remove": "काढा",
+      "error": "हा फोटो उघडला नाही. पुन्हा प्रयत्न करा.",
+      "view": "पावती पहा",
+      "preview": "पावतीचा फोटो"
+    },
+    "updates": {
+      "title": "दैनंदिन अपडेट",
+      "addTitle": "अपडेट जोडा",
+      "history": "अलीकडील अपडेट",
+      "empty": "अजून कोणताही अपडेट नाही",
+      "emptyHint": "तुमचे इंधन आणि खर्चाचे अपडेट इथे दिसतील.",
+      "fuelPrimary": "पेट्रोल / डिझेल"
+    },
+    "update": {
+      "amount": "रक्कम",
+      "quick": "पटकन निवडा",
+      "note": "टीप",
+      "notePlaceholder": "उदा: हत्तरगी टोल नाका",
+      "receipt": "बिलाचा फोटो",
+      "save": "{{type}} जतन करा",
+      "saved": "{{type}} जतन झाले",
+      "advanceHint": "रस्त्यात मिळालेले पैसे (रोख किंवा UPI).",
+      "advanceNotePlaceholder": "उदा: ऑफिसकडून, रोख",
+      "errAmount": "कृपया रक्कम टाका",
+      "errAmountHigh": "रक्कम खूप जास्त वाटते. तपासा."
+    },
+    "payments": {
+      "title": "माझे पेमेंट",
+      "receivedThisMonth": "या महिन्यात मिळाले",
+      "empty": "अजून कोणतेही पेमेंट नाही",
+      "detail": "पेमेंट तपशील",
+      "amount": "रक्कम",
+      "type": "प्रकार",
+      "status": "स्थिती",
+      "date": "तारीख",
+      "method": "पेमेंट पद्धत",
+      "reference": "संदर्भ क्रमांक",
+      "note": "टीप",
+      "progress": "पेमेंट कुठपर्यंत आले",
+      "notYet": "अजून तयार नाही",
+      "recordedByYou": "तुम्ही नोंदवले",
+      "hintPending": "ऑफिसच्या मंजुरीची वाट पाहत आहे.",
+      "hintProcessing": "पैसे मार्गावर आहेत. साधारण 1–2 तास लागतात.",
+      "hintPaid": "पैसे तुमच्या खात्यात पोहोचले आहेत.",
+      "hintPaidCash": "रोख मिळाली.",
+      "hintFailed": "बँक हे पेमेंट पाठवू शकली नाही. ऑफिस पुन्हा पाठवेल.",
+      "hintCancelled": "हे पेमेंट ऑफिसने रद्द केले.",
+      "askOffice": "या पेमेंटबद्दल प्रश्न?",
+      "callOffice": "ऑफिसला फोन करा",
+      "notFound": "पेमेंट सापडले नाही"
+    },
+    "docs": {
+      "title": "कागदपत्रे",
+      "vehicle": "वाहनाची कागदपत्रे",
+      "driver": "ड्रायव्हरची कागदपत्रे",
+      "uploaded": "अपलोड झाले",
+      "notUploaded": "अपलोड झालेले नाही",
+      "upload": "अपलोड करा",
+      "addOther": "आणखी कागदपत्र जोडा",
+      "issuer": "देणारे",
+      "number": "कागदपत्र क्रमांक",
+      "policyNumber": "पॉलिसी क्रमांक",
+      "expiry": "मुदत संपण्याची तारीख",
+      "uploadedOn": "अपलोड तारीख",
+      "replace": "कागदपत्र बदला",
+      "office": "ऑफिस तपासणी",
+      "uploadTitle": "{{doc}} अपलोड करा",
+      "replaceTitle": "{{doc}} बदला",
+      "photo": "फोटो काढा",
+      "file": "फाइल निवडा",
+      "errExpiry": "कृपया मुदत संपण्याची तारीख निवडा",
+      "errFile": "कृपया कागदपत्राचा फोटो जोडा",
+      "errName": "कृपया कागदपत्राचे नाव लिहा",
+      "saved": "कागदपत्र अपलोड झाले",
+      "savedHint": "ऑफिस लवकरच तपासेल.",
+      "name": "कागदपत्राचे नाव",
+      "namePlaceholder": "उदा: माल परमिट",
+      "chooseType": "कोणते कागदपत्र?",
+      "noVehicle": "वाहन मिळाल्यावर वाहनाची कागदपत्रे इथे दिसतील.",
+      "tapToZoom": "मोठे करण्यासाठी स्पर्श करा",
+      "notFound": "कागदपत्र सापडले नाही",
+      "pdf": "PDF कागदपत्र",
+      "keepsQuality": "अधिकृत कागदपत्रे पूर्ण गुणवत्तेत ठेवली जातात."
+    },
+    "profile": {
+      "title": "प्रोफाइल",
+      "driverId": "ड्रायव्हर ID",
+      "phone": "फोन",
+      "vehicle": "दिलेले वाहन",
+      "language": "भाषा",
+      "location": "लोकेशन शेअरिंग",
+      "notifications": "सूचना",
+      "notificationPrefs": "सूचना सेटिंग्ज",
+      "prefPayments": "पेमेंट अपडेट",
+      "prefDocuments": "कागदपत्र आठवण",
+      "prefTrips": "ट्रिप अपडेट",
+      "help": "मदत आणि सहाय्य",
+      "logout": "लॉग आउट",
+      "logoutConfirm": "या फोनवरून लॉग आउट करायचे?",
+      "changeLanguage": "भाषा बदला",
+      "languageChanged": "भाषा बदलली",
+      "on": "चालू",
+      "off": "बंद",
+      "allOn": "सर्व चालू",
+      "someOn": "3 पैकी {{count}} चालू"
+    },
+    "help": {
+      "title": "मदत आणि सहाय्य",
+      "callOffice": "ऑफिसला फोन करा",
+      "hours": "ऑफिस: सकाळी 9 – संध्याकाळी 7, सोमवार ते शनिवार",
+      "faq": "नेहमीचे प्रश्न",
+      "q1": "इंधन कसे जोडायचे?",
+      "a1": "होमवर \"इंधन जोडा\" दाबा. रक्कम आणि लिटर टाका, बिलाचा फोटो काढा आणि जतन करा दाबा.",
+      "q2": "माझे पेमेंट अयशस्वी झाले. आता काय?",
+      "a2": "ऑफिसला आपोआप कळते आणि ते पुन्हा पाठवतील.",
+      "q3": "माझा विमा संपत आला आहे.",
+      "a3": "ऑफिसला सांगा. नवी पॉलिसी आल्यावर ती कागदपत्रांमध्ये अपलोड करा.",
+      "q4": "नेटवर्क नाही.",
+      "a4": "तरीही तुम्ही इंधन अपडेट जतन करू शकता. नेटवर्क आल्यावर ते आपोआप अपलोड होतील."
+    },
+    "login": {
+      "title": "ड्रायव्हर अ‍ॅप",
+      "welcome": "स्वागत आहे",
+      "phone": "मोबाइल नंबर",
+      "sendOtp": "OTP पाठवा",
+      "otpSent": "OTP {{phone}} वर पाठवला",
+      "enterOtp": "OTP टाका",
+      "verify": "तपासा आणि पुढे जा",
+      "demoOtp": "डेमो OTP: {{otp}}",
+      "errOtp": "कृपया 4 अंकी OTP टाका",
+      "wrongOtp": "OTP चुकीचा आहे. तपासा."
+    },
+    "notifications": {
+      "title": "सूचना",
+      "empty": "अजून कोणतीही सूचना नाही",
+      "markAllRead": "सर्व वाचले म्हणून खूण करा",
+      "new": "नवीन"
+    }
+  },
+  "notif": {
+    "payment_created": {
+      "title": "नवे पेमेंट जोडले",
+      "body": "{{amount}} {{type}} · मंजुरीची वाट"
+    },
+    "payment_processing": {
+      "title": "पेमेंट प्रक्रियेत",
+      "body": "{{amount}} {{type}} पाठवले जात आहे"
+    },
+    "payment_paid": {
+      "title": "पेमेंट मिळाले",
+      "body": "{{amount}} {{type}} मिळाले"
+    },
+    "payment_failed": {
+      "title": "पेमेंट अयशस्वी",
+      "body": "{{amount}} {{type}} अयशस्वी. ऑफिस पुन्हा पाठवेल."
+    },
+    "doc_expiring": {
+      "title_one": "{{doc}} {{count}} दिवसात संपेल",
+      "title_other": "{{doc}} {{count}} दिवसांत संपेल",
+      "body": "{{owner}} · कृपया लवकर नूतनीकरण करा"
+    },
+    "doc_expired": {
+      "title": "{{doc}} ची मुदत संपली आहे",
+      "body": "{{owner}} · लगेच नूतनीकरण करा"
+    },
+    "doc_verified": {
+      "title": "{{doc}} तपासले",
+      "body": "ऑफिसने तुमचे कागदपत्र तपासले आहे"
+    },
+    "doc_rejected": {
+      "title": "{{doc}} नामंजूर",
+      "body": "कृपया स्पष्ट फोटो पुन्हा अपलोड करा"
+    },
+    "doc_reminder": {
+      "title": "आठवण: {{doc}}",
+      "body": "{{owner}} · कृपया नूतनीकरण करून नवी प्रत अपलोड करा"
+    },
+    "expense_approved": {
+      "title": "खर्च मंजूर",
+      "body": "{{category}} {{amount}} मंजूर"
+    },
+    "expense_rejected": {
+      "title": "खर्च नामंजूर",
+      "body": "{{category}} {{amount}} · कृपया ऑफिसला फोन करा"
+    },
+    "trip_assigned": {
+      "title": "नवी ट्रिप मिळाली",
+      "body": "{{from}} → {{to}}"
+    }
+  },
+  "pages": {
+    "notFound": "पान सापडले नाही",
+    "notFoundHint": "ही स्क्रीन अस्तित्वात नाही किंवा हलवली आहे.",
+    "goHome": "होमवर जा"
+  }
+}

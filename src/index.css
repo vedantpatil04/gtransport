@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 17% 96%;
+    --foreground: 214 37% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 214 37% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 214 37% 13%;
+    --primary: 216 43% 19%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 212 22% 92%;
+    --secondary-foreground: 214 37% 16%;
+    --muted: 210 18% 93%;
+    --muted-foreground: 213 13% 40%;
+    --accent: 212 24% 93%;
+    --accent-foreground: 214 37% 16%;
+    --border: 213 19% 87%;
+    --input: 213 17% 80%;
+    --ring: 214 55% 42%;
+    --success: 147 64% 30%;
+    --success-soft: 145 48% 93%;
+    --warning: 36 100% 36%;
+    --warning-soft: 42 100% 92%;
+    --danger: 4 62% 46%;
+    --danger-soft: 4 80% 95%;
+    --plate: 45 90% 57%;
+    --sidebar: 218 45% 15%;
+    --sidebar-foreground: 213 30% 88%;
+    --sidebar-muted: 216 20% 62%;
+    --sidebar-active: 216 38% 24%;
+    --map-land: 42 22% 94%;
+    --map-sea: 205 45% 86%;
+    --map-road: 36 70% 62%;
+    --map-border: 215 14% 64%;
+    --chart-1: 216 43% 24%;
+    --chart-2: 147 50% 36%;
+    --chart-3: 36 90% 45%;
+    --chart-4: 205 60% 52%;
+    --chart-5: 4 58% 52%;
+    --chart-6: 270 24% 52%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 215 39% 9%;
+    --foreground: 210 30% 92%;
+    --card: 215 35% 12.5%;
+    --card-foreground: 210 30% 92%;
+    --popover: 215 35% 13%;
+    --popover-foreground: 210 30% 92%;
+    --primary: 212 36% 86%;
+    --primary-foreground: 216 43% 14%;
+    --secondary: 215 28% 19%;
+    --secondary-foreground: 210 30% 92%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 213 16% 64%;
+    --accent: 215 28% 19%;
+    --accent-foreground: 210 30% 92%;
+    --border: 215 25% 21%;
+    --input: 215 22% 28%;
+    --ring: 212 60% 65%;
+    --success: 147 50% 50%;
+    --success-soft: 147 40% 15%;
+    --warning: 38 95% 56%;
+    --warning-soft: 36 60% 15%;
+    --danger: 4 75% 62%;
+    --danger-soft: 4 50% 17%;
+    --sidebar: 216 42% 7%;
+    --sidebar-active: 216 30% 16%;
+    --map-land: 215 26% 15%;
+    --map-sea: 212 38% 20%;
+    --map-road: 36 55% 45%;
+    --map-border: 215 14% 40%;
+    --chart-1: 212 50% 70%;
+    --chart-2: 147 45% 50%;
+    --chart-3: 38 90% 56%;
+    --chart-4: 196 60% 58%;
+    --chart-5: 4 70% 62%;
+    --chart-6: 270 35% 68%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'tnum' 0;
+    text-rendering: optimizeLegibility;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .figure {
+    font-variant-numeric: tabular-nums;
+    font-stretch: 88%;
+  }
+  .condensed {
+    font-stretch: 78%;
+  }
+  .panel {
+    @apply rounded-lg border bg-card text-card-foreground;
+  }
+  .scroll-thin {
+    scrollbar-width: thin;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

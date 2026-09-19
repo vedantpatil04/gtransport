@@ -1,0 +1,1131 @@
+{
+  "brand": {
+    "name": "गंगामाता रोडलाइन्स",
+    "short": "गंगामाता",
+    "tagline": "ट्रांसपोर्ट और लॉजिस्टिक्स · बेलगावी"
+  },
+  "common": {
+    "save": "सेव करें",
+    "cancel": "रद्द करें",
+    "back": "वापस",
+    "done": "हो गया",
+    "close": "बंद करें",
+    "edit": "बदलें",
+    "delete": "हटाएँ",
+    "confirm": "पक्का करें",
+    "retry": "फिर से कोशिश करें",
+    "view": "देखें",
+    "viewAll": "सब देखें",
+    "seeAll": "सब देखें",
+    "search": "खोजें",
+    "today": "आज",
+    "yesterday": "कल",
+    "optional": "ज़रूरी नहीं",
+    "amount": "रकम",
+    "date": "तारीख",
+    "note": "नोट",
+    "status": "स्थिति",
+    "total": "कुल",
+    "change": "बदलें",
+    "replace": "बदलें",
+    "remove": "हटाएँ",
+    "upload": "अपलोड करें",
+    "all": "सभी",
+    "yes": "हाँ",
+    "no": "नहीं",
+    "on": "चालू",
+    "off": "बंद",
+    "select": "चुनें",
+    "next": "आगे",
+    "loading": "लोड हो रहा है…",
+    "notAvailable": "—",
+    "somethingWrong": "कुछ गड़बड़ हो गई। कृपया फिर से कोशिश करें।",
+    "saved": "सेव हो गया"
+  },
+  "units": {
+    "litres": "{{value}} लीटर",
+    "litresShort": "{{value}} L",
+    "kmh": "{{value}} km/h",
+    "km": "{{value}} km"
+  },
+  "greeting": {
+    "morning": "सुप्रभात, {{name}}",
+    "afternoon": "नमस्ते, {{name}}",
+    "evening": "शुभ संध्या, {{name}}"
+  },
+  "enum": {
+    "fuelType": {
+      "petrol": "पेट्रोल",
+      "diesel": "डीज़ल"
+    },
+    "category": {
+      "fuel": "ईंधन",
+      "toll": "टोल",
+      "parking": "पार्किंग",
+      "repair": "मरम्मत",
+      "food": "खाना",
+      "maintenance": "रखरखाव",
+      "trip": "ट्रिप खर्च",
+      "other": "अन्य",
+      "advance": "मिला एडवांस"
+    },
+    "categoryShort": {
+      "fuel": "ईंधन",
+      "toll": "टोल",
+      "parking": "पार्किंग",
+      "repair": "मरम्मत",
+      "food": "खाना",
+      "maintenance": "रखरखाव",
+      "trip": "ट्रिप",
+      "other": "अन्य",
+      "advance": "एडवांस"
+    },
+    "paymentType": {
+      "salary": "तनख्वाह",
+      "fuel_advance": "ईंधन एडवांस",
+      "trip_allowance": "ट्रिप भत्ता",
+      "other_advance": "अन्य एडवांस",
+      "reimbursement": "खर्च वापसी"
+    },
+    "paymentStatus": {
+      "pending": "बाकी",
+      "processing": "प्रोसेस में",
+      "paid": "भुगतान हो गया",
+      "failed": "असफल",
+      "cancelled": "रद्द"
+    },
+    "paymentStatusDriver": {
+      "pending": "बाकी",
+      "processing": "प्रोसेस में",
+      "paid": "मिल गया",
+      "failed": "असफल",
+      "cancelled": "रद्द"
+    },
+    "paymentEvent": {
+      "created": "भुगतान बनाया गया",
+      "approved": "ऑफिस ने मंज़ूर किया",
+      "pending": "बाकी",
+      "processing": "बैंक को भेजा गया",
+      "paid": "पैसा मिल गया",
+      "failed": "भुगतान असफल",
+      "cancelled": "रद्द"
+    },
+    "method": {
+      "upi": "UPI",
+      "bank": "बैंक ट्रांसफ़र",
+      "cash": "नकद"
+    },
+    "docType": {
+      "rc": "RC",
+      "insurance": "बीमा",
+      "puc": "PUC",
+      "licence": "ड्राइविंग लाइसेंस",
+      "fitness": "फिटनेस सर्टिफिकेट",
+      "permit": "नेशनल परमिट",
+      "other": "अन्य दस्तावेज़"
+    },
+    "docTypeLong": {
+      "rc": "रजिस्ट्रेशन सर्टिफिकेट (RC)",
+      "insurance": "वाहन बीमा",
+      "puc": "प्रदूषण नियंत्रण (PUC)",
+      "licence": "ड्राइविंग लाइसेंस",
+      "fitness": "फिटनेस सर्टिफिकेट",
+      "permit": "नेशनल परमिट",
+      "other": "अन्य दस्तावेज़"
+    },
+    "verification": {
+      "pending": "जाँच बाकी",
+      "approved": "मंज़ूर",
+      "verified": "जाँचा गया",
+      "rejected": "नामंज़ूर"
+    },
+    "expenseStatus": {
+      "submitted": "ऑफिस को भेजा",
+      "approved": "मंज़ूर",
+      "rejected": "नामंज़ूर"
+    },
+    "motion": {
+      "moving": "चल रहा है",
+      "stopped": "रुका हुआ",
+      "offline": "ऑफ़लाइन",
+      "none": "लोकेशन नहीं"
+    },
+    "driverStatus": {
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय"
+    },
+    "vehicleStatus": {
+      "active": "ड्यूटी पर",
+      "maintenance": "वर्कशॉप में",
+      "idle": "खाली खड़ा"
+    },
+    "vehicleKind": {
+      "lcv": "मिनी ट्रक",
+      "pickup": "पिकअप",
+      "truck": "ट्रक"
+    },
+    "tripStatus": {
+      "assigned": "सौंपा गया",
+      "in_transit": "रास्ते में",
+      "delivered": "पहुँचा दिया"
+    },
+    "sync": {
+      "pending": "भेजना बाकी",
+      "synced": "भेज दिया"
+    }
+  },
+  "city": {
+    "pune": "पुणे",
+    "satara": "सातारा",
+    "karad": "कराड",
+    "kolhapur": "कोल्हापुर",
+    "sangli": "सांगली",
+    "nipani": "निपाणी",
+    "chikkodi": "चिक्कोडी",
+    "gokak": "गोकाक",
+    "belagavi": "बेलगावी",
+    "khanapur": "खानापुर",
+    "panaji": "पणजी",
+    "dharwad": "धारवाड़",
+    "hubballi": "हुब्बल्ली",
+    "gadag": "गदग",
+    "haveri": "हावेरी",
+    "davanagere": "दावणगेरे",
+    "chitradurga": "चित्रदुर्ग",
+    "tumakuru": "तुमकुरु",
+    "bengaluru": "बेंगलुरु",
+    "bagalkot": "बागलकोट",
+    "vijayapura": "विजयपुरा",
+    "solapur": "सोलापुर",
+    "karwar": "कारवार",
+    "hosapete": "होसपेटे",
+    "ballari": "बल्लारी",
+    "sirsi": "सिरसी"
+  },
+  "expiry": {
+    "valid": "वैध",
+    "expiringSoon": "जल्द खत्म होगा",
+    "expired": "खत्म हो गया",
+    "noExpiry": "कोई समय-सीमा नहीं",
+    "inDays_one": "{{count}} दिन में खत्म",
+    "inDays_other": "{{count}} दिन में खत्म",
+    "today": "आज खत्म",
+    "agoDays_one": "{{count}} दिन पहले खत्म",
+    "agoDays_other": "{{count}} दिन पहले खत्म",
+    "docInDays_one": "{{doc}} {{count}} दिन में खत्म",
+    "docInDays_other": "{{doc}} {{count}} दिन में खत्म",
+    "docToday": "{{doc}} आज खत्म हो रहा है",
+    "docExpired": "{{doc}} खत्म हो गया है",
+    "validTill": "{{date}} तक वैध"
+  },
+  "demo": {
+    "badge": "प्रोटोटाइप डेमो",
+    "viewAs": "इस रूप में देखें",
+    "driver": "ड्राइवर",
+    "admin": "एडमिन",
+    "settings": "डेमो सेटिंग्स",
+    "simulateOffline": "ऑफ़लाइन मोड",
+    "simulateOfflineHint": "ड्राइवर के फ़ोन का नेटवर्क चला जाता है। ईंधन अपडेट फिर भी सेव होते हैं।",
+    "driverProfile": "ड्राइवर ऐप में दिखे",
+    "reset": "डेमो डेटा रीसेट करें",
+    "resetConfirm": "डेमो में किए सभी बदलाव हट जाएँगे। आगे बढ़ें?",
+    "resetDone": "डेमो डेटा रीसेट हो गया",
+    "note": "फ्रंटएंड प्रोटोटाइप · डेटा इसी ब्राउज़र में रहता है"
+  },
+  "offline": {
+    "banner": "नेटवर्क नहीं है। अपडेट आपके फ़ोन में सेव हो रहे हैं।",
+    "syncing": "सेव अपडेट भेजे जा रहे हैं…",
+    "synced": "सफलतापूर्वक भेज दिया",
+    "syncedCount_one": "{{count}} सेव अपडेट भेजा गया",
+    "syncedCount_other": "{{count}} सेव अपडेट भेजे गए",
+    "waiting_one": "{{count}} अपडेट नेटवर्क का इंतज़ार कर रहा है",
+    "waiting_other": "{{count}} अपडेट नेटवर्क का इंतज़ार कर रहे हैं"
+  },
+  "driver": {
+    "nav": {
+      "home": "होम",
+      "updates": "अपडेट",
+      "payments": "भुगतान",
+      "documents": "दस्तावेज़",
+      "profile": "प्रोफ़ाइल"
+    },
+    "location": {
+      "on": "लोकेशन शेयरिंग चालू",
+      "off": "लोकेशन शेयरिंग बंद",
+      "updated": "{{time}} अपडेट हुआ",
+      "offHint": "ऑफिस आपकी गाड़ी नहीं देख सकता",
+      "title": "लोकेशन शेयरिंग",
+      "nearCity": "{{city}} के पास",
+      "onTheWay": "{{from}} से {{to}}",
+      "demoNote": "डेमो लोकेशन — हाईवे मैप पर सिम्युलेट की गई",
+      "turnOn": "चालू करें",
+      "turnOff": "बंद करें",
+      "lastUpdated": "आखिरी अपडेट",
+      "currentStatus": "अभी की स्थिति",
+      "turnedOn": "लोकेशन शेयरिंग चालू हो गई",
+      "turnedOff": "लोकेशन शेयरिंग बंद हो गई",
+      "near": "पास में"
+    },
+    "home": {
+      "yourVehicle": "आपकी गाड़ी",
+      "noVehicle": "कोई गाड़ी नहीं दी गई",
+      "noVehicleHint": "गाड़ी के लिए ऑफिस को फ़ोन करें।",
+      "todaySummary": "आज का हिसाब",
+      "fuel": "ईंधन",
+      "otherExpenses": "अन्य खर्च",
+      "received": "मिला",
+      "addFuel": "ईंधन जोड़ें",
+      "addFuelHint": "पेट्रोल / डीज़ल",
+      "otherUpdates": "अन्य रोज़ के अपडेट",
+      "latestPayment": "भुगतान",
+      "documentStatus": "दस्तावेज़",
+      "allDocsValid": "सभी दस्तावेज़ वैध हैं",
+      "fuelToday_one": "आज {{count}} ईंधन अपडेट",
+      "fuelToday_other": "आज {{count}} ईंधन अपडेट",
+      "notifications": "सूचनाएँ"
+    },
+    "fuel": {
+      "title": "ईंधन जोड़ें",
+      "vehicle": "गाड़ी",
+      "type": "ईंधन का प्रकार",
+      "amount": "रकम",
+      "amountPlaceholder": "0",
+      "litres": "लीटर",
+      "litresPlaceholder": "0.0",
+      "station": "पेट्रोल पंप",
+      "stationOther": "दूसरा पंप",
+      "stationPlaceholder": "पंप का नाम लिखें",
+      "date": "तारीख",
+      "changeDate": "तारीख बदलें",
+      "receipt": "रसीद",
+      "save": "ईंधन सेव करें",
+      "saving": "सेव हो रहा है…",
+      "rateCheck": "रकम और लीटर मेल नहीं खा रहे। एक बार जाँच लें।",
+      "errAmount": "कृपया रकम डालें",
+      "errAmountHigh": "रकम बहुत ज़्यादा लग रही है। जाँच लें।",
+      "errLitres": "कृपया लीटर डालें",
+      "errLitresHigh": "लीटर बहुत ज़्यादा लग रहे हैं। जाँच लें।",
+      "errStation": "कृपया पेट्रोल पंप चुनें",
+      "errDate": "आगे की तारीख नहीं चुन सकते",
+      "successTitle": "ईंधन अपडेट सेव हो गया",
+      "receiptUploaded": "रसीद सफलतापूर्वक अपलोड हो गई",
+      "noReceipt": "रसीद की फ़ोटो नहीं जोड़ी",
+      "savedOnPhone": "आपके फ़ोन में सेव हो गया",
+      "willUpload": "नेटवर्क आते ही अपने-आप अपलोड हो जाएगा।",
+      "addAnother": "एक और जोड़ें",
+      "goHome": "होम पर जाएँ",
+      "history": "ईंधन का हिसाब"
+    },
+    "receipt": {
+      "takePhoto": "रसीद की फ़ोटो लें",
+      "gallery": "गैलरी से चुनें",
+      "uploading": "अपलोड हो रहा है…",
+      "uploaded": "रसीद अपलोड हो गई",
+      "savedOnPhone": "फ़ोन में सेव · नेटवर्क आने पर अपलोड होगा",
+      "replace": "बदलें",
+      "remove": "हटाएँ",
+      "error": "यह फ़ोटो नहीं खुली। फिर से कोशिश करें।",
+      "view": "रसीद देखें",
+      "preview": "रसीद की फ़ोटो"
+    },
+    "updates": {
+      "title": "रोज़ के अपडेट",
+      "addTitle": "अपडेट जोड़ें",
+      "history": "हाल के अपडेट",
+      "empty": "अभी कोई अपडेट नहीं",
+      "emptyHint": "आपके ईंधन और खर्च के अपडेट यहाँ दिखेंगे।",
+      "fuelPrimary": "पेट्रोल / डीज़ल"
+    },
+    "update": {
+      "amount": "रकम",
+      "quick": "जल्दी चुनें",
+      "note": "नोट",
+      "notePlaceholder": "जैसे: हत्तरगी टोल प्लाज़ा",
+      "receipt": "बिल की फ़ोटो",
+      "save": "{{type}} सेव करें",
+      "saved": "{{type}} सेव हो गया",
+      "advanceHint": "रास्ते में मिला पैसा (नकद या UPI)।",
+      "advanceNotePlaceholder": "जैसे: ऑफिस से, नकद",
+      "errAmount": "कृपया रकम डालें",
+      "errAmountHigh": "रकम बहुत ज़्यादा लग रही है। जाँच लें।"
+    },
+    "payments": {
+      "title": "मेरे भुगतान",
+      "receivedThisMonth": "इस महीने मिला",
+      "empty": "अभी कोई भुगतान नहीं",
+      "detail": "भुगतान की जानकारी",
+      "amount": "रकम",
+      "type": "प्रकार",
+      "status": "स्थिति",
+      "date": "तारीख",
+      "method": "भुगतान का तरीका",
+      "reference": "रेफ़रेंस",
+      "note": "नोट",
+      "progress": "भुगतान कहाँ तक पहुँचा",
+      "notYet": "अभी नहीं बना",
+      "recordedByYou": "आपने दर्ज किया",
+      "hintPending": "ऑफिस की मंज़ूरी का इंतज़ार है।",
+      "hintProcessing": "पैसा रास्ते में है। आमतौर पर 1–2 घंटे लगते हैं।",
+      "hintPaid": "पैसा आपके खाते में पहुँच गया है।",
+      "hintPaidCash": "नकद मिल गया।",
+      "hintFailed": "बैंक यह भुगतान नहीं भेज पाया। ऑफिस फिर से भेजेगा।",
+      "hintCancelled": "यह भुगतान ऑफिस ने रद्द कर दिया।",
+      "askOffice": "इस भुगतान के बारे में सवाल?",
+      "callOffice": "ऑफिस को फ़ोन करें",
+      "notFound": "भुगतान नहीं मिला"
+    },
+    "docs": {
+      "title": "दस्तावेज़",
+      "vehicle": "गाड़ी के दस्तावेज़",
+      "driver": "ड्राइवर के दस्तावेज़",
+      "uploaded": "अपलोड हो गया",
+      "notUploaded": "अपलोड नहीं हुआ",
+      "upload": "अपलोड करें",
+      "addOther": "दूसरा दस्तावेज़ जोड़ें",
+      "issuer": "जारी करने वाला",
+      "number": "दस्तावेज़ नंबर",
+      "policyNumber": "पॉलिसी नंबर",
+      "expiry": "खत्म होने की तारीख",
+      "uploadedOn": "अपलोड की तारीख",
+      "replace": "दस्तावेज़ बदलें",
+      "office": "ऑफिस जाँच",
+      "uploadTitle": "{{doc}} अपलोड करें",
+      "replaceTitle": "{{doc}} बदलें",
+      "photo": "फ़ोटो लें",
+      "file": "फ़ाइल चुनें",
+      "errExpiry": "कृपया खत्म होने की तारीख चुनें",
+      "errFile": "कृपया दस्तावेज़ की फ़ोटो जोड़ें",
+      "errName": "कृपया दस्तावेज़ का नाम लिखें",
+      "saved": "दस्तावेज़ अपलोड हो गया",
+      "savedHint": "ऑफिस जल्द ही इसे जाँचेगा।",
+      "name": "दस्तावेज़ का नाम",
+      "namePlaceholder": "जैसे: माल परमिट",
+      "chooseType": "कौन सा दस्तावेज़?",
+      "noVehicle": "गाड़ी मिलने के बाद गाड़ी के दस्तावेज़ यहाँ दिखेंगे।",
+      "tapToZoom": "बड़ा करने के लिए छुएँ",
+      "notFound": "दस्तावेज़ नहीं मिला",
+      "pdf": "PDF दस्तावेज़",
+      "keepsQuality": "सरकारी दस्तावेज़ पूरी क्वालिटी में रखे जाते हैं।"
+    },
+    "profile": {
+      "title": "प्रोफ़ाइल",
+      "driverId": "ड्राइवर ID",
+      "phone": "फ़ोन",
+      "vehicle": "दी गई गाड़ी",
+      "language": "भाषा",
+      "location": "लोकेशन शेयरिंग",
+      "notifications": "सूचनाएँ",
+      "notificationPrefs": "सूचना सेटिंग्स",
+      "prefPayments": "भुगतान अपडेट",
+      "prefDocuments": "दस्तावेज़ रिमाइंडर",
+      "prefTrips": "ट्रिप अपडेट",
+      "help": "मदद और सहायता",
+      "logout": "लॉग आउट",
+      "logoutConfirm": "इस फ़ोन से लॉग आउट करें?",
+      "changeLanguage": "भाषा बदलें",
+      "languageChanged": "भाषा बदल गई",
+      "on": "चालू",
+      "off": "बंद",
+      "allOn": "सभी चालू",
+      "someOn": "3 में से {{count}} चालू"
+    },
+    "help": {
+      "title": "मदद और सहायता",
+      "callOffice": "ऑफिस को फ़ोन करें",
+      "hours": "ऑफिस: सुबह 9 – शाम 7, सोमवार से शनिवार",
+      "faq": "आम सवाल",
+      "q1": "ईंधन कैसे जोड़ें?",
+      "a1": "होम पर \"ईंधन जोड़ें\" दबाएँ। रकम और लीटर डालें, बिल की फ़ोटो लें और सेव दबाएँ।",
+      "q2": "मेरा भुगतान असफल हो गया। अब क्या करें?",
+      "a2": "ऑफिस को अपने-आप खबर हो जाती है और वे फिर से भेजेंगे।",
+      "q3": "मेरा बीमा खत्म होने वाला है।",
+      "a3": "ऑफिस को बताएँ। नई पॉलिसी आने पर उसे दस्तावेज़ में अपलोड करें।",
+      "q4": "नेटवर्क नहीं है।",
+      "a4": "आप फिर भी ईंधन अपडेट सेव कर सकते हैं। नेटवर्क आने पर वे अपने-आप अपलोड हो जाएँगे।"
+    },
+    "login": {
+      "title": "ड्राइवर ऐप",
+      "welcome": "स्वागत है",
+      "phone": "मोबाइल नंबर",
+      "sendOtp": "OTP भेजें",
+      "otpSent": "OTP {{phone}} पर भेजा गया",
+      "enterOtp": "OTP डालें",
+      "verify": "जाँचें और आगे बढ़ें",
+      "demoOtp": "डेमो OTP: {{otp}}",
+      "errOtp": "कृपया 4 अंकों का OTP डालें",
+      "wrongOtp": "OTP गलत है। जाँच लें।"
+    },
+    "notifications": {
+      "title": "सूचनाएँ",
+      "empty": "अभी कोई सूचना नहीं",
+      "markAllRead": "सब पढ़ा हुआ करें",
+      "new": "नया"
+    }
+  },
+  "notif": {
+    "payment_created": {
+      "title": "नया भुगतान जोड़ा गया",
+      "body": "{{amount}} {{type}} · मंज़ूरी का इंतज़ार"
+    },
+    "payment_processing": {
+      "title": "भुगतान प्रोसेस में",
+      "body": "{{amount}} {{type}} भेजा जा रहा है"
+    },
+    "payment_paid": {
+      "title": "भुगतान मिल गया",
+      "body": "{{amount}} {{type}} मिल गया"
+    },
+    "payment_failed": {
+      "title": "भुगतान असफल",
+      "body": "{{amount}} {{type}} असफल। ऑफिस फिर से भेजेगा।"
+    },
+    "doc_expiring": {
+      "title_one": "{{doc}} {{count}} दिन में खत्म होगा",
+      "title_other": "{{doc}} {{count}} दिन में खत्म होगा",
+      "body": "{{owner}} · कृपया जल्दी रिन्यू कराएँ"
+    },
+    "doc_expired": {
+      "title": "{{doc}} खत्म हो गया है",
+      "body": "{{owner}} · तुरंत रिन्यू कराएँ"
+    },
+    "doc_verified": {
+      "title": "{{doc}} जाँचा गया",
+      "body": "ऑफिस ने आपका दस्तावेज़ जाँच लिया है"
+    },
+    "doc_rejected": {
+      "title": "{{doc}} नामंज़ूर",
+      "body": "कृपया साफ़ फ़ोटो फिर से अपलोड करें"
+    },
+    "doc_reminder": {
+      "title": "याद दिलाना: {{doc}}",
+      "body": "{{owner}} · कृपया रिन्यू कराकर नई कॉपी अपलोड करें"
+    },
+    "expense_approved": {
+      "title": "खर्च मंज़ूर",
+      "body": "{{category}} {{amount}} मंज़ूर"
+    },
+    "expense_rejected": {
+      "title": "खर्च नामंज़ूर",
+      "body": "{{category}} {{amount}} · कृपया ऑफिस को फ़ोन करें"
+    },
+    "trip_assigned": {
+      "title": "नई ट्रिप मिली",
+      "body": "{{from}} → {{to}}"
+    }
+  },
+  "pages": {
+    "notFound": "पेज नहीं मिला",
+    "notFoundHint": "यह स्क्रीन मौजूद नहीं है या हटा दी गई है।",
+    "goHome": "होम पर जाएँ"
+  },
+  "map": {
+    "label": "फ़्लीट मैप",
+    "zoomIn": "ज़ूम इन",
+    "zoomOut": "ज़ूम आउट",
+    "fit": "सभी गाड़ियाँ दिखाएँ",
+    "simulated": "सिम्युलेटेड लोकेशन",
+    "region": {
+      "maharashtra": "महाराष्ट्र",
+      "karnataka": "कर्नाटक",
+      "goa": "गोवा",
+      "sea": "अरब सागर"
+    }
+  },
+  "notifAdmin": {
+    "fuel_added": {
+      "title": "{{driver}} ने ईंधन जोड़ा",
+      "body": "{{amount}} {{fuelType}} · {{vehicle}}"
+    },
+    "doc_uploaded": {
+      "title": "नया {{doc}} अपलोड हुआ",
+      "body": "{{owner}} · {{driver}} द्वारा · जाँच बाकी"
+    },
+    "doc_expiring": {
+      "title_one": "{{doc}} {{count}} दिन में खत्म होगा",
+      "title_other": "{{doc}} {{count}} दिन में खत्म होगा",
+      "body": "{{owner}} · {{driver}}"
+    },
+    "doc_expired": {
+      "title": "{{doc}} खत्म हो गया है",
+      "body": "{{owner}} · {{driver}} · गाड़ी नहीं चलनी चाहिए"
+    },
+    "doc_verified": {
+      "title": "{{doc}} जाँचा गया",
+      "body": "{{owner}}"
+    },
+    "doc_rejected": {
+      "title": "{{doc}} नामंज़ूर",
+      "body": "{{owner}}"
+    },
+    "doc_reminder": {
+      "title": "याद दिलाना: {{doc}} रिन्यू",
+      "body": "{{owner}} · आज ही फ़ॉलो-अप करें"
+    },
+    "insurer_notified": {
+      "title": "बीमा कंपनी को सूचना भेजी",
+      "body": "{{insurer}} · {{owner}} का {{doc}}"
+    },
+    "payment_created": {
+      "title": "भुगतान बनाया गया",
+      "body": "{{amount}} {{type}}"
+    },
+    "payment_processing": {
+      "title": "भुगतान प्रोसेस में",
+      "body": "{{amount}} {{type}}"
+    },
+    "payment_paid": {
+      "title": "भुगतान पूरा",
+      "body": "{{amount}} {{type}}"
+    },
+    "payment_failed": {
+      "title": "भुगतान असफल · {{driver}}",
+      "body": "{{amount}} {{type}} · फिर से भेजें या दूसरे तरीके से दें"
+    },
+    "payment_pending": {
+      "title": "मंज़ूरी चाहिए · {{driver}}",
+      "body": "{{amount}} {{type}} मंज़ूरी का इंतज़ार कर रहा है"
+    },
+    "expense_approved": {
+      "title": "खर्च मंज़ूर",
+      "body": "{{category}} {{amount}}"
+    },
+    "expense_rejected": {
+      "title": "खर्च नामंज़ूर",
+      "body": "{{category}} {{amount}}"
+    },
+    "driver_offline": {
+      "title": "{{driver}} ऑफ़लाइन है",
+      "body": "{{vehicle}} · काफ़ी देर से लोकेशन अपडेट नहीं"
+    },
+    "trip_assigned": {
+      "title": "ट्रिप सौंपी गई",
+      "body": "{{from}} → {{to}}"
+    },
+    "advance_reported": {
+      "title": "{{driver}} ने एडवांस दर्ज किया",
+      "body": "{{amount}} मिला · कृपया पुष्टि करें"
+    }
+  },
+  "admin": {
+    "user": {
+      "name": "आनंद हेगड़े",
+      "role": "फ़्लीट मैनेजर",
+      "email": "office@gangamataroadlines.in"
+    },
+    "login": {
+      "title": "ऑफिस साइन इन",
+      "subtitle": "ड्राइवर, गाड़ियाँ, ईंधन और भुगतान संभालें",
+      "email": "ईमेल",
+      "password": "पासवर्ड",
+      "signIn": "साइन इन करें",
+      "demoNote": "डेमो · लॉगिन जानकारी पहले से भरी है"
+    },
+    "nav": {
+      "label": "मुख्य नेविगेशन",
+      "more": "और",
+      "dashboard": "डैशबोर्ड",
+      "fleet": "लाइव फ़्लीट",
+      "drivers": "ड्राइवर",
+      "vehicles": "गाड़ियाँ",
+      "fuel": "ईंधन",
+      "expenses": "खर्च",
+      "payments": "भुगतान",
+      "documents": "दस्तावेज़",
+      "reports": "रिपोर्ट",
+      "calculator": "कैलकुलेटर",
+      "notifications": "सूचनाएँ",
+      "settings": "सेटिंग्स"
+    },
+    "top": {
+      "search": "ड्राइवर, गाड़ी, रिकॉर्ड खोजें…",
+      "calculator": "कैलकुलेटर",
+      "language": "भाषा",
+      "light": "लाइट थीम",
+      "dark": "डार्क थीम",
+      "profile": "प्रोफ़ाइल",
+      "logout": "लॉग आउट",
+      "markAllRead": "सब पढ़ा हुआ करें",
+      "noNotifications": "कोई नई सूचना नहीं",
+      "viewAll": "सब देखें",
+      "collapse": "छोटा करें",
+      "expand": "साइडबार खोलें"
+    },
+    "common": {
+      "actions": "कार्रवाई",
+      "allDrivers": "सभी ड्राइवर",
+      "allVehicles": "सभी गाड़ियाँ",
+      "amount": "रकम",
+      "clear": "साफ़ करें",
+      "clearFilters": "फ़िल्टर हटाएँ",
+      "date": "तारीख",
+      "driver": "ड्राइवर",
+      "vehicle": "गाड़ी",
+      "status": "स्थिति",
+      "type": "प्रकार",
+      "exportExcel": "Excel डाउनलोड",
+      "exported": "फ़ाइल डाउनलोड हो गई",
+      "next": "अगला पेज",
+      "prev": "पिछला पेज",
+      "noResults": "इन फ़िल्टर से कोई रिकॉर्ड नहीं मिला",
+      "pageOf": "पेज {{page}} / {{total}}",
+      "records_one": "{{count}} रिकॉर्ड",
+      "records_other": "{{count}} रिकॉर्ड"
+    },
+    "range": {
+      "today": "आज",
+      "7d": "पिछले 7 दिन",
+      "month": "इस महीने",
+      "lastMonth": "पिछले महीने",
+      "all": "शुरू से अब तक"
+    },
+    "search": {
+      "title": "खोज",
+      "placeholder": "ड्राइवर, गाड़ी, ईंधन, भुगतान, दस्तावेज़ खोजें…",
+      "hint": "नाम, गाड़ी नंबर, पंप या भुगतान रेफ़रेंस लिखें।",
+      "empty": "“{{query}}” के लिए कुछ नहीं मिला",
+      "viewAll": "सभी {{count}} देखें",
+      "groups": {
+        "drivers": "ड्राइवर",
+        "vehicles": "गाड़ियाँ",
+        "fuel": "ईंधन एंट्री",
+        "expenses": "खर्च",
+        "payments": "भुगतान",
+        "documents": "दस्तावेज़"
+      }
+    },
+    "dashboard": {
+      "title": "डैशबोर्ड",
+      "office": "बेलगावी मुख्य ऑफिस",
+      "vehicles": "गाड़ियाँ",
+      "vehiclesSub": "{{active}} ड्यूटी पर · {{workshop}} वर्कशॉप में",
+      "drivers": "ड्राइवर",
+      "driversSub": "{{count}} सक्रिय",
+      "moving": "अभी चल रही",
+      "movingSub": "{{stopped}} रुकी · {{offline}} ऑफ़लाइन",
+      "alerts": "अलर्ट",
+      "alertsSub": "{{docs}} दस्तावेज़ · {{payments}} भुगतान · {{offline}} ऑफ़लाइन",
+      "todayOverview": "आज का सार",
+      "fuelToday": "आज का ईंधन",
+      "fuelUpdates_one": "{{count}} ईंधन अपडेट",
+      "fuelUpdates_other": "{{count}} ईंधन अपडेट",
+      "otherToday": "अन्य खर्च",
+      "entries_one": "{{count}} एंट्री",
+      "entries_other": "{{count}} एंट्री",
+      "paymentsToday": "किए गए भुगतान",
+      "paidCount_one": "{{count}} भुगतान",
+      "paidCount_other": "{{count}} भुगतान",
+      "pending": "मंज़ूरी बाकी",
+      "pendingSub_one": "{{count}} भुगतान इंतज़ार में",
+      "pendingSub_other": "{{count}} भुगतान इंतज़ार में",
+      "recentFuel": "हाल के ईंधन अपडेट",
+      "attention": "ध्यान दें",
+      "paymentFailed": "भुगतान असफल · {{amount}}",
+      "driverOffline": "{{name}} ऑफ़लाइन है",
+      "fuelTrend": "ईंधन खर्च · पिछले 14 दिन",
+      "openMap": "मैप खोलें"
+    },
+    "fleet": {
+      "title": "लाइव फ़्लीट",
+      "subtitle": "{{total}} में से {{count}} गाड़ियाँ चल रही हैं",
+      "search": "ड्राइवर या गाड़ी खोजें",
+      "towards": "{{city}} की ओर",
+      "near": "{{city}} के पास",
+      "sharingOff": "लोकेशन शेयरिंग बंद है",
+      "speed": "रफ़्तार",
+      "lastUpdated": "आखिरी अपडेट",
+      "todayFuel": "आज का ईंधन",
+      "todayExpenses": "खर्च",
+      "todayPaid": "आज भुगतान",
+      "viewDriver": "ड्राइवर देखें"
+    },
+    "drivers": {
+      "title": "ड्राइवर",
+      "subtitle": "{{total}} में से {{active}} सक्रिय",
+      "search": "नाम, ID, शहर या गाड़ी खोजें",
+      "allStatus": "सभी स्थिति",
+      "allLanguages": "सभी भाषाएँ",
+      "add": "ड्राइवर जोड़ें",
+      "addHint": "ड्राइवर इसी फ़ोन नंबर से लॉगिन कर सकेगा।",
+      "added": "{{name}} जोड़े गए",
+      "name": "पूरा नाम",
+      "phone": "फ़ोन",
+      "language": "ऐप की भाषा",
+      "salary": "मासिक तनख्वाह",
+      "homeTown": "गृह नगर",
+      "assignLater": "बाद में दें",
+      "location": "लोकेशन",
+      "fuelMonth": "इस महीने ईंधन",
+      "noVehicle": "कोई गाड़ी नहीं",
+      "view": "प्रोफ़ाइल देखें",
+      "assignVehicle": "गाड़ी सौंपें",
+      "assignHint": "{{name}} कौन सी गाड़ी चलाएँगे, चुनें।",
+      "withDriver": "{{name}} के पास",
+      "reassignWarn": "यह गाड़ी {{name}} के पास है। उनके पास कोई गाड़ी नहीं रहेगी।",
+      "assigned": "{{reg}} {{name}} को सौंपी गई",
+      "unassigned": "{{name}} से गाड़ी हटाई गई",
+      "changeLanguage": "ऐप की भाषा बदलें",
+      "appLanguage": "ड्राइवर ऐप की भाषा",
+      "languageSet": "{{name}} का ऐप अब {{lang}} में है",
+      "activate": "सक्रिय करें",
+      "deactivate": "निष्क्रिय करें",
+      "activated": "{{name}} सक्रिय किए गए",
+      "deactivated": "{{name}} निष्क्रिय किए गए",
+      "call": "ड्राइवर को फ़ोन करें",
+      "notFound": "ड्राइवर नहीं मिला",
+      "code": "ड्राइवर ID",
+      "joined": "जुड़ने की तारीख",
+      "locationSharing": "लोकेशन शेयरिंग",
+      "profile": "प्रोफ़ाइल",
+      "currentLocation": "अभी की लोकेशन",
+      "recentActivity": "हाल की गतिविधि",
+      "expensesMonth": "इस महीने खर्च",
+      "receivedMonth": "इस महीने भुगतान",
+      "pendingPayments": "बाकी भुगतान",
+      "assignTrip": "ट्रिप सौंपें",
+      "from": "कहाँ से",
+      "to": "कहाँ तक",
+      "goods": "माल",
+      "approxDistance": "सड़क से लगभग {{km}} km",
+      "errTrip": "दो अलग शहर चुनें",
+      "errTripVehicle": "पहले इस ड्राइवर को गाड़ी सौंपें",
+      "tripAssigned": "{{name}} को ट्रिप सौंपी गई",
+      "noTrips": "इस महीने कोई ट्रिप नहीं",
+      "errName": "ड्राइवर का पूरा नाम लिखें",
+      "errPhone": "10 अंकों का मोबाइल नंबर लिखें",
+      "errSalary": "₹5,000 से ₹1,00,000 के बीच तनख्वाह लिखें",
+      "errTown": "गृह नगर लिखें",
+      "tab": {
+        "overview": "सारांश",
+        "fuel": "ईंधन",
+        "expenses": "खर्च",
+        "payments": "भुगतान",
+        "documents": "दस्तावेज़",
+        "trips": "ट्रिप",
+        "location": "लोकेशन इतिहास"
+      }
+    },
+    "vehicles": {
+      "title": "गाड़ियाँ",
+      "subtitle": "{{total}} गाड़ियाँ · {{active}} ड्यूटी पर",
+      "search": "नंबर, मॉडल या ड्राइवर खोजें",
+      "allStatus": "सभी स्थिति",
+      "add": "गाड़ी जोड़ें",
+      "addHint": "गाड़ी जोड़ने के बाद दस्तावेज़ अपलोड कर सकते हैं।",
+      "added": "{{reg}} जोड़ी गई",
+      "reg": "रजिस्ट्रेशन नंबर",
+      "model": "कंपनी और मॉडल",
+      "kind": "प्रकार",
+      "capacity": "क्षमता (टन)",
+      "year": "साल",
+      "mileage": "माइलेज (km/L)",
+      "documents": "दस्तावेज़",
+      "unassigned": "कोई ड्राइवर नहीं",
+      "noVehicle": "कोई गाड़ी नहीं",
+      "notFound": "गाड़ी नहीं मिली",
+      "details": "गाड़ी की जानकारी",
+      "litresMonth": "इस महीने लीटर",
+      "recentFuel": "ईंधन का इतिहास",
+      "assignDriver": "ड्राइवर सौंपें",
+      "noDriver": "कोई ड्राइवर नहीं",
+      "free": "खाली",
+      "driverRemoved": "{{reg}} से ड्राइवर हटाया गया",
+      "statusSet": "{{reg}} अब {{status}}",
+      "errReg": "सही नंबर लिखें, जैसे KA 22 AB 1234",
+      "errModel": "कंपनी और मॉडल लिखें",
+      "errNumber": "सही संख्या लिखें",
+      "errYear": "सही साल लिखें",
+      "errDuplicate": "यह गाड़ी पहले से मौजूद है"
+    },
+    "fuel": {
+      "title": "ईंधन",
+      "subtitle": "ड्राइवर ऐप से आया हर ईंधन अपडेट, रसीद के साथ",
+      "today": "आज",
+      "month": "इस महीने",
+      "litresMonth": "इस महीने लीटर",
+      "entries": "ईंधन एंट्री",
+      "waitingSync_one": "{{count}} फ़ोन में रुका है",
+      "waitingSync_other": "{{count}} फ़ोन में रुके हैं",
+      "allSynced": "सभी फ़ोन सिंक हैं",
+      "search": "ड्राइवर, गाड़ी या पंप खोजें",
+      "allTypes": "पेट्रोल और डीज़ल",
+      "allStations": "सभी पंप",
+      "type": "ईंधन का प्रकार",
+      "litres": "लीटर",
+      "station": "पेट्रोल पंप",
+      "receipt": "रसीद",
+      "noReceipt": "रसीद की फ़ोटो नहीं जोड़ी गई",
+      "entryTitle": "ईंधन एंट्री",
+      "enteredBy": "किसने दर्ज किया",
+      "driverApp": "ड्राइवर ऐप",
+      "edited": "बदला गया",
+      "editError": "रकम, लीटर, पंप और तारीख जाँचें",
+      "updated": "ईंधन एंट्री अपडेट हुई",
+      "deleteTitle": "यह ईंधन एंट्री हटाएँ?",
+      "deleteBody": "{{driver}} की {{amount}} की एंट्री सभी हिसाब से हट जाएगी।",
+      "deleted": "ईंधन एंट्री हटाई गई"
+    },
+    "expenses": {
+      "title": "खर्च",
+      "subtitle": "टोल, मरम्मत, खाना और अन्य रोज़ के खर्च",
+      "monthByCategory": "इस महीने श्रेणी के अनुसार",
+      "search": "ड्राइवर, गाड़ी या नोट खोजें",
+      "allCategories": "सभी श्रेणियाँ",
+      "allStatus": "सभी स्थिति",
+      "category": "श्रेणी",
+      "add": "खर्च जोड़ें",
+      "addHint": "ऑफिस द्वारा चुकाए गए बिल, जैसे वर्कशॉप या टायर का काम।",
+      "recorded": "खर्च दर्ज हो गया",
+      "errVehicle": "गाड़ी चुनें",
+      "errNote": "छोटा सा विवरण लिखें",
+      "notePlaceholder": "जैसे: श्री बसवेश्वर ऑटो वर्क्स में क्लच का काम",
+      "bill": "बिल की फ़ोटो",
+      "noBill": "बिल की फ़ोटो नहीं जोड़ी गई",
+      "office": "ऑफिस",
+      "enteredBy": "किसने दर्ज किया",
+      "approve": "मंज़ूर करें",
+      "reject": "नामंज़ूर करें",
+      "approvedToast": "खर्च मंज़ूर हुआ",
+      "rejectedToast": "खर्च नामंज़ूर हुआ",
+      "approveAll": "{{count}} बाकी मंज़ूर करें",
+      "approveAllTitle_one": "{{count}} खर्च मंज़ूर करें?",
+      "approveAllTitle_other": "{{count}} खर्च मंज़ूर करें?",
+      "approveAllBody": "कुल {{amount}} · ड्राइवरों को सूचना जाएगी।",
+      "approvedMany_one": "{{count}} खर्च मंज़ूर हुआ",
+      "approvedMany_other": "{{count}} खर्च मंज़ूर हुए"
+    },
+    "payments": {
+      "title": "भुगतान",
+      "subtitle": "ड्राइवरों को तनख्वाह, एडवांस और भत्ते",
+      "create": "भुगतान बनाएँ",
+      "createHint": "ड्राइवर को यह तुरंत अपने ऐप में दिखेगा।",
+      "created": "भुगतान बनाया गया",
+      "paidMonth": "इस महीने भुगतान",
+      "count_one": "{{count}} भुगतान",
+      "count_other": "{{count}} भुगतान",
+      "search": "ड्राइवर, रेफ़रेंस या नोट खोजें",
+      "allTypes": "सभी प्रकार",
+      "method": "तरीका",
+      "reference": "रेफ़रेंस",
+      "viewDetails": "जानकारी देखें",
+      "detail": "भुगतान की जानकारी",
+      "approved": "मंज़ूर",
+      "createdOn": "बनाया गया",
+      "history": "इतिहास",
+      "source": "स्रोत",
+      "reportedByDriver": "ड्राइवर ने दर्ज किया",
+      "errDriver": "ड्राइवर चुनें",
+      "errAmount": "रकम लिखें",
+      "errAmountHigh": "रकम बहुत ज़्यादा है",
+      "action": {
+        "approve": "मंज़ूर करें",
+        "processing": "प्रोसेसिंग करें",
+        "paid": "भुगतान हुआ करें",
+        "failed": "असफल करें",
+        "retry": "फिर से भेजें",
+        "cancel": "भुगतान रद्द करें"
+      },
+      "done": {
+        "approve": "भुगतान मंज़ूर हुआ",
+        "processing": "प्रोसेसिंग में डाला गया",
+        "paid": "भुगतान हुआ दर्ज किया",
+        "failed": "असफल दर्ज किया",
+        "retry": "भुगतान फिर से भेजा गया",
+        "cancel": "भुगतान रद्द किया गया"
+      }
+    },
+    "documents": {
+      "title": "दस्तावेज़ और अनुपालन",
+      "subtitle": "RC, बीमा, PUC, लाइसेंस और परमिट",
+      "compliance": "बीमा और अनुपालन",
+      "band": {
+        "expired": "खत्म हो चुके",
+        "within7": "7 दिन के अंदर",
+        "within30": "30 दिन के अंदर",
+        "valid": "वैध"
+      },
+      "tab": {
+        "all": "सभी",
+        "valid": "वैध",
+        "expiring": "खत्म होने वाले",
+        "expired": "खत्म हो चुके"
+      },
+      "search": "गाड़ी, ड्राइवर, नंबर या बीमा कंपनी खोजें",
+      "allTypes": "सभी प्रकार के दस्तावेज़",
+      "allOwners": "गाड़ियाँ और ड्राइवर",
+      "vehicleDocs": "गाड़ी के दस्तावेज़",
+      "driverDocs": "ड्राइवर के दस्तावेज़",
+      "document": "दस्तावेज़",
+      "owner": "किसका",
+      "expiresOn": "खत्म होने की तारीख",
+      "check": "ऑफिस जाँच",
+      "lastReminder": "आखिरी रिमाइंडर",
+      "none": "इस सूची में कोई दस्तावेज़ नहीं",
+      "remindUrgent": "सभी ज़रूरी को याद दिलाएँ ({{count}})",
+      "bulkTitle": "अभी रिमाइंडर भेजें?",
+      "bulkBody_one": "{{count}} दस्तावेज़ खत्म हो चुका है या 7 दिन में खत्म होगा। ड्राइवर और बीमा कंपनी को सूचना जाएगी।",
+      "bulkBody_other": "{{count}} दस्तावेज़ खत्म हो चुके हैं या 7 दिन में खत्म होंगे। ड्राइवर और बीमा कंपनियों को सूचना जाएगी।",
+      "sendNow": "रिमाइंडर भेजें",
+      "bulkSent_one": "{{count}} रिमाइंडर भेजा गया",
+      "bulkSent_other": "{{count}} रिमाइंडर भेजे गए",
+      "approve": "मंज़ूर करें",
+      "verify": "जाँचा हुआ करें",
+      "reject": "नामंज़ूर करें",
+      "replace": "दस्तावेज़ बदलें",
+      "sendReminder": "रिमाइंडर भेजें",
+      "notify": {
+        "driver": "ड्राइवर को बताएँ",
+        "admin": "एडमिन को बताएँ",
+        "insurer": "बीमा कंपनी को बताएँ"
+      },
+      "notified": {
+        "driver": "{{who}} को रिमाइंडर भेजा गया",
+        "admin": "{{who}} को रिमाइंडर भेजा गया",
+        "insurer": "{{who}} को सूचना भेज दी गई"
+      },
+      "sentTo": {
+        "driver": "ड्राइवर",
+        "admin": "एडमिन",
+        "insurer": "बीमा कंपनी"
+      },
+      "verificationSet": {
+        "pending": "जाँच के लिए रखा गया",
+        "approved": "दस्तावेज़ मंज़ूर हुआ",
+        "verified": "दस्तावेज़ जाँचा गया",
+        "rejected": "दस्तावेज़ नामंज़ूर · ड्राइवर को सूचना गई"
+      },
+      "officeTeam": "ऑफिस टीम",
+      "validTill": "{{date}} तक वैध",
+      "insurer": "बीमा कंपनी",
+      "issuedOn": "जारी होने की तारीख",
+      "responsible": "ज़िम्मेदार ड्राइवर",
+      "uploadTitle": "{{doc}} अपलोड करें",
+      "replaceTitle": "{{doc}} बदलें",
+      "uploaded": "दस्तावेज़ अपलोड हो गया"
+    },
+    "reports": {
+      "title": "रिपोर्ट",
+      "subtitle": "{{month}} · अब तक",
+      "exportPdf": "PDF डाउनलोड",
+      "exportExcel": "Excel डाउनलोड",
+      "pdfReady": "PDF रिपोर्ट डाउनलोड हो गई",
+      "xlsxReady": "Excel रिपोर्ट डाउनलोड हो गई",
+      "fuel": "ईंधन",
+      "salaries": "तनख्वाह",
+      "maintenance": "रखरखाव",
+      "tolls": "टोल",
+      "other": "अन्य",
+      "total": "कुल",
+      "otherExpenses": "अन्य खर्च",
+      "expenses": "खर्च",
+      "payments": "भुगतान",
+      "monthly": "मासिक खर्च",
+      "monthlySub": "पिछले 7 महीने",
+      "daily": "रोज़ का खर्च",
+      "dailySub": "{{month}}",
+      "categories": "खर्च की श्रेणियाँ",
+      "fuelByVehicle": "गाड़ी के अनुसार ईंधन",
+      "fuelByDriver": "ड्राइवर के अनुसार ईंधन",
+      "petrolDiesel": "पेट्रोल बनाम डीज़ल",
+      "paymentStatus": "भुगतान की स्थिति",
+      "top": "टॉप {{count}}",
+      "summary": "सारांश",
+      "head": "मद",
+      "month": "महीना",
+      "entries": "एंट्री",
+      "count": "संख्या",
+      "pdfTitle": "खर्च रिपोर्ट · {{month}}",
+      "pdfSubtitle": "मासिक रिपोर्ट · {{month}}",
+      "generated": "{{date}} को बनाई गई",
+      "pdfFooter": "गंगामाता रोडलाइन्स · फ़्लीट मैनेजमेंट सिस्टम से बनाई गई"
+    },
+    "calc": {
+      "title": "कैलकुलेटर",
+      "subtitle": "ईंधन, ट्रिप, तनख्वाह और खर्च का तुरंत हिसाब",
+      "mode": {
+        "fuel": "ईंधन",
+        "trip": "ट्रिप",
+        "salary": "तनख्वाह",
+        "expense": "खर्च"
+      },
+      "hint": {
+        "fuel": "ट्रिप में कितना ईंधन लगेगा और कितना खर्च होगा।",
+        "trip": "ट्रिप का पूरा खर्च और भाड़े के हिसाब से मुनाफ़ा।",
+        "salary": "एडवांस और कटौती के बाद बची तनख्वाह।",
+        "expense": "किसी भी खर्च की सूची का जोड़।"
+      },
+      "distance": "दूरी",
+      "mileage": "माइलेज",
+      "price": "ईंधन का भाव",
+      "fuelNeeded": "ज़रूरी ईंधन",
+      "fuelCost": "ईंधन खर्च",
+      "costPerKm": "प्रति km खर्च",
+      "tolls": "टोल",
+      "allowance": "ड्राइवर भत्ता",
+      "otherCosts": "अन्य खर्च",
+      "freight": "लिया गया भाड़ा",
+      "tripCost": "ट्रिप का कुल खर्च",
+      "profit": "मुनाफ़ा",
+      "loss": "घाटा",
+      "margin": "मार्जिन",
+      "fillFromDriver": "ड्राइवर से भरें",
+      "manual": "खुद लिखें",
+      "baseSalary": "मूल तनख्वाह",
+      "advances": "लिया गया एडवांस",
+      "deductions": "अन्य कटौती",
+      "bonus": "बोनस / भत्ता",
+      "netSalary": "देय तनख्वाह",
+      "item": "मद",
+      "itemPlaceholder": "जैसे: टोल",
+      "addItem": "मद जोड़ें",
+      "totalExpense": "कुल",
+      "items": "मदें",
+      "average": "औसत प्रति मद",
+      "clear": "साफ़ करें",
+      "tipTitle": "सुझाव",
+      "tip": "तनख्वाह मोड में ड्राइवर चुनें — उनकी तनख्वाह और इस महीने का एडवांस अपने-आप भर जाएगा।",
+      "shortcutTitle": "हमेशा पास",
+      "shortcut": "कैलकुलेटर हर स्क्रीन के ऊपर वाले कैलकुलेटर बटन से भी खुलता है।"
+    },
+    "notifications": {
+      "title": "सूचनाएँ",
+      "subtitle_one": "{{count}} नई",
+      "subtitle_other": "{{count}} नई",
+      "filter": {
+        "all": "सभी",
+        "unread": "नई",
+        "documents": "दस्तावेज़",
+        "payments": "भुगतान",
+        "fleet": "फ़्लीट और ईंधन"
+      }
+    },
+    "settings": {
+      "title": "सेटिंग्स",
+      "subtitle": "कंपनी की जानकारी, रिमाइंडर और पसंद",
+      "company": "कंपनी",
+      "companyName": "कंपनी का नाम",
+      "office": "ऑफिस का पता",
+      "phone": "फ़ोन",
+      "errCompany": "कंपनी का नाम और ऑफिस का पता लिखें",
+      "saved": "सेटिंग्स सेव हो गईं",
+      "reminders": "समय-सीमा रिमाइंडर",
+      "remindersHint": "RC, बीमा, PUC, लाइसेंस और परमिट खत्म होने से कब याद दिलाना है।",
+      "daysBefore_one": "{{count}} दिन पहले",
+      "daysBefore_other": "{{count}} दिन पहले",
+      "autoNotify": "अपने-आप सूचना भेजें",
+      "notify": {
+        "driver": "ड्राइवर",
+        "admin": "ऑफिस एडमिन",
+        "insurer": "बीमा कंपनी"
+      },
+      "notifyHint": {
+        "driver": "ड्राइवर ऐप में, उनकी भाषा में",
+        "admin": "इसी डैशबोर्ड में",
+        "insurer": "बीमा कंपनी को रिन्यूअल का अनुरोध"
+      },
+      "appearance": "रूप और भाषा",
+      "theme": "थीम",
+      "driverLangHint": "हर ड्राइवर के ऐप की भाषा उनकी प्रोफ़ाइल से तय होती है।",
+      "demo": "प्रोटोटाइप कंट्रोल"
+    }
+  }
+}
