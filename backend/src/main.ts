@@ -14,11 +14,11 @@ async function bootstrap(): Promise<void> {
   app.useLogger(createLogger(config.logLevel, config.isProduction));
   configureApp(app, config);
 
-  const { port } = config.http;
-  await app.listen(port, '0.0.0.0');
+  const { port, host } = config.http;
+  await app.listen(port, host);
 
   const logger = new Logger('Bootstrap');
-  logger.log(`Gangamata API listening on port ${port} (${config.nodeEnv})`);
+  logger.log(`Gangamata API listening on ${host}:${port} (environment: ${config.nodeEnv})`);
 }
 
 bootstrap().catch((error: unknown) => {
@@ -26,7 +26,9 @@ bootstrap().catch((error: unknown) => {
   if (error instanceof EnvValidationError) {
     logger.fatal(error.message);
   } else {
-    logger.fatal('Failed to start the API', error instanceof Error ? error.stack : String(error));
+    const raw = error instanceof Error ? (error.stack || error.message) : String(error);
+    const sanitized = raw.replace(/(postgres(?:ql)?:\/\/[^:]+:)[^@]+(@)/gi, '$1****$2');
+    logger.fatal('Failed to start the API', sanitized);
   }
   process.exitCode = 1;
 });

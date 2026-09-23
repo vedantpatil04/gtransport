@@ -23,8 +23,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit(): Promise<void> {
-    await this.$connect();
-    this.logger.log('Database connection established');
+    try {
+      await this.$connect();
+      this.logger.log('Database connection established successfully');
+    } catch (error) {
+      const rawMessage = error instanceof Error ? error.message : String(error);
+      const sanitized = rawMessage.replace(/(postgres(?:ql)?:\/\/[^:]+:)[^@]+(@)/gi, '$1****$2');
+      this.logger.error(`Database connection failed: ${sanitized}`);
+      throw error;
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

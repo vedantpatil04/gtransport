@@ -1,9 +1,10 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { DocumentType, DriverStatus, EmployeeRole, EmploymentStatus, Prisma } from '@prisma/client';
+import { DocumentType, DriverStatus, EmployeeRole, EmploymentStatus, LocationPermission, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { keysetArgs, toPage, type Page } from '../../common/pagination/pagination';
 import { AssignmentsService, END_REASON } from '../assignments/assignments.service';
+import { deriveLocationStatus } from '../locations/location-status.policy';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
 import type { CreateDriverDto, ListDriversQuery, SetDriverStatusDto, UpdateDriverDto } from './dto/driver.dto';
 
@@ -224,6 +225,51 @@ export class DriversService {
       this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null, type: DocumentType.DRIVING_LICENCE } }),
     ]);
     return { total, expiringSoon, expired, licenceOnFile: licence > 0 };
+  }
+
+  /**
+   * Records what the driver's phone reports about location permissions. The status is derived
+   * by the shared policy rather than taken from the app, so the app cannot claim tracking is
+   * active when the operating system has denied permission.
+   */
+  async reportLocationState(
+    user: AuthenticatedUser,
+    driverId: string,
+    input: { permission: LocationPermission; locationServicesEnabled: boolean },
+  ): Promise<{ status: string; permission: LocationPermission }> {
+    const existing = await this.prisma.driverLocationState.findUnique({
+      where: { driverId },
+      select: { lastHeartbeatAt: true, recordedAt: true },
+    });
+
+    const status = deriveLocationStatus(
+      {
+        permission: input.permission,
+        locationServicesEnabled: input.locationServicesEnabled,
+        lastHeartbeatAt: existing?.lastHeartbeatAt ?? null,
+        recordedAt: existing?.recordedAt ?? null,
+      },
+      new Date(),
+    );
+
+    const saved = await this.prisma.driverLocationState.upsert({
+      where: { driverId },
+      create: { driverId, companyId: user.companyId, permission: input.permission, status },
+      update: { permission: input.permission, status },
+      select: { status: true, permission: true },
+    });
+
+    await this.audit.record({
+      action: 'driver.location_permission_reported',
+      entityType: 'DriverLocationState',
+      entityId: driverId,
+      companyId: user.companyId,
+      actorUserId: user.id,
+      actorRole: user.role,
+      changes: { permission: input.permission, locationServicesEnabled: input.locationServicesEnabled, status: saved.status },
+    });
+
+    return saved;
   }
 
   private async nextDriverCode(companyId: string): Promise<string> {

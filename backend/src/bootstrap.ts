@@ -22,7 +22,18 @@ export function configureApp(app: INestApplication, config: AppConfigService): v
   }
 
   app.enableCors({
-    origin: config.http.corsOrigins,
+    origin: (requestOrigin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Native mobile apps (Expo/React Native), curl, and health probes do not send an Origin header.
+      if (!requestOrigin) {
+        return callback(null, true);
+      }
+      const normalisedOrigin = requestOrigin.replace(/\/+$/, '');
+      if (config.http.corsOrigins.includes(normalisedOrigin)) {
+        return callback(null, true);
+      }
+      // Origin not permitted
+      return callback(null, false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],

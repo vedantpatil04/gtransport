@@ -476,6 +476,61 @@ describe('Phase 1 — employees, drivers and vehicles (e2e)', () => {
     });
   });
 
+  describe('driver location permission reporting (mobile foundation)', () => {
+    it('records the phone\'s permission state against the signed-in driver', async () => {
+      const response = await api()
+        .patch('/api/v1/drivers/me/location-state')
+        .set(auth(driverToken))
+        .send({ permission: 'GRANTED_FOREGROUND', locationServicesEnabled: true })
+        .expect(200);
+
+      expect(response.body).toMatchObject({ permission: 'GRANTED_FOREGROUND' });
+
+      const state = await prisma.driverLocationState.findUnique({ where: { driverId: seed.driver.id } });
+      expect(state?.permission).toBe('GRANTED_FOREGROUND');
+      // No heartbeat has ever arrived, so the driver is offline rather than actively tracked.
+      expect(state?.status).toBe('OFFLINE');
+    });
+
+    it('never reports tracking as active when the phone denied permission', async () => {
+      await api()
+        .patch('/api/v1/drivers/me/location-state')
+        .set(auth(driverToken))
+        .send({ permission: 'DENIED', locationServicesEnabled: true })
+        .expect(200);
+
+      const state = await prisma.driverLocationState.findUnique({ where: { driverId: seed.driver.id } });
+      expect(state?.status).toBe('PERMISSION_DENIED');
+    });
+
+    it('reports location services being switched off', async () => {
+      await api()
+        .patch('/api/v1/drivers/me/location-state')
+        .set(auth(driverToken))
+        .send({ permission: 'GRANTED_ALWAYS', locationServicesEnabled: false })
+        .expect(200);
+
+      const state = await prisma.driverLocationState.findUnique({ where: { driverId: seed.driver.id } });
+      expect(state?.status).toBe('LOCATION_DISABLED');
+    });
+
+    it('rejects an invalid permission value', async () => {
+      await api()
+        .patch('/api/v1/drivers/me/location-state')
+        .set(auth(driverToken))
+        .send({ permission: 'MAYBE', locationServicesEnabled: true })
+        .expect(400);
+    });
+
+    it('is not available to office users', async () => {
+      await api()
+        .patch('/api/v1/drivers/me/location-state')
+        .set(auth(adminToken))
+        .send({ permission: 'GRANTED_ALWAYS', locationServicesEnabled: true })
+        .expect(403);
+    });
+  });
+
   describe('audit trail', () => {
     it('records every important action with the acting user', async () => {
       const employee = await createEmployee({ fullName: 'Audited Person' });

@@ -22,6 +22,7 @@ export class AppConfigService {
 
   get http() {
     return {
+      host: this.get('HOST'),
       port: this.get('PORT'),
       corsOrigins: this.get('CORS_ORIGINS'),
       trustProxy: this.get('TRUST_PROXY'),

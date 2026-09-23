@@ -29,6 +29,7 @@ export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+    HOST: z.string().trim().default('0.0.0.0'),
     LOG_LEVEL: z.enum(LOG_LEVELS).default('log'),
     /** Set when running behind a reverse proxy (Caddy/Nginx) so client IPs are recorded correctly. */
     TRUST_PROXY: booleanFromString.default('false'),
@@ -81,6 +82,9 @@ export const envSchema = z
       }
       if (env.CORS_ORIGINS.some((o) => o === '*')) {
         ctx.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'Wildcard CORS origin is not allowed in production' });
+      }
+      if (env.CORS_ORIGINS.some((o) => o.startsWith('http://') && !o.includes('localhost') && !o.includes('127.0.0.1'))) {
+        ctx.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'Production CORS origins must use HTTPS' });
       }
     }
   });

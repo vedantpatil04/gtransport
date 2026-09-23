@@ -1,0 +1,115 @@
+{
+  "brand": {
+    "name": "Gangamata Transport"
+  },
+  "common": {
+    "retry": "Try again",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back"
+  },
+  "login": {
+    "title": "Gangamata Transport",
+    "subtitle": "Driver sign in",
+    "mobileNumber": "Mobile number",
+    "mobileHint": "The number registered with the office",
+    "passcode": "Passcode",
+    "passcodeHint": "Ask the office if you do not have one",
+    "continue": "CONTINUE",
+    "signIn": "SIGN IN",
+    "changeNumber": "Change number",
+    "errMobile": "Enter your 10-digit mobile number",
+    "errPasscode": "Enter your passcode",
+    "errInvalid": "That number or passcode is not correct.",
+    "errNotDriver": "This account is not a driver account.",
+    "errOffline": "You are offline. Connect to the internet to sign in."
+  },
+  "home": {
+    "greetingMorning": "Good morning, {{name}}",
+    "greetingAfternoon": "Good afternoon, {{name}}",
+    "greetingEvening": "Good evening, {{name}}",
+    "yourVehicle": "Your vehicle",
+    "noVehicle": "No vehicle assigned",
+    "noVehicleHint": "The office will assign one soon.",
+    "todaySummary": "Today",
+    "fuel": "Fuel",
+    "otherExpenses": "Other",
+    "received": "Received",
+    "addFuel": "ADD FUEL",
+    "addFuelHint": "Petrol or diesel",
+    "otherUpdates": "Other daily updates",
+    "payments": "Payments",
+    "documents": "Documents",
+    "comingSoon": "Coming soon",
+    "demoData": "Sample data",
+    "demoNotice": "Amounts below are sample data until the fuel and payment modules are connected."
+  },
+  "location": {
+    "title": "Location sharing",
+    "active": "Active",
+    "required": "Location access is required for fleet tracking.",
+    "why": "The office uses your location to see where the fleet is while you are on duty. It is not used outside work.",
+    "allow": "Allow location",
+    "backgroundRequired": "Background permission required",
+    "servicesOff": "Location services are off",
+    "denied": "Location permission is off",
+    "restricted": "Location is restricted on this phone",
+    "unknown": "Not set up yet",
+    "openSettings": "Open location settings",
+    "foreground": "While using the app",
+    "background": "All the time",
+    "checking": "Checking…"
+  },
+  "tabs": {
+    "home": "Home",
+    "updates": "Updates",
+    "payments": "Payments",
+    "documents": "Documents",
+    "profile": "Profile"
+  },
+  "profile": {
+    "title": "Profile",
+    "employeeId": "Employee ID",
+    "driverCode": "Driver ID",
+    "phone": "Phone",
+    "language": "Language",
+    "vehicle": "Assigned vehicle",
+    "status": "Account status",
+    "notifications": "Notifications",
+    "notificationsHint": "Alerts about payments and documents",
+    "locationStatus": "Location",
+    "help": "Help & support",
+    "helpBody": "Call the Gangamata Transport office for help with the app or your account.",
+    "logout": "Log out",
+    "logoutConfirm": "Log out of this device?",
+    "logoutBody": "You will need your mobile number and passcode to sign in again.",
+    "chooseLanguage": "Choose your language"
+  },
+  "updates": {
+    "title": "Daily updates",
+    "empty": "Nothing recorded yet.",
+    "phaseNote": "Recording daily updates arrives in the next release."
+  },
+  "payments": {
+    "title": "Payments",
+    "empty": "No payments yet.",
+    "phaseNote": "Live payment records arrive in a later release."
+  },
+  "documents": {
+    "title": "Documents",
+    "empty": "No documents yet.",
+    "phaseNote": "Your documents will appear here in a later release."
+  },
+  "states": {
+    "offline": "You're offline. Changes will sync when connected.",
+    "synced": "All changes synced.",
+    "syncing": "Syncing…",
+    "pending": "{{count}} waiting to sync",
+    "errorTitle": "Unable to connect right now",
+    "errorBody": "Your data is safe. Please try again.",
+    "sessionExpired": "Your session has ended. Please sign in again."
+  }
+}

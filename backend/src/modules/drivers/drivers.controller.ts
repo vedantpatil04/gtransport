@@ -6,6 +6,7 @@ import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { FLEET_MANAGE_ROLES, OFFICE_ROLES } from '../auth/roles';
 import { CreateDriverDto, ListDriversQuery, SetDriverStatusDto, UpdateDriverDto } from './dto/driver.dto';
+import { ReportLocationStateDto } from './dto/location-state.dto';
 import { presentDriver, type DriverView } from './driver.presenter';
 import { DriversService } from './drivers.service';
 
@@ -24,6 +25,14 @@ export class DriversController {
   async me(@CurrentUser() user: AuthenticatedUser): Promise<DriverView> {
     const { driverId } = requireDriverScope(user);
     return presentDriver(await this.drivers.findById(user.companyId, driverId), user.role);
+  }
+
+  /** The driver app reports its permission state here. Scoped to the caller's own record. */
+  @Patch('me/location-state')
+  @Roles(UserRole.DRIVER)
+  async reportLocationState(@CurrentUser() user: AuthenticatedUser, @Body() dto: ReportLocationStateDto) {
+    const { driverId } = requireDriverScope(user);
+    return this.drivers.reportLocationState(user, driverId, dto);
   }
 
   @Get()

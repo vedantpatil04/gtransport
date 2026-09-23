@@ -1,0 +1,43 @@
+# Render Blueprint for Gangamata Transport API
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: gangamata-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && npm run db:generate && npm run build
+    preDeployCommand: npm run db:deploy
+    startCommand: npm run start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "true"
+      - key: LOG_LEVEL
+        value: log
+      # Sensitive variables: configure in the Render Dashboard
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_POOL_MAX
+        value: "10"
+      # Auto-generates a secure 256-bit random key on blueprint creation
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 12h
+      # Set your production Vercel frontend URL in the Render Dashboard (e.g. https://gangamata-admin.vercel.app)
+      - key: CORS_ORIGINS
+        sync: false
+      - key: AI_PROVIDER
+        value: ollama
+      - key: FILE_STORAGE_PROVIDER
+        value: local
+      - key: FILE_STORAGE_LOCAL_ROOT
+        value: /tmp/storage
