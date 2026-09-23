@@ -32,7 +32,21 @@ jest.mock('expo-localization', () => ({ getLocales: jest.fn(() => [{ languageCod
 
 jest.mock('expo-constants', () => ({
   __esModule: true,
-  default: { expoConfig: { extra: { apiUrl: 'https://api.test.gangamata', appEnv: 'development' } } },
+  ExecutionEnvironment: {
+    Bare: 'bare',
+    Standalone: 'standalone',
+    StoreClient: 'storeClient',
+  },
+  AppOwnership: {
+    Expo: 'expo',
+    Standalone: 'standalone',
+    Guest: 'guest',
+  },
+  default: {
+    executionEnvironment: 'bare',
+    appOwnership: null,
+    expoConfig: { extra: { apiUrl: 'https://api.test.gangamata', appEnv: 'development' } },
+  },
 }));
 
 jest.mock('expo-location', () => ({
