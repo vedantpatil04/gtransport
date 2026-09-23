@@ -17,11 +17,13 @@ import { monthKey, todayISO } from '@/lib/dates';
 import { inr } from '@/lib/format';
 import { normalize, sum } from '@/lib/utils';
 import { useApp } from '@/store';
+import { DriversConnected } from './DriversConnected';
+import { useConnected } from '@/features/api/mode';
 import type { Driver, Lang } from '@/types';
 import { DriverCell, FilterBar, PageHeader, Panel, SearchInput, Table, TD, TH, TR } from '../components/ui';
 import { useSyncedData } from '../useAdminData';
 
-export function DriversPage() {
+function DriversDemo() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -182,4 +184,13 @@ export function DriverMenu({ driver, onAssign, triggerVariant = 'icon' }: { driv
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+
+/**
+ * Demo mode keeps the approved prototype exactly as it was; connected mode reads the real
+ * Phase 1 data. Same route, same design language — no duplicate screens in the sidebar.
+ */
+export function DriversPage() {
+  return useConnected() ? <DriversConnected /> : <DriversDemo />;
 }

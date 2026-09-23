@@ -1,0 +1,103 @@
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { Request, Response } from 'express';
+import { ApiErrorCode, errorCodeForStatus, type ApiErrorBody, type ApiFieldError } from './api-error';
+import { getRequestId } from './request-context';
+
+interface NormalisedError {
+  status: number;
+  code: ApiErrorCode;
+  message: string;
+  details?: ApiFieldError[];
+}
+
+/** Turns every thrown error into the single documented error envelope. */
+@Catch()
+export class ApiExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger('ExceptionFilter');
+
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
+    const response = ctx.getResponse<Response>();
+    const { status, code, message, details } = this.normalise(exception);
+
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(
+        `Unhandled error on ${request.method} ${request.originalUrl} rid=${getRequestId(request)}`,
+        exception instanceof Error ? exception.stack : String(exception),
+      );
+    }
+
+    const body: ApiErrorBody = {
+      error: {
+        statusCode: status,
+        code,
+        message,
+        ...(details?.length ? { details } : {}),
+        requestId: getRequestId(request),
+        path: request.originalUrl,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    response.status(status).json(body);
+  }
+
+  private normalise(exception: unknown): NormalisedError {
+    if (exception instanceof HttpException) return this.fromHttpException(exception);
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) return this.fromPrismaError(exception);
+
+    if (exception instanceof Prisma.PrismaClientInitializationError) {
+      return {
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+        code: ApiErrorCode.SERVICE_UNAVAILABLE,
+        message: 'The database is unavailable.',
+      };
+    }
+
+    // Never leak internal messages or stack traces to clients.
+    return {
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      code: ApiErrorCode.INTERNAL_ERROR,
+      message: 'An unexpected error occurred.',
+    };
+  }
+
+  private fromHttpException(exception: HttpException): NormalisedError {
+    const status = exception.getStatus();
+    const payload = exception.getResponse();
+    const code = errorCodeForStatus(status);
+
+    if (typeof payload === 'string') return { status, code, message: payload };
+
+    const record = payload as { message?: unknown; error?: unknown; code?: unknown; details?: unknown };
+    const details = Array.isArray(record.details) ? (record.details as ApiFieldError[]) : undefined;
+    const message =
+      typeof record.message === 'string'
+        ? record.message
+        : Array.isArray(record.message)
+          ? record.message.join('; ')
+          : exception.message;
+
+    return {
+      status,
+      code: typeof record.code === 'string' ? (record.code as ApiErrorCode) : code,
+      message,
+      details,
+    };
+  }
+
+  private fromPrismaError(exception: Prisma.PrismaClientKnownRequestError): NormalisedError {
+    switch (exception.code) {
+      case 'P2002':
+        return { status: HttpStatus.CONFLICT, code: ApiErrorCode.CONFLICT, message: 'A record with these unique values already exists.' };
+      case 'P2003':
+        return { status: HttpStatus.CONFLICT, code: ApiErrorCode.CONFLICT, message: 'A related record is required or still referenced.' };
+      case 'P2025':
+        return { status: HttpStatus.NOT_FOUND, code: ApiErrorCode.NOT_FOUND, message: 'The requested record was not found.' };
+      default:
+        return { status: HttpStatus.INTERNAL_SERVER_ERROR, code: ApiErrorCode.INTERNAL_ERROR, message: 'An unexpected database error occurred.' };
+    }
+  }
+}

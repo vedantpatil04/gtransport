@@ -1,0 +1,552 @@
+// Gangamata Transport — production database schema (Phase 0 foundation).
+//
+// Conventions (see docs/backend/data-model.md):
+// - IDs are UUIDv7 (time-ordered) so B-tree indexes stay compact over 10+ years.
+// - Tables/columns are snake_case in PostgreSQL; Prisma fields stay camelCase.
+// - All timestamps are timestamptz. Calendar dates (expiry, joining) are `date`.
+// - Money is Decimal, never float.
+// - Business records are soft-deleted via `deleted_at`; nothing is hard-deleted by default.
+// - `created_by_id` / `updated_by_id` hold the acting user's ID without an FK so that
+//   audit attribution survives user archival and avoids cyclic relations.
+// - Binary files never live here. `stored_files` holds object-storage metadata only.
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  ACCOUNTING
+  MANAGER
+  DRIVER
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("user_status")
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  INACTIVE
+  EXITED
+
+  @@map("employment_status")
+}
+
+/// Business role of a person on the payroll. Distinct from UserRole, which is a login identity:
+/// an employee may have no login at all, and the two must not be conflated.
+enum EmployeeRole {
+  DRIVER
+  ACCOUNTING
+  MANAGER
+  ADMIN
+  OTHER
+
+  @@map("employee_role")
+}
+
+/// Operational availability of a driver, separate from HR employment status.
+/// A driver can only be ACTIVE while their employee record is ACTIVE.
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  ON_LEAVE
+
+  @@map("driver_status")
+}
+
+enum FinanceStatus {
+  ACTIVE
+  COMPLETED
+  CLOSED
+  DEFAULTED
+
+  @@map("finance_status")
+}
+
+/// Languages supported by the existing multilingual driver UI.
+enum AppLanguage {
+  EN
+  HI
+  KN
+  MR
+  TA
+  TE
+
+  @@map("app_language")
+}
+
+enum VehicleKind {
+  LCV
+  PICKUP
+  TRUCK
+
+  @@map("vehicle_kind")
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+
+  @@map("fuel_type")
+}
+
+enum VehicleStatus {
+  ACTIVE
+  MAINTENANCE
+  IDLE
+  RETIRED
+
+  @@map("vehicle_status")
+}
+
+enum VehicleOwnership {
+  OWNED
+  FINANCED
+
+  @@map("vehicle_ownership")
+}
+
+enum DocumentType {
+  RC
+  INSURANCE
+  PUC
+  DRIVING_LICENCE
+  TYRE_INSURANCE
+  FITNESS
+  PERMIT
+  OTHER
+
+  @@map("document_type")
+}
+
+enum DocumentOwnerType {
+  VEHICLE
+  EMPLOYEE
+  COMPANY
+
+  @@map("document_owner_type")
+}
+
+enum DocumentVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+
+  @@map("document_verification_status")
+}
+
+enum StorageProvider {
+  LOCAL
+  R2
+
+  @@map("storage_provider")
+}
+
+enum LocationStatus {
+  ACTIVE
+  PERMISSION_DENIED
+  LOCATION_DISABLED
+  OFFLINE
+  STALE
+
+  @@map("location_status")
+}
+
+enum LocationPermission {
+  UNKNOWN
+  GRANTED_ALWAYS
+  GRANTED_FOREGROUND
+  DENIED
+
+  @@map("location_permission")
+}
+
+// ───────────────────────────── Tenancy ─────────────────────────────
+
+model Company {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  name      String
+  legalName String?   @map("legal_name")
+  gstin     String?
+  phone     String?
+  address   String?
+  timezone  String    @default("Asia/Kolkata")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  users       User[]
+  employees   Employee[]
+  drivers     Driver[]
+  vehicles    Vehicle[]
+  documents   Document[]
+  storedFiles StoredFile[]
+  auditLogs   AuditLog[]
+
+  @@map("companies")
+}
+
+// ───────────────────────────── Identity ─────────────────────────────
+
+/// A login identity. Business person data lives on Employee.
+model User {
+  id           String     @id @default(uuid(7)) @db.Uuid
+  companyId    String     @map("company_id") @db.Uuid
+  employeeId   String?    @unique @map("employee_id") @db.Uuid
+  /// Stored lower-cased.
+  email        String?
+  /// Stored in E.164 form, e.g. +919876543210.
+  phone        String?
+  passwordHash String     @map("password_hash")
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  createdById  String?    @map("created_by_id") @db.Uuid
+  updatedById  String?    @map("updated_by_id") @db.Uuid
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, email])
+  @@unique([companyId, phone])
+  @@index([companyId, role])
+  @@map("users")
+}
+
+// ───────────────────────────── People ─────────────────────────────
+
+/// Parent concept for every person on the payroll. Drivers are Employees with a Driver profile.
+model Employee {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  companyId         String           @map("company_id") @db.Uuid
+  employeeCode      String           @map("employee_code")
+  fullName          String           @map("full_name")
+  phone             String?
+  email             String?
+  role              EmployeeRole     @default(OTHER)
+  designation       String?
+  department        String?
+  dateOfBirth       DateTime?        @map("date_of_birth") @db.Date
+  notes             String?
+  preferredLanguage AppLanguage      @default(EN) @map("preferred_language")
+  status            EmploymentStatus @default(ACTIVE)
+  joiningDate       DateTime?        @map("joining_date") @db.Date
+  exitDate          DateTime?        @map("exit_date") @db.Date
+  /// Monthly base salary. Salary/advance transactions will live in the finance ledger.
+  baseSalary        Decimal?         @map("base_salary") @db.Decimal(12, 2)
+  pfApplicable      Boolean          @default(false) @map("pf_applicable")
+  uan               String?
+  pfMemberId        String?          @map("pf_member_id")
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime?        @map("deleted_at") @db.Timestamptz(3)
+  createdById       String?          @map("created_by_id") @db.Uuid
+  updatedById       String?          @map("updated_by_id") @db.Uuid
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user      User?
+  driver    Driver?
+  documents Document[]
+
+  @@unique([companyId, employeeCode])
+  @@index([companyId, status])
+  @@index([companyId, role])
+  @@map("employees")
+}
+
+/// Driver-specific data. One-to-one with Employee; never a separate person record.
+model Driver {
+  id                     String       @id @default(uuid(7)) @db.Uuid
+  companyId              String       @map("company_id") @db.Uuid
+  employeeId             String       @unique @map("employee_id") @db.Uuid
+  /// Human-readable driver identifier shown in the admin UI, e.g. "GR-D-101".
+  driverCode             String       @map("driver_code")
+  status                 DriverStatus @default(ACTIVE)
+  licenceNumber          String?      @map("licence_number")
+  /// Convenience copy for list screens. The scanned licence and its authoritative
+  /// expiry live in `documents` (DRIVING_LICENCE) once document management lands.
+  licenceExpiryDate      DateTime?    @map("licence_expiry_date") @db.Date
+  emergencyContactName   String?      @map("emergency_contact_name")
+  emergencyContactPhone  String?      @map("emergency_contact_phone")
+  homeTown               String?      @map("home_town")
+  locationSharingEnabled Boolean      @default(false) @map("location_sharing_enabled")
+  /// The one open assignment, if any. Unique, so a driver cannot hold two vehicles at once.
+  currentAssignmentId    String?      @unique @map("current_assignment_id") @db.Uuid
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(3)
+  createdById            String?   @map("created_by_id") @db.Uuid
+  updatedById            String?   @map("updated_by_id") @db.Uuid
+
+  company           Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employee          Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  currentAssignment VehicleAssignment?   @relation("DriverCurrentAssignment", fields: [currentAssignmentId], references: [id], onDelete: Restrict)
+  assignments       VehicleAssignment[]  @relation("DriverAssignments")
+  locationState     DriverLocationState?
+  locationPings     DriverLocationPing[]
+
+  @@unique([companyId, driverCode])
+  /// Lets other tables reference a driver together with its tenant (composite FK).
+  @@unique([companyId, id])
+  @@index([companyId, status])
+  @@map("drivers")
+}
+
+// ───────────────────────────── Fleet ─────────────────────────────
+
+model Vehicle {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  companyId          String           @map("company_id") @db.Uuid
+  /// Normalised upper-case registration, e.g. "KA 22 AB 1234".
+  registrationNumber String           @map("registration_number")
+  make               String?
+  model              String?
+  variant            String?
+  notes              String?
+  kind               VehicleKind
+  fuelType           FuelType         @map("fuel_type")
+  capacityTonnes     Decimal?         @map("capacity_tonnes") @db.Decimal(6, 2)
+  manufactureYear    Int?             @map("manufacture_year")
+  mileageKmpl        Decimal?         @map("mileage_kmpl") @db.Decimal(5, 2)
+  status             VehicleStatus    @default(ACTIVE)
+  ownership          VehicleOwnership @default(OWNED)
+  /// The one open assignment, if any. Unique, so a vehicle cannot have two active drivers.
+  currentAssignmentId String?         @unique @map("current_assignment_id") @db.Uuid
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?        @map("deleted_at") @db.Timestamptz(3)
+  createdById        String?          @map("created_by_id") @db.Uuid
+  updatedById        String?          @map("updated_by_id") @db.Uuid
+
+  company           Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  currentAssignment VehicleAssignment?  @relation("VehicleCurrentAssignment", fields: [currentAssignmentId], references: [id], onDelete: Restrict)
+  assignments       VehicleAssignment[] @relation("VehicleAssignments")
+  financing         VehicleFinancing?
+  documents         Document[]
+
+  @@unique([companyId, registrationNumber])
+  /// Lets other tables reference a vehicle together with its tenant (composite FK).
+  @@unique([companyId, id])
+  @@index([companyId, status])
+  @@index([companyId, ownership])
+  @@map("vehicles")
+}
+
+/// Loan terms for FINANCED vehicles. All fields optional until the EMI workflow phase.
+model VehicleFinancing {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  vehicleId         String        @unique @map("vehicle_id") @db.Uuid
+  status            FinanceStatus @default(ACTIVE)
+  lenderName        String?       @map("lender_name")
+  loanAccountNumber String?       @map("loan_account_number")
+  financeStartDate  DateTime?     @map("finance_start_date") @db.Date
+  totalInstallments Int?          @map("total_installments")
+  loanAmount        Decimal?  @map("loan_amount") @db.Decimal(14, 2)
+  downPayment       Decimal?  @map("down_payment") @db.Decimal(14, 2)
+  tenureMonths      Int?      @map("tenure_months")
+  interestRatePct   Decimal?  @map("interest_rate_pct") @db.Decimal(5, 2)
+  emiAmount         Decimal?  @map("emi_amount") @db.Decimal(12, 2)
+  paidInstallments  Int?      @map("paid_installments")
+  outstandingAmount Decimal?  @map("outstanding_amount") @db.Decimal(14, 2)
+  nextDueDate       DateTime? @map("next_due_date") @db.Date
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById       String?   @map("created_by_id") @db.Uuid
+  updatedById       String?   @map("updated_by_id") @db.Uuid
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@map("vehicle_financings")
+}
+
+/// Driver-to-vehicle assignment history. Assignments are never deleted: changing a driver
+/// closes the open row (sets `ended_at`) and opens a new one, so the fleet's history stays
+/// reconstructible. The single open assignment per side is enforced by the unique
+/// `current_assignment_id` columns on `vehicles` and `drivers`.
+///
+/// The composite foreign keys below reference (company_id, id), which makes a cross-tenant
+/// assignment impossible at the database level rather than only in application code.
+model VehicleAssignment {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  vehicleId   String    @map("vehicle_id") @db.Uuid
+  driverId    String    @map("driver_id") @db.Uuid
+  startedAt   DateTime  @map("started_at") @db.Timestamptz(3)
+  endedAt     DateTime? @map("ended_at") @db.Timestamptz(3)
+  /// Why the assignment closed, e.g. "reassigned", "driver_deactivated", "unassigned".
+  endReason   String?   @map("end_reason")
+  notes       String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById String?   @map("created_by_id") @db.Uuid
+  updatedById String?   @map("updated_by_id") @db.Uuid
+
+  vehicle           Vehicle  @relation("VehicleAssignments", fields: [companyId, vehicleId], references: [companyId, id], onDelete: Restrict)
+  driver            Driver   @relation("DriverAssignments", fields: [companyId, driverId], references: [companyId, id], onDelete: Restrict)
+  currentForVehicle Vehicle? @relation("VehicleCurrentAssignment")
+  currentForDriver  Driver?  @relation("DriverCurrentAssignment")
+
+  @@index([vehicleId, startedAt(sort: Desc)])
+  @@index([driverId, startedAt(sort: Desc)])
+  @@index([companyId, endedAt])
+  @@map("vehicle_assignments")
+}
+
+// ───────────────────────────── Files & documents ─────────────────────────────
+
+/// Metadata for a binary object held in external storage. The bytes are never stored here.
+model StoredFile {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  companyId        String          @map("company_id") @db.Uuid
+  provider         StorageProvider
+  bucket           String?
+  objectKey        String          @map("object_key")
+  originalFilename String          @map("original_filename")
+  mimeType         String          @map("mime_type")
+  sizeBytes        BigInt          @map("size_bytes")
+  checksumSha256   String          @map("checksum_sha256")
+  uploadedById     String?         @map("uploaded_by_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(3)
+
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  documents Document[]
+
+  @@unique([provider, objectKey])
+  @@index([companyId, createdAt])
+  @@map("stored_files")
+}
+
+/// Compliance document metadata (RC, insurance, PUC, licence, …). Owner consistency is
+/// enforced by the `documents_owner_consistency` CHECK constraint in the initial migration.
+model Document {
+  id                 String                     @id @default(uuid(7)) @db.Uuid
+  companyId          String                     @map("company_id") @db.Uuid
+  type               DocumentType
+  customName         String?                    @map("custom_name")
+  ownerType          DocumentOwnerType          @map("owner_type")
+  vehicleId          String?                    @map("vehicle_id") @db.Uuid
+  employeeId         String?                    @map("employee_id") @db.Uuid
+  documentNumber     String?                    @map("document_number")
+  issuer             String?
+  issueDate          DateTime?                  @map("issue_date") @db.Date
+  expiryDate         DateTime?                  @map("expiry_date") @db.Date
+  fileId             String?                    @map("file_id") @db.Uuid
+  verificationStatus DocumentVerificationStatus @default(PENDING) @map("verification_status")
+  verifiedById       String?                    @map("verified_by_id") @db.Uuid
+  verifiedAt         DateTime?                  @map("verified_at") @db.Timestamptz(3)
+  rejectionReason    String?                    @map("rejection_reason")
+  notes              String?
+  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?                  @map("deleted_at") @db.Timestamptz(3)
+  createdById        String?                    @map("created_by_id") @db.Uuid
+  updatedById        String?                    @map("updated_by_id") @db.Uuid
+
+  company  Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  vehicle  Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  employee Employee?   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  file     StoredFile? @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, expiryDate])
+  @@index([companyId, type])
+  @@index([vehicleId])
+  @@index([employeeId])
+  @@map("documents")
+}
+
+// ───────────────────────────── Location ─────────────────────────────
+
+/// Latest known location/heartbeat per driver (one row per driver, updated in place).
+model DriverLocationState {
+  driverId        String             @id @map("driver_id") @db.Uuid
+  companyId       String             @map("company_id") @db.Uuid
+  status          LocationStatus     @default(OFFLINE)
+  permission      LocationPermission @default(UNKNOWN)
+  latitude        Decimal?           @db.Decimal(9, 6)
+  longitude       Decimal?           @db.Decimal(9, 6)
+  accuracyMeters  Decimal?           @map("accuracy_meters") @db.Decimal(8, 2)
+  speedKmh        Decimal?           @map("speed_kmh") @db.Decimal(6, 2)
+  headingDeg      Decimal?           @map("heading_deg") @db.Decimal(5, 2)
+  batteryPct      Int?               @map("battery_pct")
+  /// Device timestamp of the last fix.
+  recordedAt      DateTime?          @map("recorded_at") @db.Timestamptz(3)
+  lastHeartbeatAt DateTime?          @map("last_heartbeat_at") @db.Timestamptz(3)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, status])
+  @@map("driver_location_states")
+}
+
+/// Append-only location history. Highest-volume table: designed for future monthly
+/// range partitioning on `recorded_at` (see docs/backend/data-retention.md).
+model DriverLocationPing {
+  id             BigInt   @id @default(autoincrement())
+  companyId      String   @map("company_id") @db.Uuid
+  driverId       String   @map("driver_id") @db.Uuid
+  latitude       Decimal  @db.Decimal(9, 6)
+  longitude      Decimal  @db.Decimal(9, 6)
+  accuracyMeters Decimal? @map("accuracy_meters") @db.Decimal(8, 2)
+  speedKmh       Decimal? @map("speed_kmh") @db.Decimal(6, 2)
+  headingDeg     Decimal? @map("heading_deg") @db.Decimal(5, 2)
+  recordedAt     DateTime @map("recorded_at") @db.Timestamptz(3)
+  receivedAt     DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Restrict)
+
+  @@index([driverId, recordedAt(sort: Desc)])
+  @@index([companyId, recordedAt])
+  @@map("driver_location_pings")
+}
+
+// ───────────────────────────── Audit ─────────────────────────────
+
+/// Immutable audit trail. UPDATE/DELETE are blocked by a trigger in the initial migration.
+model AuditLog {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  companyId   String?   @map("company_id") @db.Uuid
+  actorUserId String?   @map("actor_user_id") @db.Uuid
+  actorRole   UserRole? @map("actor_role")
+  /// Dotted verb, e.g. "auth.login", "vehicle.update".
+  action      String
+  entityType  String    @map("entity_type")
+  entityId    String?   @map("entity_id")
+  changes     Json?
+  metadata    Json?
+  ipAddress   String?   @map("ip_address")
+  userAgent   String?   @map("user_agent")
+  requestId   String?   @map("request_id")
+  occurredAt  DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, occurredAt])
+  @@index([entityType, entityId])
+  @@index([actorUserId, occurredAt])
+  @@map("audit_logs")
+}

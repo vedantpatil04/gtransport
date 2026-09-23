@@ -59,6 +59,19 @@ scripts/           i18n tooling (check-i18n.mjs, merge-i18n.mjs)
 
 Seed data is generated relative to *today*, so the dashboard always shows a working day. Figures are computed live from the data, not hard-coded. **Reset demo data** restores the seed.
 
+## Production foundation (Phase 0)
+
+The prototype above is unchanged and still runs entirely in the browser. Alongside it, `backend/` now holds the production API — NestJS, Prisma and PostgreSQL — established as a foundation only: no business workflow has been migrated, and the frontend does not consume it yet.
+
+```bash
+docker compose up -d      # local PostgreSQL
+cd backend && npm install && npm run db:migrate && npm run dev
+```
+
+What exists: company/employee/driver/vehicle/document/file/audit/location data model, JWT auth with roles and driver self-scoping, validated configuration, a file-storage abstraction, an append-only audit trail, `/health`, and the receipt AI boundary (Ollama by default, Dify optional) wired into dependency injection.
+
+See [`docs/backend/architecture.md`](docs/backend/architecture.md) for the design and [`docs/ai-receipt-processing.md`](docs/ai-receipt-processing.md) for the AI contract.
+
 ## Notes
 
 - Fonts (Archivo, Noto Sans Indic) load from Google Fonts; offline, the system fallback is used.

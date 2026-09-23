@@ -1,0 +1,10 @@
+export { AiModule } from './ai.module';
+export { AI_PROVIDER } from './ai.tokens';
+export { ReceiptAIService } from './receipt-ai.service';
+export { createAIProvider } from './factory';
+export type { AIConfig } from './config';
+export { SERVICE_RECEIPT_EXTRACTION_PROMPT } from './prompt';
+export { ServiceReceiptExtractionSchema } from './schema';
+export type { ServiceReceiptExtraction } from './schema';
+export type { AIProvider } from './provider';
+export * from './types';

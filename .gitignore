@@ -8,3 +8,9 @@ dist-demo
 *.local
 .DS_Store
 Thumbs.db
+
+# Backend
+backend/dist
+backend/storage
+coverage
+*.tsbuildinfo

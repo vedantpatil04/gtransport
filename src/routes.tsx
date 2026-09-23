@@ -10,6 +10,7 @@ import { DriverNotifications } from '@/features/driver/pages/DriverNotifications
 import { AdminLayout } from '@/layouts/AdminLayout';
 import { Dashboard } from '@/features/admin/pages/Dashboard';
 import { Fleet } from '@/features/admin/pages/Fleet';
+import { EmployeesPage } from '@/features/admin/pages/EmployeesPage';
 import { DriversPage } from '@/features/admin/pages/DriversPage';
 import { DriverDetail } from '@/features/admin/pages/DriverDetail';
 import { VehiclesPage, VehicleDetail } from '@/features/admin/pages/VehiclesPage';
@@ -48,6 +49,7 @@ export function AppRoutes() {
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="fleet" element={<Fleet />} />
+        <Route path="employees" element={<EmployeesPage />} />
         <Route path="drivers" element={<DriversPage />} />
         <Route path="drivers/:id" element={<DriverDetail />} />
         <Route path="vehicles" element={<VehiclesPage />} />

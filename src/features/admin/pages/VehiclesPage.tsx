@@ -22,6 +22,9 @@ import { fmtDate, inr, num } from '@/lib/format';
 import { vehicleMonthTotals } from '@/lib/selectors';
 import { normalize } from '@/lib/utils';
 import { useApp } from '@/store';
+import { useConnected } from '@/features/api/mode';
+import { VehiclesConnected } from './VehiclesConnected';
+import { VehicleDetailConnected } from './VehicleDetailConnected';
 import type { DocRecord, VehicleStatus } from '@/types';
 import { DetailList, DriverCell, FilterBar, PageHeader, Panel, SearchInput, StatCard, Table, TD, TH, TR } from '../components/ui';
 import { useSyncedData } from '../useAdminData';
@@ -32,7 +35,7 @@ function worstDoc(docs: DocRecord[]) {
   return [...docs].sort((a, b) => docStatus(b).level - docStatus(a).level || (docStatus(a).days ?? 9999) - (docStatus(b).days ?? 9999))[0];
 }
 
-export function VehiclesPage() {
+function VehiclesDemo() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -127,7 +130,7 @@ export function VehiclesPage() {
   );
 }
 
-export function VehicleDetail() {
+function VehicleDetailDemo() {
   const { id } = useParams();
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
@@ -300,4 +303,17 @@ export function UploadDocDialog({ target, onClose }: { target: DocTarget | null;
       </DialogContent>
     </Dialog>
   );
+}
+
+
+/**
+ * Demo mode keeps the approved prototype exactly as it was; connected mode reads the real
+ * Phase 1 data. Same route, same design language — no duplicate screens in the sidebar.
+ */
+export function VehiclesPage() {
+  return useConnected() ? <VehiclesConnected /> : <VehiclesDemo />;
+}
+
+export function VehicleDetail() {
+  return useConnected() ? <VehicleDetailConnected /> : <VehicleDetailDemo />;
 }

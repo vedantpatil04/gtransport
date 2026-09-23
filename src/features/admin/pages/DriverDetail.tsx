@@ -22,6 +22,8 @@ import { relTime } from '@/lib/relative';
 import { driverMonthTotals, paymentDate } from '@/lib/selectors';
 import { cn, initials, sum } from '@/lib/utils';
 import { useApp } from '@/store';
+import { DriverProfileConnected } from './DriverProfileConnected';
+import { useConnected } from '@/features/api/mode';
 import { DetailList, PageHeader, Panel, StatCard, Table, TD, TH, TR } from '../components/ui';
 import { useSyncedData } from '../useAdminData';
 import { DriverMenu } from './DriversPage';
@@ -29,7 +31,7 @@ import { DriverMenu } from './DriversPage';
 const TABS = ['overview', 'fuel', 'expenses', 'payments', 'documents', 'trips', 'location'] as const;
 type Tab = (typeof TABS)[number];
 
-export function DriverDetail() {
+function DriverDetailDemo() {
   const { id } = useParams();
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
@@ -400,4 +402,13 @@ export function DriverDetail() {
       <PaymentSheet paymentId={params.get('payment')} onClose={() => setParam('payment', '')} />
     </div>
   );
+}
+
+
+/**
+ * Demo mode keeps the approved prototype exactly as it was; connected mode reads the real
+ * Phase 1 data. Same route, same design language — no duplicate screens in the sidebar.
+ */
+export function DriverDetail() {
+  return useConnected() ? <DriverProfileConnected /> : <DriverDetailDemo />;
 }

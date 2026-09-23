@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+storage
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+# Sandbox-only Prisma config, never part of the project
+prisma.sandbox.config.ts
