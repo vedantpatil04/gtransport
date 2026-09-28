@@ -6,11 +6,19 @@ import { I18nextProvider } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthGate } from '../features/auth/AuthGate';
+import { registerDailyHandlers } from '../features/daily/submissions';
+// Imported for its side effect: the background location task must be defined at module scope,
+// before the app mounts, so it exists in whichever JavaScript context the OS starts to deliver a
+// fix — including one with no app on screen. See lib/location/tracking.ts.
+import '../lib/location/tracking';
 import i18n, { initI18n, languageFromApi, setLanguage } from '../i18n';
 import { useSession } from '../lib/auth/session-store';
 import { colors } from '../theme/tokens';
 
 void SplashScreen.preventAutoHideAsync();
+
+// Connects the offline queue to the API before anything can queue an entry.
+registerDailyHandlers();
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -50,7 +58,9 @@ export default function RootLayout() {
           <AuthGate>
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="office" />
               <Stack.Screen name="(auth)/login" />
+              <Stack.Screen name="(auth)/change-password" />
             </Stack>
           </AuthGate>
         </View>

@@ -1,0 +1,42 @@
+{
+  "error": {
+    "statusCode": 400,
+    "code": "VALIDATION_FAILED",
+    "message": "Request validation failed.",
+    "details": [
+      {
+        "field": "amount",
+        "messages": [
+          "amount must not be greater than 10000000",
+          "amount must be greater than 0",
+          "amount must be a number with at most 2 decimal places"
+        ]
+      },
+      {
+        "field": "litres",
+        "messages": [
+          "litres must not be greater than 100000",
+          "litres must be greater than 0",
+          "litres must be a number with at most 3 decimal places"
+        ]
+      },
+      {
+        "field": "fuelStation",
+        "messages": [
+          "fuelStation must be shorter than or equal to 120 characters",
+          "fuelStation is required",
+          "fuelStation must be a string"
+        ]
+      },
+      {
+        "field": "transactionDate",
+        "messages": [
+          "transactionDate must be a date (YYYY-MM-DD)"
+        ]
+      }
+    ],
+    "requestId": "0ff33e82-1e9d-4c08-9624-c256e0c2a08b",
+    "path": "/api/v1/fuel/mine",
+    "timestamp": "2026-09-24T18:16:29.207Z"
+  }
+}

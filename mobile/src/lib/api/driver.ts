@@ -1,4 +1,4 @@
-import type { DriverProfile, LocationPermissionState, LocationStatus, LoginResponse } from '../../types/domain';
+import type { DocumentRecord, DriverProfile, LocationPermissionState, LocationStatus, Page } from '../../types/domain';
 import { apiRequest } from './client';
 
 /**
@@ -6,9 +6,7 @@ import { apiRequest } from './client';
  * server: there is no driver id in any path, so the app cannot ask for someone else's data.
  */
 export const driverApi = {
-  login: (identifier: string, password: string) =>
-    apiRequest<LoginResponse>('/auth/login', { method: 'POST', body: { identifier, password } }),
-
+  // Sign-in is the same for every role: see accountApi in ./account.
   me: (token: string) => apiRequest<DriverProfile>('/drivers/me', { token }),
 
   /**
@@ -22,3 +20,14 @@ export const driverApi = {
       body,
     }),
 };
+
+export const documentsApi = {
+  list: (token: string, query: { limit?: number; type?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (query.limit) params.set('limit', String(query.limit));
+    if (query.type) params.set('type', query.type);
+    const qs = params.toString();
+    return apiRequest<Page<DocumentRecord>>(`/documents${qs ? `?${qs}` : ''}`, { token });
+  },
+};
+

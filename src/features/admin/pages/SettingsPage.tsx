@@ -10,8 +10,10 @@ import { cn } from '@/lib/utils';
 import { useApp } from '@/store';
 import type { ReminderTarget } from '@/types';
 import { ConfirmDialog, PageHeader, Panel } from '../components/ui';
+import { isApiConfigured } from '@/features/api/mode';
+import { NotLiveState } from '../components/states';
 
-export function SettingsPage() {
+function SettingsDemo() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const company = useApp((s) => s.company);
@@ -155,4 +157,10 @@ export function SettingsPage() {
       />
     </div>
   );
+}
+
+/** Real mode shows no sample records: this module's live data arrives in a later phase. */
+export function SettingsPage() {
+  const { t } = useTranslation();
+  return isApiConfigured() ? <NotLiveState title={t('admin.nav.settings')} body={t('admin.real.settingsBody')} /> : <SettingsDemo />;
 }

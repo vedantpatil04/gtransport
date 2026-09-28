@@ -61,7 +61,7 @@ import { AssignmentsModule } from './modules/assignments/assignments.module';
     ReportsModule,
     InboxModule,
 
-    // Receipt AI (Ollama by default, Dify optional)
+    // Receipt AI (Ollama by default, Dify optional) and the inbound company mailbox.
     AiModule,
 
     HealthModule,

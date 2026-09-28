@@ -234,6 +234,7 @@ export class VehiclesService {
       emiAmount: dto.emiAmount ?? existing.financing?.emiAmount ?? null,
       outstandingAmount: dto.outstandingAmount ?? existing.financing?.outstandingAmount ?? null,
       nextDueDate: toDate(dto.nextDueDate) ?? existing.financing?.nextDueDate ?? null,
+      financeEndDate: toDate(dto.financeEndDate) ?? existing.financing?.financeEndDate ?? null,
       updatedById: user.id,
     };
 

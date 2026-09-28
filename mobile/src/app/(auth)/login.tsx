@@ -7,12 +7,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, PrimaryButton } from '../../components/ui';
 import { ApiError } from '../../lib/api/client';
-import { NotADriverError, useSession } from '../../lib/auth/session-store';
+import { useSession } from '../../lib/auth/session-store';
+import { API_URL } from '../../lib/config';
 import { useNetwork } from '../../lib/offline/useNetwork';
 import { colors, radius, spacing, TOUCH_TARGET, typography } from '../../theme/tokens';
 
 /**
- * Driver sign-in, deliberately plain: mobile number, then passcode.
+ * Sign-in, deliberately plain: mobile number, then passcode — the approved driver flow. Office
+ * staff use the same app and may sign in with an email address instead; the role that comes
+ * back decides whether the driver app or the office app opens.
  *
  * The backend authenticates an identifier and password, so the passcode step uses that. A
  * one-tap OTP flow would need an SMS provider and a backend endpoint that do not exist yet.
@@ -25,15 +28,21 @@ export default function LoginScreen() {
   const { online } = useNetwork();
 
   const [step, setStep] = useState<'mobile' | 'passcode'>('mobile');
+  const [useEmail, setUseEmail] = useState(false);
   const [mobile, setMobile] = useState('');
+  const [email, setEmail] = useState('');
   const [passcode, setPasscode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const digits = mobile.replace(/\D/g, '');
 
+  const identifier = useEmail ? email.trim() : digits;
+
   const goToPasscode = () => {
-    if (digits.length < 10) return setError(t('login.errMobile'));
+    if (useEmail ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) : digits.length < 10) {
+      return setError(useEmail ? t('login.errEmail') : t('login.errMobile'));
+    }
     setError(null);
     setStep('passcode');
   };
@@ -45,9 +54,17 @@ export default function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      await signIn(digits, passcode);
+      await signIn(identifier, passcode);
     } catch (cause) {
-      if (cause instanceof NotADriverError) setError(t('login.errNotDriver'));
+      if (__DEV__) {
+        console.error('[Login] Sign-in failed:', {
+          targetUrl: `${API_URL}/api/v1/auth/login`,
+          identifier,
+          error: cause,
+        });
+      }
+      if (cause instanceof ApiError && cause.code === 'ACCOUNT_SUSPENDED') setError(t('login.errSuspended'));
+      else if (cause instanceof ApiError && cause.code === 'ACCOUNT_DISABLED') setError(t('login.errDisabled'));
       else if (cause instanceof ApiError && cause.kind === 'unauthorized') setError(t('login.errInvalid'));
       else if (cause instanceof ApiError && (cause.kind === 'network' || cause.kind === 'timeout')) setError(t('states.errorBody'));
       else setError(cause instanceof ApiError ? cause.message : t('states.errorBody'));
@@ -74,7 +91,37 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {step === 'mobile' ? (
+        {step === 'mobile' && useEmail ? (
+          <View style={styles.field}>
+            <AppText variant="label" tone="muted">{t('login.email')}</AppText>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+              inputMode="email"
+              maxFontSizeMultiplier={typography.maxFontSizeMultiplier}
+              onSubmitEditing={goToPasscode}
+              returnKeyType="next"
+              testID="login-email"
+              accessibilityLabel={t('login.email')}
+            />
+            <Pressable
+              onPress={() => {
+                setUseEmail(false);
+                setError(null);
+              }}
+              style={styles.linkButton}
+              accessibilityRole="button"
+              testID="login-use-mobile"
+            >
+              <AppText tone="muted">{t('login.useMobile')}</AppText>
+            </Pressable>
+          </View>
+        ) : step === 'mobile' ? (
           <View style={styles.field}>
             <AppText variant="label" tone="muted">{t('login.mobileNumber')}</AppText>
             <TextInput
@@ -94,10 +141,21 @@ export default function LoginScreen() {
               accessibilityLabel={t('login.mobileNumber')}
             />
             <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>{t('login.mobileHint')}</AppText>
+            <Pressable
+              onPress={() => {
+                setUseEmail(true);
+                setError(null);
+              }}
+              style={styles.linkButton}
+              accessibilityRole="button"
+              testID="login-use-email"
+            >
+              <AppText tone="muted">{t('login.useEmail')}</AppText>
+            </Pressable>
           </View>
         ) : (
           <View style={styles.field}>
-            <AppText variant="label" tone="muted">{t('login.passcode')}</AppText>
+            <AppText variant="label" tone="muted">{useEmail ? t('login.password') : t('login.passcode')}</AppText>
             <TextInput
               style={styles.input}
               value={passcode}
@@ -120,7 +178,7 @@ export default function LoginScreen() {
               style={styles.linkButton}
               accessibilityRole="button"
             >
-              <AppText tone="muted">{t('login.changeNumber')} · +91 {digits}</AppText>
+              <AppText tone="muted">{useEmail ? `${t('login.changeEmail')} · ${email.trim()}` : `${t('login.changeNumber')} · +91 ${digits}`}</AppText>
             </Pressable>
           </View>
         )}

@@ -1,16 +1,22 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
+import { ApiErrorCode } from '../../common/http/api-error';
 import { UsersService } from '../users/users.service';
-import { IS_PUBLIC_KEY } from './decorators';
+import { IS_PUBLIC_KEY, PASSWORD_CHANGE_KEY } from './decorators';
 import type { JwtPayload } from './authenticated-user';
 
 /**
  * Applied globally: every route requires a valid bearer token unless marked @Public().
  *
- * The user is re-read on each request so that disabling an account or changing a role takes
- * effect immediately instead of waiting for the token to expire.
+ * The user is re-read on each request, so a suspended or disabled account, a changed role or a
+ * password reset takes effect immediately rather than when the token expires:
+ *  - suspended/disabled accounts are not found → 401;
+ *  - a token issued before the last role/status/password change carries an older session
+ *    version → 401, and the app signs in again with the current role;
+ *  - an account still on a temporary password may only reach routes marked
+ *    @AllowPendingPasswordChange → otherwise 403 PASSWORD_CHANGE_REQUIRED.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -21,8 +27,8 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [context.getHandler(), context.getClass()]);
-    if (isPublic) return true;
+    const targets = [context.getHandler(), context.getClass()];
+    if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, targets)) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractToken(request);
@@ -35,12 +41,18 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('The access token is invalid or has expired.');
     }
 
-    const user = await this.users.findActiveById(payload.sub);
-    if (!user || user.companyId !== payload.cid) {
+    const session = await this.users.findSessionUser(payload.sub);
+    if (!session || session.user.companyId !== payload.cid) {
       throw new UnauthorizedException('The account is no longer active.');
     }
+    if ((payload.sv ?? 0) !== session.sessionVersion) {
+      throw new UnauthorizedException('Your account was changed. Please sign in again.');
+    }
+    if (session.mustChangePassword && !this.reflector.getAllAndOverride<boolean>(PASSWORD_CHANGE_KEY, targets)) {
+      throw new ForbiddenException({ message: 'Set a new password before continuing.', code: ApiErrorCode.PASSWORD_CHANGE_REQUIRED });
+    }
 
-    request.user = user;
+    request.user = session.user;
     return true;
   }
 

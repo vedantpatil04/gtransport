@@ -13,6 +13,8 @@ export class ApiError extends Error {
     message: string,
     readonly code?: string,
     readonly requestId?: string,
+    /** Which request fields were refused (field name → first message), for screens to translate. */
+    readonly fields: Record<string, string> = {},
   ) {
     super(message);
     this.name = 'ApiError';
@@ -79,17 +81,23 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       const payload: unknown = text ? safeParse(text) : undefined;
 
       if (!response.ok) {
-        const envelope = payload as { error?: { message?: string; code?: string; requestId?: string } } | undefined;
+        const envelope = payload as { error?: { message?: string; code?: string; requestId?: string; details?: { field?: string; messages?: string[] }[] } } | undefined;
         const error = new ApiError(
           kindFor(response.status),
           response.status,
           envelope?.error?.message ?? 'Something went wrong. Please try again.',
           envelope?.error?.code,
           envelope?.error?.requestId,
+          Object.fromEntries(
+            (envelope?.error?.details ?? [])
+              .filter((d) => d.field && d.messages?.length)
+              .map((d) => [d.field as string, (d.messages as string[])[0] as string]),
+          ),
         );
 
         if (error.kind === 'unauthorized') {
-          onUnauthorized?.();
+          // Only a request that carried a session can end one; a wrong password at sign-in cannot.
+          if (options.token) onUnauthorized?.();
           throw error;
         }
         if (error.retryable && attempt < retries) {

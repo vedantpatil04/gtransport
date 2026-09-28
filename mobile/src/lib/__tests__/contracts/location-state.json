@@ -1,0 +1,14 @@
+{
+  "status": "OFFLINE",
+  "permission": "GRANTED_ALWAYS",
+  "trackingState": "TRACKING_ACTIVE",
+  "pendingUploads": 0,
+  "trackingPolicy": {
+    "movingIntervalSeconds": 60,
+    "stationaryIntervalSeconds": 900,
+    "distanceMeters": 150,
+    "bufferLimit": 1000,
+    "maxBatchSize": 100,
+    "staleAfterMinutes": 15
+  }
+}

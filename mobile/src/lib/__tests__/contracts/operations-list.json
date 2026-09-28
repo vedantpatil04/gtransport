@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "id": "01a0d4a2-1cc7-7543-bbbb-3966dac9786d",
+      "category": "MAINTENANCE",
+      "amount": "8500.00",
+      "expenseDate": "2026-09-24",
+      "vendorName": "Belagavi Service Centre",
+      "description": null,
+      "receiptFileId": null,
+      "status": "ACTIVE",
+      "archivedAt": null,
+      "archiveReason": null,
+      "clientSubmissionId": null,
+      "createdAt": "2026-09-24T18:16:29.126Z",
+      "updatedAt": "2026-09-24T18:16:29.126Z",
+      "vehicle": {
+        "id": "01a0d4a2-1ad7-7110-8880-29839cafe697",
+        "registrationNumber": "KA 22 AB 6291"
+      },
+      "driver": {
+        "id": "01a0d4a2-1ac4-771b-8668-b5e225225d24",
+        "driverCode": "GR-D--46291",
+        "fullName": "Ramesh Kumar"
+      }
+    }
+  ],
+  "page": {
+    "limit": 25,
+    "nextCursor": null
+  },
+  "total": "8500.00"
+}

@@ -15,8 +15,10 @@ import { sum, cn } from '@/lib/utils';
 import { useApp } from '@/store';
 import { DriverCell, PageHeader, Panel, StatCard } from '../components/ui';
 import { useSyncedData, useTodayOverview } from '../useAdminData';
+import { isApiConfigured } from '@/features/api/mode';
+import { DashboardConnected } from './DashboardConnected';
 
-export function Dashboard() {
+function DashboardDemo() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const drivers = useApp((s) => s.drivers);
@@ -173,4 +175,9 @@ function AttentionRow({ icon: Icon, tone, title, sub, to }: { icon: typeof Fuel;
       </Link>
     </li>
   );
+}
+
+/** Live figures in real mode; the approved prototype on demo data otherwise. */
+export function Dashboard() {
+  return isApiConfigured() ? <DashboardConnected /> : <DashboardDemo />;
 }

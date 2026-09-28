@@ -55,22 +55,25 @@ export const DOC_TYPES: { type: DocType; owner: 'vehicle' | 'driver'; hasExpiry:
 ];
 export const docTypeConfig = (type: DocType) => DOC_TYPES.find((d) => d.type === type)!;
 
-export const UPDATE_TYPES: UpdateType[] = ['toll', 'parking', 'repair', 'food', 'advance', 'trip', 'other'];
-/** The six tiles shown on the driver home screen. */
-export const HOME_UPDATE_TYPES: UpdateType[] = ['toll', 'parking', 'repair', 'food', 'advance', 'other'];
+export const UPDATE_TYPES: UpdateType[] = ['rto', 'tyre', 'tyre_insurance', 'maintenance', 'toll', 'advance', 'trip', 'other'];
+/**
+ * The secondary daily-update tiles on the driver home screen. Petrol/diesel is the primary
+ * action and has its own button above these.
+ */
+export const HOME_UPDATE_TYPES: UpdateType[] = ['rto', 'tyre', 'tyre_insurance', 'maintenance'];
 
 export const QUICK_AMOUNTS: Record<UpdateType, number[]> = {
   toll: [95, 150, 245, 430],
-  parking: [50, 100, 150, 200],
-  repair: [500, 1000, 2000],
-  food: [100, 150, 200, 300],
+  rto: [500, 1000, 2500],
+  tyre: [8000, 12000, 18500],
+  tyre_insurance: [1500, 2500, 3500],
   advance: [1000, 2000, 3000, 5000],
   trip: [300, 500, 800],
   other: [100, 200, 500],
   maintenance: [2500, 5000],
 };
 
-export const EXPENSE_CATEGORIES: ExpenseCategory[] = ['toll', 'parking', 'repair', 'food', 'maintenance', 'trip', 'other'];
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = ['rto', 'tyre', 'tyre_insurance', 'maintenance', 'toll', 'trip', 'other'];
 export const PAYMENT_TYPES: PaymentType[] = ['salary', 'fuel_advance', 'trip_allowance', 'other_advance', 'reimbursement'];
 
 export const GOODS = ['Sugar bags', 'Cement', 'Onions', 'Cotton bales', 'TMT steel rods', 'FMCG cartons', 'Jaggery', 'Vitrified tiles', 'Soybean', 'Auto parts'];

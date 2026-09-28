@@ -1,3 +1,4 @@
+import type { ApiAccountStatus, ApiRole } from './session';
 /** Response shapes returned by the Phase 1 API. Mirrors the backend presenters. */
 
 export type EmployeeRole = 'DRIVER' | 'ACCOUNTING' | 'MANAGER' | 'ADMIN' | 'OTHER';
@@ -29,6 +30,10 @@ export interface ApiEmployee {
   updatedAt: string;
   driver: { id: string; driverCode: string; status: ApiDriverStatus } | null;
   payroll?: { baseSalary: string | null; pfApplicable: boolean; uan: string | null; pfMemberId: string | null };
+  /** Sign-in access at a glance; present for administrators only, null when there is no login. */
+  account?: { role: ApiRole; status: ApiAccountStatus } | null;
+  /** Returned once, when the employee was created with login access. */
+  temporaryPassword?: string;
 }
 
 export interface ApiAssignmentVehicle {
@@ -81,7 +86,9 @@ export interface ApiFinancing {
   remainingInstallments: number | null;
   outstandingAmount: string | null;
   nextDueDate: string | null;
-  calculated: { emiAmount: number; totalPayable: number; totalInterest: number; outstandingPrincipal: number } | null;
+  financeEndDate: string | null;
+  /** Derived from the loan terms in Decimal; strings so no precision is lost. */
+  calculated: { emiAmount: string; totalPayable: string; totalInterest: string; outstandingPrincipal: string } | null;
 }
 
 export interface ApiVehicle {
@@ -107,6 +114,8 @@ export interface ApiVehicle {
   } | null;
   /** Null for OWNED vehicles: a fully owned vehicle has no EMI. */
   financing: ApiFinancing | null;
+  /** A closed loan on a vehicle that is now owned — history only, no EMI tools. */
+  pastFinancing: ApiFinancing | null;
 }
 
 export interface ApiAssignment {
@@ -125,4 +134,717 @@ export interface ApiDocumentSummary {
   expiringSoon: number;
   expired: number;
   licenceOnFile: boolean;
+}
+
+// ───────────────────────────── Phase 3: fuel & daily operations ─────────────────────────────
+
+export type ApiFuelTypeValue = 'PETROL' | 'DIESEL';
+export type RecordStatus = 'ACTIVE' | 'ARCHIVED';
+export type OperationCategory = 'RTO' | 'TYRE' | 'MAINTENANCE';
+
+export interface ApiTotals {
+  entries: number;
+  amount: string;
+  litres: string;
+  /** Weighted: total amount ÷ total litres. */
+  averageRate: string | null;
+}
+
+export interface ApiFuelEntry {
+  id: string;
+  fuelType: ApiFuelTypeValue;
+  amount: string;
+  litres: string;
+  /** Derived by the server from amount ÷ litres. */
+  ratePerLitre: string | null;
+  fuelStation: string;
+  transactionDate: string;
+  receiptFileId: string | null;
+  status: RecordStatus;
+  notes: string | null;
+  archivedAt: string | null;
+  archiveReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  driver: { id: string; driverCode: string; fullName: string };
+  vehicle: { id: string; registrationNumber: string };
+}
+
+export interface ApiFuelPeriod extends ApiTotals {
+  from: string;
+  to: string;
+  byFuelType: Record<ApiFuelTypeValue, { amount: string; litres: string; entries: number }>;
+}
+
+export interface ApiFuelSummary {
+  today: ApiFuelPeriod;
+  month: ApiFuelPeriod;
+  financialYear: ApiFuelPeriod & { label: string; code: string };
+}
+
+export interface ApiBreakdownRow extends ApiTotals {
+  key: string;
+  label: string;
+}
+
+export interface ApiOperation {
+  id: string;
+  category: OperationCategory;
+  amount: string;
+  expenseDate: string;
+  vendorName: string | null;
+  description: string | null;
+  receiptFileId: string | null;
+  status: RecordStatus;
+  archivedAt: string | null;
+  archiveReason: string | null;
+  createdAt: string;
+  vehicle: { id: string; registrationNumber: string };
+  driver: { id: string; driverCode: string; fullName: string } | null;
+}
+
+export interface ApiTyreInsurance {
+  id: string;
+  insurer: string | null;
+  policyNumber: string | null;
+  premium: string | null;
+  startDate: string | null;
+  expiryDate: string | null;
+  fileId: string | null;
+  createdAt: string;
+  vehicle: { id: string; registrationNumber: string };
+}
+
+// ───────────────────────────── Phase 4: documents & compliance ─────────────────────────────
+
+export interface ApiDocument {
+  id: string;
+  type: import('@/features/documents/compliance').ApiDocumentType;
+  customName: string | null;
+  ownerType: 'VEHICLE' | 'EMPLOYEE' | 'COMPANY';
+  vehicle: { id: string; registrationNumber: string } | null;
+  employee: { id: string; fullName: string; driver: { id: string; driverCode: string } | null } | null;
+  documentNumber: string | null;
+  issuer: string | null;
+  issueDate: string | null;
+  expiryDate: string | null;
+  amount: string | null;
+  /** Derived by the server from the expiry date and today; never stored. */
+  status: 'VALID' | 'EXPIRING_SOON' | 'EXPIRED';
+  daysRemaining: number | null;
+  state: 'CURRENT' | 'SUPERSEDED' | 'ARCHIVED';
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verifiedAt: string | null;
+  rejectionReason: string | null;
+  archiveReason: string | null;
+  uploadedAt: string;
+  uploadedBy?: string | null;
+  file: { id: string; fileName: string; mimeType: string; sizeBytes: number; uploadedAt: string } | null;
+}
+
+export interface ApiComplianceItem {
+  type: ApiDocument['type'];
+  status: import('@/features/documents/compliance').ComplianceStatus;
+  daysRemaining: number | null;
+  document: ApiDocument | null;
+}
+
+export interface ApiComplianceSummaryRow {
+  type: ApiDocument['type'];
+  expired: number;
+  within7Days: number;
+  expiringSoon: number;
+  valid: number;
+  pendingVerification: number;
+  notUploaded: number | null;
+}
+
+// ─────────────────────────── Phase 5: finance & payments ───────────────────────────
+// Money is always a two-decimal string from the API; convert with Number() only to display.
+
+export type ApiPaymentStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'PROCESSING' | 'STATUS_REVIEW_REQUIRED' | 'PAID' | 'FAILED' | 'CANCELLED' | 'REVERSED';
+export type ApiPaymentType = 'SALARY' | 'ADVANCE' | 'ALLOWANCE' | 'OTHER';
+export type ApiPaymentMethod = 'UPI' | 'BANK_TRANSFER' | 'CASH' | 'OTHER';
+export type ApiPaymentProvider = 'MANUAL' | 'RAZORPAY' | 'RAZORPAYX';
+export type ApiAdvanceType = 'SALARY_ADVANCE' | 'FUEL_ADVANCE' | 'TRIP_ADVANCE' | 'OTHER_ADVANCE';
+export type ApiLedgerType =
+  | 'FUEL' | 'RTO' | 'TYRE' | 'TYRE_INSURANCE' | 'MAINTENANCE' | 'SALARY' | 'ADVANCE' | 'ALLOWANCE'
+  | 'OTHER_PAYMENT' | 'EMI' | 'CUSTOMER_PAYMENT' | 'OTHER_INCOME' | 'OTHER_EXPENSE';
+
+export interface ApiPersonRef {
+  id: string;
+  fullName: string;
+  employeeCode: string;
+}
+
+export interface ApiPaymentRef {
+  id: string;
+  status: ApiPaymentStatus;
+  method: ApiPaymentMethod;
+}
+
+export interface ApiLedgerEntry {
+  id: string;
+  date: string;
+  type: ApiLedgerType;
+  direction: 'INCOME' | 'EXPENSE';
+  amount: string;
+  description: string | null;
+  sourceType: string;
+  sourceId: string;
+  isReversal: boolean;
+  reversed: boolean;
+  payment: (ApiPaymentRef & { provider: ApiPaymentProvider }) | null;
+  employee: ApiPersonRef | null;
+  vehicle: { id: string; registrationNumber: string } | null;
+}
+
+export interface ApiLedgerTotals {
+  income: string;
+  expense: string;
+  net: string;
+}
+
+export interface ApiFinanceSummary {
+  financialYear: string;
+  totalIncome: string;
+  totalExpenses: string;
+  salaries: string;
+  advances: string;
+  fuel: string;
+  maintenance: string;
+  tyres: string;
+  rto: string;
+  vehicleFinance: string;
+  pendingPayments: { count: number; amount: string };
+}
+
+export interface ApiPayrollSummary {
+  period: string;
+  salaries: { count: number; amount: string };
+  advances: { count: number; amount: string };
+  unpaidAdvances: { count: number; amount: string };
+}
+
+export interface ApiSalary {
+  id: string;
+  employee: ApiPersonRef;
+  payPeriod: string;
+  baseSalary: string;
+  allowances: string;
+  advanceRecovery: string;
+  deductions: string;
+  netPayable: string;
+  status: 'PENDING' | 'PAID' | 'CANCELLED';
+  paidAt: string | null;
+  notes: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  recoveredAdvances: { id: string; type: ApiAdvanceType; amount: string; advanceDate: string }[];
+  payment: ApiPaymentRef | null;
+  createdAt: string;
+}
+
+export interface ApiAdvance {
+  id: string;
+  employee: ApiPersonRef;
+  type: ApiAdvanceType;
+  amount: string;
+  advanceDate: string;
+  reason: string | null;
+  status: 'PENDING' | 'PAID' | 'CANCELLED';
+  recovered: boolean;
+  recoveredInSalaryId: string | null;
+  notes: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  payment: ApiPaymentRef | null;
+  createdAt: string;
+}
+
+export interface ApiPayment {
+  id: string;
+  employee: ApiPersonRef;
+  type: ApiPaymentType;
+  amount: string;
+  status: ApiPaymentStatus;
+  method: ApiPaymentMethod;
+  provider: ApiPaymentProvider;
+  description: string | null;
+  salary: { id: string; payPeriod: string } | null;
+  advance: { id: string; type: ApiAdvanceType; advanceDate: string } | null;
+  attempt: number;
+  providerReference: string | null;
+  providerStatus: string | null;
+  paymentReference: string | null;
+  recipientSummary: string | null;
+  failureReason: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  sentAt: string | null;
+  paidAt: string | null;
+  failedAt: string | null;
+  cancelledAt: string | null;
+  reversedAt: string | null;
+  createdAt: string;
+}
+
+/** Audit trail and provider webhooks for one payment, oldest first. */
+export interface ApiPaymentHistory {
+  audit: { action: string; occurredAt: string; actorUserId: string | null; changes: Record<string, unknown> | null }[];
+  providerEvents: { eventType: string; receivedAt: string; outcome: string | null }[];
+}
+
+/** Result of Send / Check status. `unknown` means the payment is held for a status check. */
+export interface ApiPaymentOutcome {
+  outcome: 'accepted' | 'rejected' | 'unknown';
+  payment: ApiPayment;
+}
+
+export interface ApiPayoutAccount {
+  method: ApiPaymentMethod;
+  accountHolderName: string;
+  ifsc: string | null;
+  accountNumberLast4: string | null;
+  upiIdMasked: string | null;
+  provider: ApiPaymentProvider;
+  updatedAt: string;
+}
+
+export interface ApiInstalment {
+  id: string;
+  installmentNumber: number;
+  dueDate: string;
+  amount: string;
+  status: 'PENDING' | 'PAID';
+  paidAt: string | null;
+  paymentReference: string | null;
+}
+
+export interface ApiPaymentsSummary {
+  byStatus: Partial<Record<ApiPaymentStatus, { count: number; amount: string }>>;
+  paidThisMonth: { count: number; amount: string };
+}
+
+// ─────────────────────────── Accounts (sign-in access) ───────────────────────────
+
+export interface ApiAccount {
+  id: string;
+  role: ApiRole;
+  status: ApiAccountStatus;
+  /** What they type to sign in: a mobile number (E.164) or an email address. */
+  signInId: string;
+  email: string | null;
+  phone: string | null;
+  mustChangePassword: boolean;
+  lastLoginAt: string | null;
+  passwordChangedAt: string | null;
+  createdAt: string;
+}
+
+/** The account plus what the viewer may do with it — decided by the API, not the browser. */
+export interface ApiAccountAccess {
+  account: ApiAccount | null;
+  canManage: boolean;
+  assignableRoles: ApiRole[];
+}
+
+export interface ApiTemporaryPassword {
+  account: ApiAccount;
+  /** Shown once; the API never returns it again. */
+  temporaryPassword: string;
+}
+
+// ─────────────────────────── Fleet location (Phase 6) ───────────────────────────
+
+/** What the server concludes about a driver's tracking, from its reports plus fix recency. */
+export type ApiLocationStatus = 'ACTIVE' | 'PERMISSION_DENIED' | 'LOCATION_DISABLED' | 'OFFLINE' | 'STALE';
+
+/** What the driver's device reports about its own tracking. */
+export type ApiTrackingState =
+  | 'LOCATION_PERMISSION_DENIED'
+  | 'BACKGROUND_PERMISSION_MISSING'
+  | 'LOCATION_SERVICES_DISABLED'
+  | 'TRACKING_ACTIVE'
+  | 'TRACKING_PAUSED'
+  | 'TRACKING_UNAVAILABLE'
+  | 'SYNC_PENDING'
+  | 'LAST_LOCATION_STALE';
+
+export type ApiLocationPermission = 'UNKNOWN' | 'GRANTED_ALWAYS' | 'GRANTED_FOREGROUND' | 'DENIED';
+export type ApiFleetAlertStatus = 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED';
+export type ApiFleetAlertType = 'STATIONARY';
+
+/** One driver's current whereabouts. Coordinates are numbers: a map consumes numbers. */
+export interface ApiFleetLocation {
+  driverId: string;
+  driverCode: string;
+  driverStatus: string;
+  employee: { id: string; employeeCode: string; fullName: string; phone: string | null };
+  vehicle: { id: string; registrationNumber: string; kind: string } | null;
+  /** Null until the driver's first accepted fix; the row still carries the tracking state. */
+  position: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters: number | null;
+    speedKmh: number | null;
+    headingDeg: number | null;
+    altitudeMeters: number | null;
+  } | null;
+  status: ApiLocationStatus;
+  trackingState: ApiTrackingState;
+  permission: ApiLocationPermission;
+  locationServicesEnabled: boolean;
+  pendingUploads: number;
+  batteryPct: number | null;
+  /** Device capture time of the newest fix. */
+  capturedAt: string | null;
+  /** Server time that fix was stored. */
+  receivedAt: string | null;
+  /** Last contact of any kind — a fix or a tracking report. */
+  lastSeenAt: string | null;
+  stale: boolean;
+  stationarySince: string | null;
+  stationaryMinutes: number | null;
+  alert: { id: string; status: ApiFleetAlertStatus; triggeredAt: string; stationarySince: string; durationMinutes: number } | null;
+}
+
+export interface ApiFleetSummary {
+  total: number;
+  active: number;
+  stale: number;
+  offline: number;
+  unavailable: number;
+  alerting: number;
+}
+
+export interface ApiFleetResponse {
+  data: ApiFleetLocation[];
+  summary: ApiFleetSummary;
+  /** How often to poll, decided by the server so it is tunable without a new bundle. */
+  refreshSeconds: number;
+  serverTime: string;
+}
+
+export interface ApiLocationPing {
+  /** A bigint on the server, so it crosses the wire as a string. */
+  id: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number | null;
+  speedKmh: number | null;
+  headingDeg: number | null;
+  altitudeMeters: number | null;
+  batteryPct: number | null;
+  provider: string | null;
+  capturedAt: string;
+  receivedAt: string;
+  /** The vehicle assigned when this fix was captured, not the driver's vehicle today. */
+  vehicleId: string | null;
+}
+
+/** History pages on the ping id, not a UUID cursor. */
+export interface ApiPingPage {
+  data: ApiLocationPing[];
+  page: { limit: number; nextCursor: string | null };
+}
+
+export interface ApiFleetAlert {
+  id: string;
+  type: ApiFleetAlertType;
+  status: ApiFleetAlertStatus;
+  driver: { id: string; driverCode: string; fullName: string; employeeCode: string; phone: string | null };
+  vehicleId: string | null;
+  vehicleRegistration: string | null;
+  triggeredAt: string;
+  stationarySince: string;
+  latitude: number;
+  longitude: number;
+  durationMinutes: number;
+  radiusMeters: number;
+  acknowledgedAt: string | null;
+  acknowledgedById: string | null;
+  acknowledgeNote: string | null;
+  resolvedAt: string | null;
+  resolvedReason: string | null;
+  movedAt: string | null;
+}
+
+export interface ApiFleetAlertSummary {
+  active: number;
+  acknowledged: number;
+  needsAttention: number;
+}
+
+// ───────────────────────── Service receipt AI (Phase 7) ─────────────────────────
+
+/**
+ * The lifecycle of an uploaded service receipt, as the office sees it.
+ *
+ * `COMPLETED` means the extraction succeeded — not that anyone has agreed with it. Only
+ * `CONFIRMED` says a person checked the figures and put their name to them.
+ */
+export type ApiReceiptAIStatus =
+  | 'NOT_PROCESSED' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'REVIEW_REQUIRED'
+  | 'FAILED' | 'RETRYING' | 'CONFIRMED' | 'REJECTED';
+
+/** What the driver's phone is told. Five words, no AI detail. */
+export type ApiDriverReceiptState = 'uploaded' | 'processing' | 'needsReview' | 'verified' | 'failed';
+
+/** A value the extraction offered. `missing` means the receipt did not say — never a zero. */
+export interface ApiSuggestedValue<T> {
+  value: T | null;
+  state: 'found' | 'missing';
+}
+
+export interface ApiReceiptSuggestions {
+  totalAmount: ApiSuggestedValue<number>;
+  invoiceDate: ApiSuggestedValue<string>;
+  vendorName: ApiSuggestedValue<string>;
+  invoiceNumber: ApiSuggestedValue<string>;
+  serviceType: ApiSuggestedValue<string>;
+}
+
+export interface ApiReceiptExtraction {
+  vendorName: string | null;
+  invoiceNumber: string | null;
+  invoiceDate: string | null;
+  vehicleNumber: string | null;
+  serviceType: string | null;
+  parts: { name: string; quantity: number | null; unitPrice: number | null; amount: number | null }[];
+  partsAmount: number | null;
+  labourAmount: number | null;
+  gstAmount: number | null;
+  otherCharges: number | null;
+  subtotal: number | null;
+  totalAmount: number | null;
+  confidence: number;
+  warnings: string[];
+}
+
+export interface ApiReceiptAIResult {
+  id: string;
+  version: number;
+  provider: string;
+  model: string;
+  confidence: number | null;
+  /** What the model flagged about its own reading. */
+  warnings: string[];
+  /** What the application's checks found. These are what send a record to review. */
+  validationIssues: string[];
+  preparation: string | null;
+  sourceTextChars: number | null;
+  durationMs: number | null;
+  createdAt: string;
+}
+
+export interface ApiReceiptAIJob {
+  id: string;
+  status: ApiReceiptAIStatus;
+  attempt: number;
+  maxAttempts: number;
+  provider: string | null;
+  model: string | null;
+  queuedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  nextAttemptAt: string | null;
+  failureCode: string | null;
+  /** Safe to show: never the prompt and never the receipt's contents. */
+  failureMessage: string | null;
+}
+
+export interface ApiReceiptReview {
+  /** The authoritative record, exactly as it stands now. */
+  record: {
+    id: string;
+    category: string;
+    amount: string;
+    expenseDate: string | null;
+    vendorName: string | null;
+    description: string | null;
+    status: string;
+    vehicle: { id: string; registrationNumber: string };
+    driver: { id: string; driverCode: string; fullName: string } | null;
+  };
+  /** The original upload. Present whatever happened to processing. */
+  receipt: { fileId: string; filename: string; mimeType: string; sizeBytes: number; uploadedAt: string } | null;
+  ai: {
+    status: ApiReceiptAIStatus;
+    verifiedAt: string | null;
+    verifiedById: string | null;
+    rejectedAt: string | null;
+    acceptedResultId: string | null;
+    acceptedFields: string[];
+    canVerify: boolean;
+    canRetry: boolean;
+  };
+  /** Every reading, newest first. A rerun adds a version; it never replaces one. */
+  results: ApiReceiptAIResult[];
+  jobs: ApiReceiptAIJob[];
+  extraction: ApiReceiptExtraction | null;
+  suggestions: ApiReceiptSuggestions | null;
+}
+
+export interface ApiPendingReceipt {
+  id: string;
+  amount: string;
+  expenseDate: string | null;
+  vendorName: string | null;
+  aiStatus: ApiReceiptAIStatus;
+  createdAt: string;
+  hasReceipt: boolean;
+  vehicle: { id: string; registrationNumber: string };
+  driver: { id: string; fullName: string } | null;
+  latest: { version: number; confidence: number | null; issueCount: number; warningCount: number } | null;
+}
+
+export interface ApiReceiptQueueStatus {
+  pending: number;
+  processing: number;
+  retrying: number;
+  failed: number;
+  awaitingReview: number;
+  provider: string;
+  model: string;
+  /** False when the in-process worker is off and jobs are drained by a scheduled run instead. */
+  workerEnabled: boolean;
+}
+
+export interface ApiMaintenanceObservation {
+  kind: 'estimated_reminder' | 'frequent_service' | 'repeated_part' | 'recurring_vendor';
+  severity: 'info' | 'attention';
+  /** Plain words for the office. Always an observation, never an instruction. */
+  message: string;
+}
+
+/** One vehicle's verified service history. Every figure here rests on confirmed records only. */
+export interface ApiVehicleMaintenance {
+  vehicleId: string;
+  confirmedServices: number;
+  totalSpend: string;
+  lastServiceDate: string | null;
+  averageIntervalDays: number | null;
+  /** An estimate from past intervals, not a manufacturer schedule. */
+  estimatedNextServiceDate: string | null;
+  frequentParts: { name: string; occurrences: number }[];
+  observations: ApiMaintenanceObservation[];
+  /** Says in words what the numbers were drawn from, so they can be judged rather than believed. */
+  basis: string;
+}
+
+export interface ApiMaintenanceSummary {
+  windowDays: number;
+  confirmedServices: number;
+  /** Receipts the office has still to look at. Counted separately, and excluded from the spend. */
+  awaitingReview: number;
+  confirmedSpend: string;
+  basis: string;
+}
+
+// ───────────────────────────── Inbox (Phase 7) ─────────────────────────────
+
+export type ApiInboxClassification =
+  | 'UNCLASSIFIED' | 'SERVICE_INVOICE' | 'DOCUMENT' | 'PAYMENT_NOTIFICATION'
+  | 'GOVERNMENT' | 'CUSTOMER' | 'SPAM' | 'OPERATIONAL' | 'OTHER';
+
+export type ApiInboxStatus = 'UNREAD' | 'READ' | 'ARCHIVED';
+
+export type ApiInboxAIStatus = 'NOT_PROCESSED' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface ApiInboxRow {
+  id: string;
+  from: { address: string; name: string | null };
+  subject: string | null;
+  receivedAt: string;
+  status: ApiInboxStatus;
+  classification: ApiInboxClassification;
+  /** True when a person chose the category; false while it is still only a suggestion. */
+  classificationConfirmed: boolean;
+  aiStatus: ApiInboxAIStatus;
+  attachmentCount: number;
+  hasHtml: boolean;
+  provider: string;
+  aiSummary: string | null;
+  aiConfidence: number | null;
+}
+
+export interface ApiInboxAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  /** False when the file was refused. It is still listed, with a reason. */
+  stored: boolean;
+  skipReason: string | null;
+}
+
+export interface ApiInboxMessage {
+  id: string;
+  provider: string;
+  mailbox: string;
+  threadId: string | null;
+  from: { address: string; name: string | null };
+  to: string[];
+  cc: string[];
+  subject: string | null;
+  receivedAt: string;
+  filedAt: string;
+  /** Plain text only: an HTML mail was flattened on the way in and is never returned as markup. */
+  bodyText: string | null;
+  bodyTruncated: boolean;
+  hasHtml: boolean;
+  labels: string[];
+  sizeBytes: number | null;
+  authenticationResults: string | null;
+  status: ApiInboxStatus;
+  classification: ApiInboxClassification;
+  classificationConfirmed: boolean;
+  classifiedAt: string | null;
+  ai: { status: ApiInboxAIStatus; attempts: number; failureCode: string | null; failureMessage: string | null };
+  attachments: ApiInboxAttachment[];
+  aiResults: {
+    id: string;
+    version: number;
+    provider: string;
+    model: string;
+    classification: ApiInboxClassification;
+    confidence: number | null;
+    summary: string | null;
+    references: { type: string; value: string }[];
+    warnings: string[];
+    durationMs: number | null;
+    createdAt: string;
+  }[];
+}
+
+export interface ApiInboxSummary {
+  unread: number;
+  total: number;
+  needingAttention: number;
+  byClassification: Partial<Record<ApiInboxClassification, number>>;
+}
+
+export interface ApiInboxStatusInfo {
+  /** False when no mailbox is configured on the server — which is not the same as no mail. */
+  configured: boolean;
+  provider: string | null;
+  mailbox: string | null;
+  syncEnabled: boolean;
+  aiEnabled: boolean;
+  lastSyncStartedAt: string | null;
+  lastSyncFinishedAt: string | null;
+  lastError: string | null;
+  consecutiveFailures: number;
+  messagesSynced: number;
+}
+
+export interface ApiInboxSyncOutcome {
+  ok: boolean;
+  reason?: string;
+  fetched: number;
+  created: number;
+  duplicates: number;
+  failed: number;
+  classified: { processed: number; failed: number };
 }

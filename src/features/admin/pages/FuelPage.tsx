@@ -14,11 +14,13 @@ import { exportXlsx } from '@/lib/exporters';
 import { fmtDate, fmtTime, inr, num } from '@/lib/format';
 import { normalize, sum } from '@/lib/utils';
 import { useApp } from '@/store';
+import { useConnected } from '@/features/api/mode';
+import { FuelConnected } from './FuelConnected';
 import { DriverCell, FilterBar, PageHeader, Pagination, Panel, SearchInput, StatCard, Table, TD, TH, TR, usePaged } from '../components/ui';
 import { DATE_RANGES, inRange, type DateRange } from '../filters';
 import { useSyncedData } from '../useAdminData';
 
-export function FuelPage() {
+function FuelDemo() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
   const drivers = useApp((s) => s.drivers);
@@ -205,4 +207,13 @@ export function FuelPage() {
       <FuelEntrySheet entryId={params.get('entry')} onClose={() => setParam('entry', '')} />
     </div>
   );
+}
+
+
+/**
+ * Demo mode keeps the approved prototype exactly as it was; connected mode reads the real
+ * Phase 3 data from the API. Same route, no additional tabs.
+ */
+export function FuelPage() {
+  return useConnected() ? <FuelConnected /> : <FuelDemo />;
 }

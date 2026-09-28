@@ -6,7 +6,9 @@ import { EmptyState } from '@/components/EmptyState';
 import { Plate } from '@/components/Plate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { vehiclesApi } from '@/features/api/resources';
+import { documentsApi, operationsApi, vehiclesApi } from '@/features/api/resources';
+import { ComplianceBadge, docTypeLabelKey, VerificationBadge } from '@/features/documents/compliance';
+import { DocumentDetailDialog, UploadDocumentDialog } from '@/features/documents/DocumentApiDialogs';
 import { canManageFinance, canManageFleet, useSession } from '@/features/api/session';
 import type { ApiFinancing } from '@/features/api/types';
 import { useApiResource } from '@/features/api/useApiResource';
@@ -14,6 +16,7 @@ import { fmtDate } from '@/lib/format';
 import { DetailList, PageHeader, Panel, StatCard, Table, TD, TH, TR } from '../components/ui';
 import { ErrorState, TableLoading } from '../components/states';
 import { AssignDriverToVehicleDialog, FinancingDialog, VehicleFormDialog } from '../../vehicles/VehicleApiDialogs';
+import { InstalmentsPanel } from '../../vehicles/InstalmentsPanel';
 import { VEHICLE_STATUS_TONE } from './VehiclesConnected';
 
 const rupees = (value: string | number | null | undefined): string =>
@@ -31,6 +34,14 @@ export function VehicleDetailConnected() {
 
   const vehicle = useApiResource(() => vehiclesApi.get(id as string), [id], Boolean(id));
   const history = useApiResource(() => vehiclesApi.assignments(id as string), [id], Boolean(id));
+  const serviceHistory = useApiResource(
+    () => operationsApi.list({ vehicleId: id as string, category: 'MAINTENANCE', limit: 20 }),
+    [id],
+    Boolean(id),
+  );
+  const documents = useApiResource(() => documentsApi.vehicle(id as string), [id], Boolean(id));
+  const [openDocument, setOpenDocument] = useState<string | null>(null);
+  const [addingDocument, setAddingDocument] = useState(false);
 
   const reloadAll = () => {
     vehicle.reload();
@@ -182,6 +193,81 @@ export function VehicleDetailConnected() {
         )}
       </Panel>
 
+      {/* EMI instalments: managed while financed; a paid-off loan stays readable as history. */}
+      {isFinanced && record.financing && <InstalmentsPanel vehicleId={record.id} editable={canManageFinance(role)} onChanged={vehicle.reload} />}
+      {!isFinanced && record.pastFinancing && (
+        <>
+          <Panel title={t('admin.vehiclesApi.pastFinancing')} className="mt-4">
+            <p className="px-4 pt-4 text-sm text-muted-foreground">{t('admin.vehiclesApi.pastFinancingBody')}</p>
+            <FinanceDetails financing={record.pastFinancing} />
+          </Panel>
+          <InstalmentsPanel vehicleId={record.id} editable={false} onChanged={vehicle.reload} />
+        </>
+      )}
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {/* Maintenance/service records from Phase 3, newest first. */}
+        <Panel title={t('admin.opsApi.serviceHistory')}>
+          {serviceHistory.loading ? (
+            <TableLoading rows={3} columns={3} />
+          ) : (serviceHistory.data?.data.length ?? 0) === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">{t('admin.opsApi.noService')}</p>
+          ) : (
+            <ul className="divide-y">
+              {serviceHistory.data?.data.map((record) => (
+                <li key={record.id} className="flex items-start justify-between gap-3 px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{fmtDate(record.expenseDate)}</p>
+                    <p className="truncate text-xs text-muted-foreground">{record.description ?? record.vendorName ?? '—'}</p>
+                  </div>
+                  <span className="figure shrink-0 font-semibold">{rupees(record.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+
+        {/* The central document module: RC, insurance, PUC, tyre insurance, fitness, permit. */}
+        <Panel
+          title={t('admin.docsApi.documents')}
+          action={
+            canManageFleet(role) ? (
+              <Button size="sm" variant="outline" onClick={() => setAddingDocument(true)}>
+                {t('admin.docsApi.upload')}
+              </Button>
+            ) : undefined
+          }
+        >
+          {documents.loading ? (
+            <TableLoading rows={3} columns={2} />
+          ) : (
+            <ul className="divide-y">
+              {documents.data?.map((item) => (
+                <li key={item.type}>
+                  <button
+                    type="button"
+                    disabled={!item.document}
+                    onClick={() => item.document && setOpenDocument(item.document.id)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left enabled:hover:bg-muted/50"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{t(docTypeLabelKey(item.type))}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.document?.expiryDate ? t('expiry.validTill', { date: fmtDate(item.document.expiryDate) }) : '—'}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {item.document && item.document.verificationStatus !== 'VERIFIED' ? <VerificationBadge value={item.document.verificationStatus} /> : null}
+                      <ComplianceBadge status={item.status} daysRemaining={item.daysRemaining} />
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
+
       <Panel title={t('admin.vehiclesApi.assignmentHistory')} className="mt-4">
         {history.loading ? (
           <TableLoading rows={3} columns={4} />
@@ -235,6 +321,16 @@ export function VehicleDetailConnected() {
           reloadAll();
         }}
       />
+      <DocumentDetailDialog documentId={openDocument} onClose={() => setOpenDocument(null)} onChanged={documents.reload} />
+      <UploadDocumentDialog
+        open={addingDocument}
+        onOpenChange={setAddingDocument}
+        presetVehicleId={record.id}
+        onSaved={() => {
+          setAddingDocument(false);
+          documents.reload();
+        }}
+      />
       <FinancingDialog
         vehicle={record}
         open={financing}
@@ -280,13 +376,14 @@ function FinanceDetails({ financing }: { financing: ApiFinancing }) {
           ],
           [t('admin.vehiclesApi.outstanding'), rupees(financing.outstandingAmount)],
           [t('admin.vehiclesApi.nextDue'), financing.nextDueDate ? fmtDate(financing.nextDueDate) : '—'],
+          [t('admin.vehiclesApi.financeEnd'), financing.financeEndDate ? fmtDate(financing.financeEndDate) : '—'],
         ]}
       />
       {financing.calculated && (
         <p className="text-xs text-muted-foreground lg:col-span-2">
           {t('admin.vehiclesApi.calculatedNote', {
-            total: Math.round(financing.calculated.totalPayable).toLocaleString('en-IN'),
-            interest: Math.round(financing.calculated.totalInterest).toLocaleString('en-IN'),
+            total: Math.round(Number(financing.calculated.totalPayable)).toLocaleString('en-IN'),
+            interest: Math.round(Number(financing.calculated.totalInterest)).toLocaleString('en-IN'),
           })}
         </p>
       )}

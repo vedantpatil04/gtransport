@@ -17,7 +17,7 @@ import { UPDATE_META } from '../updateMeta';
 import { AmountInput, parseAmount } from './AmountInput';
 import { DateField } from './DateField';
 
-const MAX: Record<UpdateType, number> = { toll: 5000, parking: 2000, repair: 50000, food: 3000, advance: 50000, trip: 10000, other: 20000, maintenance: 50000 };
+const MAX: Record<UpdateType, number> = { toll: 5000, rto: 50000, tyre: 200000, tyre_insurance: 50000, advance: 50000, trip: 10000, other: 20000, maintenance: 200000 };
 
 const schema = (type: UpdateType) =>
   z.object({

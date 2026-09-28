@@ -13,7 +13,7 @@ interface ApiErrorBody {
     statusCode?: number;
     code?: string;
     message?: string;
-    details?: { field?: string; constraints?: string[] }[];
+    details?: { field?: string; messages?: string[]; constraints?: string[] }[];
     requestId?: string;
   };
 }
@@ -23,7 +23,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
-    readonly details?: { field?: string; constraints?: string[] }[],
+    readonly details?: { field?: string; messages?: string[]; constraints?: string[] }[],
     readonly requestId?: string,
   ) {
     super(message);
@@ -39,7 +39,9 @@ export class ApiError extends Error {
   get fieldErrors(): Record<string, string> {
     const out: Record<string, string> = {};
     for (const detail of this.details ?? []) {
-      if (detail.field && detail.constraints?.length) out[detail.field] = detail.constraints[0] as string;
+      // The API sends `messages` (see backend ApiFieldError); `constraints` is accepted for older builds.
+      const messages = detail.messages ?? detail.constraints;
+      if (detail.field && messages?.length) out[detail.field] = messages[0] as string;
     }
     return out;
   }

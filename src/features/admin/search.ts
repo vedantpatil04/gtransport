@@ -3,7 +3,7 @@ import { fmtDayMonth, inr } from '@/lib/format';
 import { normalize } from '@/lib/utils';
 import type { AppState } from '@/store';
 
-export type SearchGroupKey = 'drivers' | 'vehicles' | 'fuel' | 'expenses' | 'payments' | 'documents';
+export type SearchGroupKey = 'employees' | 'drivers' | 'vehicles' | 'fuel' | 'expenses' | 'payments' | 'documents';
 
 export interface SearchItem {
   id: string;

@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { useApp } from '@/store';
 import type { NotificationKind } from '@/types';
 import { PageHeader, Panel } from '../components/ui';
+import { isApiConfigured } from '@/features/api/mode';
+import { NotLiveState } from '../components/states';
 
 type Filter = 'all' | 'unread' | 'documents' | 'payments' | 'fleet';
 const GROUP: Record<Exclude<Filter, 'all' | 'unread'>, NotificationKind[]> = {
@@ -19,7 +21,7 @@ const GROUP: Record<Exclude<Filter, 'all' | 'unread'>, NotificationKind[]> = {
   fleet: ['fuel_added', 'driver_offline', 'trip_assigned'],
 };
 
-export function NotificationsPage() {
+function NotificationsDemo() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const all = useApp((s) => s.notifications);
@@ -97,4 +99,10 @@ export function NotificationsPage() {
       </Panel>
     </div>
   );
+}
+
+/** Real mode shows no sample records: this module's live data arrives in a later phase. */
+export function NotificationsPage() {
+  const { t } = useTranslation();
+  return isApiConfigured() ? <NotLiveState title={t('admin.nav.notifications')} body={t('admin.real.notificationsBody')} /> : <NotificationsDemo />;
 }

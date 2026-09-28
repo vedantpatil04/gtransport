@@ -4,7 +4,7 @@ import { Crosshair, Minus, Plus } from 'lucide-react';
 import { BORDERS, CITIES, CITY_IDS, COASTLINE, HIGHWAYS, MAP_BOUNDS, REGION_LABELS, project, toLatLng } from '@/data/geo';
 import { MOTION_HEX } from '@/components/status';
 import { cn } from '@/lib/utils';
-import type { FleetItem } from './useFleet';
+import type { MapMarker } from './provider';
 
 interface View {
   x: number;
@@ -17,10 +17,28 @@ const pt = (lat: number, lng: number) => project(lat, lng);
 const path = (pts: { x: number; y: number }[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
 
 /**
- * Hand-built vector map of the fleet's operating region (Maharashtra–Karnataka–Goa),
- * drawn from real coordinates. No map API needed; positions come from the simulation.
+ * Hand-built vector map of the fleet's operating region (Maharashtra–Karnataka–Goa), drawn from
+ * real coordinates. No map API, no key, and no third-party request.
+ *
+ * The component takes plain `MapMarker`s — latitude, longitude, a tone and a label — and knows
+ * nothing about where they came from. That is what lets the same map serve the prototype's
+ * simulation and Phase 6's real fleet data without two maps existing, and it keeps projection
+ * (see ./provider.ts) the only place that deals in SVG coordinates.
  */
-export function FleetMap({ items, selectedId, onSelect, className }: { items: FleetItem[]; selectedId: string | null; onSelect: (id: string | null) => void; className?: string }) {
+export function FleetMap({
+  markers,
+  selectedId,
+  onSelect,
+  className,
+  /** Shown in the legend. The prototype's positions are simulated; real fleet data is not. */
+  simulated = false,
+}: {
+  markers: MapMarker[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  className?: string;
+  simulated?: boolean;
+}) {
   const { t } = useTranslation();
   const wrap = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 560 });
@@ -37,8 +55,8 @@ export function FleetMap({ items, selectedId, onSelect, className }: { items: Fl
 
   const aspect = size.h / size.w;
   const fit = useCallback(
-    (focus?: FleetItem[]) => {
-      const pts = (focus?.length ? focus : items).filter((i) => i.pos.motion !== 'none' || focus).map((i) => pt(i.pos.lat, i.pos.lng));
+    (focus?: MapMarker[]) => {
+      const pts = (focus?.length ? focus : markers).filter((m) => m.tone !== 'none' || focus).map((m) => pt(m.latitude, m.longitude));
       if (!pts.length) return setView({ x: 150, y: 80, w: 420 });
       let minX = Math.min(...pts.map((p) => p.x));
       let maxX = Math.max(...pts.map((p) => p.x));
@@ -54,24 +72,33 @@ export function FleetMap({ items, selectedId, onSelect, className }: { items: Fl
       const cy = (minY + maxY) / 2;
       setView({ x: cx - w / 2, y: cy - (w * aspect) / 2, w });
     },
-    [items, aspect],
+    [markers, aspect],
   );
 
-  // First fit once the container size is known.
+  /**
+   * Fit the view once, as soon as there is something to fit it to.
+   *
+   * Both conditions matter. The container has to have been measured, and there has to be at least
+   * one marker — with live data the first render happens while the fleet request is still in
+   * flight, and fitting to an empty list would leave the office looking at a default view with
+   * their vehicles somewhere off the edge. Fitting only once after that keeps a panned or zoomed
+   * view stable across the polling refreshes.
+   */
   const fitted = useRef(false);
+  const plottable = markers.some((m) => m.tone !== 'none');
   useEffect(() => {
-    if (!fitted.current && size.w > 200) {
+    if (!fitted.current && size.w > 200 && plottable) {
       fitted.current = true;
       fit();
     }
-  }, [size.w, fit]);
+  }, [size.w, plottable, fit]);
 
   // Centre on a newly selected vehicle if it is off-screen.
   useEffect(() => {
     if (!selectedId || !view) return;
-    const it = items.find((i) => i.driver.id === selectedId);
-    if (!it) return;
-    const p = pt(it.pos.lat, it.pos.lng);
+    const marker = markers.find((m) => m.id === selectedId);
+    if (!marker) return;
+    const p = pt(marker.latitude, marker.longitude);
     const h = view.w * aspect;
     const inside = p.x > view.x + view.w * 0.1 && p.x < view.x + view.w * 0.6 && p.y > view.y + h * 0.1 && p.y < view.y + h * 0.9;
     if (!inside) setView((v) => (v ? { ...v, x: p.x - v.w * 0.35, y: p.y - (v.w * aspect) / 2 } : v));
@@ -125,7 +152,7 @@ export function FleetMap({ items, selectedId, onSelect, className }: { items: Fl
   }, []);
 
   const fs = 12 * upp; // label font size in map units
-  const selected = items.find((i) => i.driver.id === selectedId);
+  const selected = markers.find((m) => m.id === selectedId);
 
   return (
     <div ref={wrap} className={cn('relative select-none overflow-hidden bg-map-sea', className)} data-testid="fleet-map">
@@ -200,27 +227,38 @@ export function FleetMap({ items, selectedId, onSelect, className }: { items: Fl
             </g>
           );
         })}
-        {items
-          .filter((i) => i.pos.motion !== 'none')
-          .sort((a, b) => Number(a.driver.id === selectedId) - Number(b.driver.id === selectedId))
-          .map((it) => {
-            const p = pt(it.pos.lat, it.pos.lng);
-            const sel = it.driver.id === selectedId;
+        {markers
+          // A driver with no position has nothing to plot; they still appear in the list beside
+          // the map, with the reason tracking is not working.
+          .filter((m) => m.tone !== 'none')
+          .sort((a, b) => Number(a.id === selectedId) - Number(b.id === selectedId))
+          .map((marker) => {
+            const p = pt(marker.latitude, marker.longitude);
+            const sel = marker.id === selectedId;
             const r = (sel ? 9 : 7) * upp;
-            const color = MOTION_HEX[it.pos.motion];
+            const color = MOTION_HEX[marker.tone];
+            const label = marker.label ?? '';
             return (
-              <g key={it.driver.id} data-driver={it.driver.id} className="cursor-pointer" style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition: 'transform 3s linear' }}>
-                {sel && <circle r={r * 2.2} fill={color} opacity={0.18} className="origin-center animate-ring-pulse" style={{ transformBox: 'fill-box' }} />}
-                {it.pos.motion === 'moving' && (
-                  <path d={`M ${r * 1.9} 0 L ${r * 0.9} ${-r * 0.75} L ${r * 0.9} ${r * 0.75} Z`} fill={color} transform={`rotate(${it.pos.heading})`} />
+              <g key={marker.id} data-driver={marker.id} className="cursor-pointer" style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition: 'transform 3s linear' }}>
+                {(sel || marker.flagged) && (
+                  <circle
+                    r={r * 2.2}
+                    fill={marker.flagged ? MOTION_HEX.offline : color}
+                    opacity={marker.flagged ? 0.28 : 0.18}
+                    className="origin-center animate-ring-pulse"
+                    style={{ transformBox: 'fill-box' }}
+                  />
+                )}
+                {marker.tone === 'moving' && marker.headingDeg !== null && (
+                  <path d={`M ${r * 1.9} 0 L ${r * 0.9} ${-r * 0.75} L ${r * 0.9} ${r * 0.75} Z`} fill={color} transform={`rotate(${marker.headingDeg})`} />
                 )}
                 <circle r={r} fill={color} stroke="#fff" strokeWidth={2} vectorEffect="non-scaling-stroke" />
                 <circle r={r * 0.36} fill="#fff" />
-                {(sel || upp < 0.28) && (
+                {label && (sel || upp < 0.28) && (
                   <g transform={`translate(${r + 4 * upp} ${-r - 2 * upp})`}>
-                    <rect x={0} y={-1.05 * fs} width={(it.vehicle?.reg.length ?? 8) * 0.62 * fs + 0.8 * fs} height={1.45 * fs} rx={0.2 * fs} fill="hsl(var(--plate))" stroke="#1a1a1a" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+                    <rect x={0} y={-1.05 * fs} width={label.length * 0.62 * fs + 0.8 * fs} height={1.45 * fs} rx={0.2 * fs} fill="hsl(var(--plate))" stroke="#1a1a1a" strokeWidth={1} vectorEffect="non-scaling-stroke" />
                     <text x={0.4 * fs} y={0} fontSize={fs * 0.95} fontWeight={800} fill="#111">
-                      {it.vehicle?.reg}
+                      {label}
                     </text>
                   </g>
                 )}
@@ -247,7 +285,7 @@ export function FleetMap({ items, selectedId, onSelect, className }: { items: Fl
             {t(`enum.motion.${m}`)}
           </span>
         ))}
-        <span className="text-muted-foreground">· {t('map.simulated')}</span>
+        {simulated && <span className="text-muted-foreground">· {t('map.simulated')}</span>}
       </div>
     </div>
   );

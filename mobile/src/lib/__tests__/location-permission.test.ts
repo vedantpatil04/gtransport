@@ -83,6 +83,7 @@ describe('what gets reported to the office', () => {
     background: 'GRANTED',
     servicesEnabled: true,
     canAskAgain: true,
+    canAskBackgroundAgain: true,
     ...over,
   });
 

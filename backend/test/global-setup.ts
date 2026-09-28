@@ -22,8 +22,9 @@ export default function globalSetup(): void {
 
   if (process.env.E2E_SKIP_MIGRATE === '1') return;
 
-  execFileSync('npx', ['prisma', 'migrate', 'deploy'], {
+  execFileSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['prisma', 'migrate', 'deploy'], {
     stdio: 'inherit',
+    shell: true,
     env: { ...process.env, NODE_ENV: 'test' },
   });
 }

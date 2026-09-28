@@ -7,6 +7,7 @@ import { MotionDot, MotionLabel } from '@/components/status';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { FleetMap } from '@/features/map/FleetMap';
+import type { MapMarker } from '@/features/map/provider';
 import { useFleet, type FleetItem } from '@/features/map/useFleet';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { todayISO } from '@/lib/dates';
@@ -17,10 +18,12 @@ import { cn, normalize } from '@/lib/utils';
 import type { MotionState } from '@/types';
 import { PageHeader, SearchInput } from '../components/ui';
 import { useSyncedData } from '../useAdminData';
+import { isApiConfigured } from '@/features/api/mode';
+import { FleetConnected } from './FleetConnected';
 
 const FILTERS: (MotionState | 'all')[] = ['all', 'moving', 'stopped', 'offline', 'none'];
 
-export function Fleet() {
+function FleetDemo() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
   const { items, counts, now } = useFleet(3000);
@@ -50,6 +53,20 @@ export function Fleet() {
       .sort((a, b) => order[a.pos.motion] - order[b.pos.motion] || a.driver.name.localeCompare(b.driver.name));
   }, [items, status, q]);
   const selected = items.find((i) => i.driver.id === selectedId) ?? null;
+
+  // The map takes plain coordinates and a tone; the simulation's own shapes stay in this file.
+  const markers = useMemo<MapMarker[]>(
+    () =>
+      items.map((it) => ({
+        id: it.driver.id,
+        latitude: it.pos.lat,
+        longitude: it.pos.lng,
+        headingDeg: it.pos.heading,
+        tone: it.pos.motion,
+        label: it.vehicle?.reg ?? null,
+      })),
+    [items],
+  );
 
   return (
     <div>
@@ -98,7 +115,7 @@ export function Fleet() {
         </section>
 
         <div className="relative order-1 lg:order-2">
-          <FleetMap items={items} selectedId={selectedId} onSelect={select} className="h-[58vh] min-h-[380px] rounded-lg border lg:h-[calc(100dvh-215px)] lg:min-h-[560px]" />
+          <FleetMap markers={markers} simulated selectedId={selectedId} onSelect={select} className="h-[58vh] min-h-[380px] rounded-lg border lg:h-[calc(100dvh-215px)] lg:min-h-[560px]" />
           {selected && isDesktop && (
             <div className="absolute left-3 top-3 w-[320px] animate-in fade-in slide-in-from-left-2 duration-200">
               <DriverLocationCard item={selected} now={now} onClose={() => select(null)} />
@@ -196,4 +213,9 @@ function DriverLocationCard({ item, now, onClose, flat }: { item: FleetItem; now
       </div>
     </div>
   );
+}
+
+/** Real mode shows the live fleet; without an API the approved prototype runs on its simulation. */
+export function Fleet() {
+  return isApiConfigured() ? <FleetConnected /> : <FleetDemo />;
 }

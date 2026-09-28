@@ -1,10 +1,18 @@
 import { Module } from '@nestjs/common';
+import { FinanceController } from './finance.controller';
+import { LedgerService } from './ledger.service';
+import { PayrollService } from './payroll.service';
+import { VehicleFinanceController } from './vehicle-finance.controller';
+import { VehicleFinanceService } from './vehicle-finance.service';
 
 /**
- * Finance ledger domain: what is owed and recorded (salaries, advances, recoveries,
- * reimbursements). Execution of money movement belongs to PaymentsModule — the two are
- * kept separate so a failed payout never rewrites financial history.
- * Ledger tables and workflows are a later phase; Phase 0 fixes the vocabulary.
+ * Finance: what is owed and recorded — the ledger, salaries, advances and vehicle EMIs.
+ * Moving money belongs to the payments module; the two are separate so a failed payout never
+ * rewrites financial history.
  */
-@Module({})
+@Module({
+  controllers: [FinanceController, VehicleFinanceController],
+  providers: [LedgerService, PayrollService, VehicleFinanceService],
+  exports: [LedgerService],
+})
 export class FinanceModule {}

@@ -61,24 +61,24 @@
     "category": {
       "fuel": "ಇಂಧನ",
       "toll": "ಟೋಲ್",
-      "parking": "ಪಾರ್ಕಿಂಗ್",
-      "repair": "ರಿಪೇರಿ",
-      "food": "ಊಟ",
-      "maintenance": "ನಿರ್ವಹಣೆ",
+      "maintenance": "ನಿರ್ವಹಣೆ / ಸರ್ವಿಸ್",
       "trip": "ಟ್ರಿಪ್ ಖರ್ಚು",
       "other": "ಇತರೆ",
-      "advance": "ಸಿಕ್ಕ ಮುಂಗಡ"
+      "advance": "ಸಿಕ್ಕ ಮುಂಗಡ",
+      "rto": "ಆರ್‌ಟಿಒ",
+      "tyre": "ಟೈರ್",
+      "tyre_insurance": "ಟೈರ್ ವಿಮೆ"
     },
     "categoryShort": {
       "fuel": "ಇಂಧನ",
       "toll": "ಟೋಲ್",
-      "parking": "ಪಾರ್ಕಿಂಗ್",
-      "repair": "ರಿಪೇರಿ",
-      "food": "ಊಟ",
-      "maintenance": "ನಿರ್ವಹಣೆ",
+      "maintenance": "ಸರ್ವಿಸ್",
       "trip": "ಟ್ರಿಪ್",
       "other": "ಇತರೆ",
-      "advance": "ಮುಂಗಡ"
+      "advance": "ಮುಂಗಡ",
+      "rto": "ಆರ್‌ಟಿಒ",
+      "tyre": "ಟೈರ್",
+      "tyre_insurance": "ಟೈರ್ ವಿಮೆ"
     },
     "paymentType": {
       "salary": "ಸಂಬಳ",
@@ -122,7 +122,8 @@
       "licence": "ಚಾಲನಾ ಪರವಾನಗಿ",
       "fitness": "ಫಿಟ್‌ನೆಸ್ ಪ್ರಮಾಣಪತ್ರ",
       "permit": "ನ್ಯಾಷನಲ್ ಪರ್ಮಿಟ್",
-      "other": "ಇತರೆ ದಾಖಲೆ"
+      "other": "ಇತರೆ ದಾಖಲೆ",
+      "tyre_insurance": "ಟೈರ್ ವಿಮೆ"
     },
     "docTypeLong": {
       "rc": "ನೋಂದಣಿ ಪ್ರಮಾಣಪತ್ರ (RC)",
@@ -137,7 +138,8 @@
       "pending": "ಪರಿಶೀಲನೆ ಬಾಕಿ",
       "approved": "ಅನುಮೋದಿಸಲಾಗಿದೆ",
       "verified": "ಪರಿಶೀಲಿಸಲಾಗಿದೆ",
-      "rejected": "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ"
+      "rejected": "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ",
+      "needsAttention": "ಗಮನಿಸಿ"
     },
     "expenseStatus": {
       "submitted": "ಆಫೀಸ್‌ಗೆ ಕಳುಹಿಸಲಾಗಿದೆ",
@@ -216,7 +218,8 @@
     "docInDays_other": "{{doc}} {{count}} ದಿನಗಳಲ್ಲಿ ಮುಗಿಯುತ್ತದೆ",
     "docToday": "{{doc}} ಇಂದು ಮುಗಿಯುತ್ತದೆ",
     "docExpired": "{{doc}} ಮುಗಿದಿದೆ",
-    "validTill": "{{date}} ವರೆಗೆ ಮಾನ್ಯ"
+    "validTill": "{{date}} ವರೆಗೆ ಮಾನ್ಯ",
+    "notUploaded": "ಅಪ್‌ಲೋಡ್ ಆಗಿಲ್ಲ"
   },
   "demo": {
     "badge": "ಪ್ರೋಟೋಟೈಪ್ ಡೆಮೊ",
@@ -517,5 +520,10 @@
     "notFound": "ಪುಟ ಸಿಗಲಿಲ್ಲ",
     "notFoundHint": "ಈ ಪರದೆ ಇಲ್ಲ ಅಥವಾ ಸ್ಥಳಾಂತರಿಸಲಾಗಿದೆ.",
     "goHome": "ಮುಖಪುಟಕ್ಕೆ ಹೋಗಿ"
+  },
+  "driverAppNotice": {
+    "title": "ಚಾಲಕರು ಫೋನ್ ಆ್ಯಪ್ ಬಳಸುತ್ತಾರೆ",
+    "body": "ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿರುವ ಗಂಗಾಮಾತಾ ಟ್ರಾನ್ಸ್‌ಪೋರ್ಟ್ ಆ್ಯಪ್‌ಗೆ ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆಯಿಂದ ಸೈನ್ ಇನ್ ಮಾಡಿ.",
+    "officeSignIn": "ಕಚೇರಿ ಸೈನ್ ಇನ್"
   }
 }

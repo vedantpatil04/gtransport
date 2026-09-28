@@ -10,8 +10,23 @@ export interface DriverView {
   licenceExpiryDate: string | null;
   homeTown: string | null;
   locationSharingEnabled: boolean;
-  /** Foundation only: real tracking arrives in the location phase. */
-  location: { status: string; permission: string; lastHeartbeatAt: string | null } | null;
+  /**
+   * Live tracking, as of the driver's last contact. Null until the app has reported once.
+   * `lastHeartbeatAt` is kept under its original name so existing clients keep working;
+   * `lastSeenAt` is the same instant under the name the fleet screens use.
+   */
+  location: {
+    status: string;
+    permission: string;
+    trackingState: string;
+    locationServicesEnabled: boolean;
+    pendingUploads: number;
+    lastHeartbeatAt: string | null;
+    lastSeenAt: string | null;
+    capturedAt: string | null;
+    hasPosition: boolean;
+    stationarySince: string | null;
+  } | null;
   emergencyContact: { name: string | null; phone: string | null };
   employee: {
     id: string;
@@ -48,7 +63,16 @@ export function presentDriver(driver: DriverRow, viewerRole: UserRole): DriverVi
       ? {
           status: driver.locationState.status,
           permission: driver.locationState.permission,
+          trackingState: driver.locationState.trackingState,
+          locationServicesEnabled: driver.locationState.locationServicesEnabled,
+          pendingUploads: driver.locationState.pendingUploads,
           lastHeartbeatAt: driver.locationState.lastHeartbeatAt?.toISOString() ?? null,
+          lastSeenAt: driver.locationState.lastHeartbeatAt?.toISOString() ?? null,
+          capturedAt: driver.locationState.recordedAt?.toISOString() ?? null,
+          // Coordinates are deliberately not on the driver record: the fleet endpoints are the
+          // one place that serves positions, so location access has a single set of role checks.
+          hasPosition: driver.locationState.latitude !== null && driver.locationState.longitude !== null,
+          stationarySince: driver.locationState.stationarySince?.toISOString() ?? null,
         }
       : null,
     emergencyContact: { name: driver.emergencyContactName, phone: driver.emergencyContactPhone },

@@ -15,6 +15,8 @@ import { useApp } from '@/store';
 import type { PaymentStatus } from '@/types';
 import { PageHeader, Panel } from '../components/ui';
 import { useSyncedData } from '../useAdminData';
+import { isApiConfigured } from '@/features/api/mode';
+import { NotLiveState } from '../components/states';
 
 const C = (i: number) => `hsl(var(--chart-${i}))`;
 const SERIES = ['fuel', 'salaries', 'maintenance', 'tolls', 'other'] as const;
@@ -25,7 +27,7 @@ const STATUS_COLOR: Record<PaymentStatus, string> = { paid: C(2), processing: C(
 const tooltipStyle = { background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12, color: 'hsl(var(--popover-foreground))' };
 const axis = { stroke: 'hsl(var(--muted-foreground))', fontSize: 11, tickLine: false, axisLine: false } as const;
 
-export function ReportsPage() {
+function ReportsDemo() {
   const { t, i18n: inst } = useTranslation();
   const lang = inst.language;
   const drivers = useApp((s) => s.drivers);
@@ -46,9 +48,9 @@ export function ReportsPage() {
       month,
       fuel: sum(mf, (f) => f.amount),
       salaries: sum(mp.filter((p) => p.type === 'salary' && p.status === 'paid'), (p) => p.amount),
-      maintenance: byCat(['maintenance', 'repair']),
+      maintenance: byCat(['maintenance', 'tyre', 'tyre_insurance']),
       tolls: byCat(['toll']),
-      other: byCat(['parking', 'food', 'trip', 'other']),
+      other: byCat(['rto', 'trip', 'other']),
     };
     const total = current.fuel + current.salaries + current.maintenance + current.tolls + current.other;
     const trend = [...history, current].map((m) => ({ ...m, label: fmtDate(`${m.month}-01`, lang, { month: 'short' }), total: m.fuel + m.salaries + m.maintenance + m.tolls + m.other }));
@@ -316,4 +318,10 @@ function Donut({ data, center, centerLabel }: { data: { key: string; name: strin
       </ul>
     </div>
   );
+}
+
+/** Real mode shows no sample records: this module's live data arrives in a later phase. */
+export function ReportsPage() {
+  const { t } = useTranslation();
+  return isApiConfigured() ? <NotLiveState title={t('admin.nav.reports')} body={t('admin.real.reportsBody')} /> : <ReportsDemo />;
 }

@@ -70,7 +70,9 @@ export async function initI18n(): Promise<typeof i18n> {
 
 /** Changes language immediately and remembers it for next launch. */
 export async function setLanguage(code: LanguageCode): Promise<void> {
-  await i18n.changeLanguage(code);
+  if (i18n.isInitialized) {
+    await i18n.changeLanguage(code);
+  }
   try {
     await AsyncStorage.setItem(STORAGE_KEY, code);
   } catch {

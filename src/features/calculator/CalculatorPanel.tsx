@@ -165,8 +165,8 @@ function ExpenseCalc() {
   const blank = () => ({ id: Math.random().toString(36).slice(2), label: '', amount: '' });
   const [rows, setRows] = useState([
     { id: 'a', label: t('enum.category.toll'), amount: '1450' },
-    { id: 'b', label: t('enum.category.food'), amount: '400' },
-    { id: 'c', label: t('enum.category.parking'), amount: '150' },
+    { id: 'b', label: t('enum.category.rto'), amount: '400' },
+    { id: 'c', label: t('enum.category.tyre'), amount: '150' },
   ]);
   const total = useMemo(() => sum(rows, (r) => n(r.amount)), [rows]);
   return (

@@ -9,12 +9,17 @@ interface Extra {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
-/**
- * Base URL of the Gangamata API. Supplied per environment through EXPO_PUBLIC_API_URL, so no
- * host is hardcoded into a production build. The development default is the Android emulator's
- * alias for the host machine's localhost.
- */
-export const API_URL: string = (extra.apiUrl ?? 'http://10.0.2.2:3000').replace(/\/+$/, '');
+function resolveDefaultApiUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+  if (extra.apiUrl) {
+    return extra.apiUrl;
+  }
+  return '';
+}
+
+export const API_URL: string = resolveDefaultApiUrl().replace(/\/+$/, '');
 
 export const APP_ENV: AppEnvironment = extra.appEnv ?? 'development';
 

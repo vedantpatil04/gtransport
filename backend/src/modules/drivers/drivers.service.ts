@@ -1,10 +1,10 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { DocumentType, DriverStatus, EmployeeRole, EmploymentStatus, LocationPermission, Prisma } from '@prisma/client';
+import { DocumentState, DocumentType, DriverStatus, EmployeeRole, EmploymentStatus, Prisma, UserRole } from '@prisma/client';
+import { AccountsService, type AccountRow } from '../users/accounts.service';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { keysetArgs, toPage, type Page } from '../../common/pagination/pagination';
 import { AssignmentsService, END_REASON } from '../assignments/assignments.service';
-import { deriveLocationStatus } from '../locations/location-status.policy';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
 import type { CreateDriverDto, ListDriversQuery, SetDriverStatusDto, UpdateDriverDto } from './dto/driver.dto';
 
@@ -35,7 +35,13 @@ const DRIVER_VIEW = {
       vehicle: { select: { id: true, registrationNumber: true, kind: true, fuelType: true, status: true, ownership: true } },
     },
   },
-  locationState: { select: { status: true, permission: true, lastHeartbeatAt: true } },
+  locationState: {
+    select: {
+      status: true, permission: true, trackingState: true, lastHeartbeatAt: true,
+      recordedAt: true, latitude: true, longitude: true, pendingUploads: true,
+      locationServicesEnabled: true, stationarySince: true,
+    },
+  },
 } as const;
 
 export type DriverRow = Prisma.DriverGetPayload<{ select: typeof DRIVER_VIEW }>;
@@ -46,6 +52,7 @@ export class DriversService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly assignments: AssignmentsService,
+    private readonly accounts: AccountsService,
   ) {}
 
   async list(companyId: string, query: ListDriversQuery): Promise<Page<DriverRow>> {
@@ -90,7 +97,7 @@ export class DriversService {
    * Attaches a driver profile to an existing employee. The employee is the person; this record
    * only holds driving-specific data, so no second person record is ever created.
    */
-  async create(user: AuthenticatedUser, dto: CreateDriverDto): Promise<DriverRow> {
+  async create(user: AuthenticatedUser, dto: CreateDriverDto): Promise<DriverRow & { temporaryPassword?: string }> {
     const employee = await this.prisma.employee.findFirst({
       where: { id: dto.employeeId, companyId: user.companyId, deletedAt: null },
       select: { id: true, fullName: true, role: true, status: true, driver: { select: { id: true } } },
@@ -101,8 +108,12 @@ export class DriversService {
     const driverCode = dto.driverCode?.trim() || (await this.nextDriverCode(user.companyId));
     const clash = await this.prisma.driver.findFirst({ where: { companyId: user.companyId, driverCode }, select: { id: true } });
     if (clash) throw new ConflictException(`Driver code "${driverCode}" is already in use.`);
+    // Login access is checked (permission, identifier) before anything is written.
+    const account = dto.account
+      ? await this.accounts.prepare(user, { role: UserRole.DRIVER, ...dto.account }, { employeeId: employee.id, gainsDriverProfile: true })
+      : null;
 
-    const driver = await this.prisma.$transaction(async (tx) => {
+    const { driver, login } = await this.prisma.$transaction(async (tx) => {
       const created = await tx.driver.create({
         data: {
           companyId: user.companyId,
@@ -125,7 +136,8 @@ export class DriversService {
       if (employee.role !== EmployeeRole.DRIVER) {
         await tx.employee.update({ where: { id: employee.id }, data: { role: EmployeeRole.DRIVER, updatedById: user.id } });
       }
-      return created;
+      const login: AccountRow | null = account ? await this.accounts.insert(tx, user, account, employee.id) : null;
+      return { driver: created, login };
     });
 
     await this.audit.record({
@@ -135,9 +147,11 @@ export class DriversService {
       companyId: user.companyId,
       actorUserId: user.id,
       actorRole: user.role,
-      changes: { employeeId: employee.id, driverCode },
+      changes: { employeeId: employee.id, driverCode, loginAccess: Boolean(login) },
     });
-    return this.findById(user.companyId, driver.id);
+    if (login) await this.accounts.recordCreated(user, login);
+    const row = await this.findById(user.companyId, driver.id);
+    return account ? { ...row, temporaryPassword: account.temporaryPassword } : row;
   }
 
   async update(user: AuthenticatedUser, id: string, dto: UpdateDriverDto): Promise<DriverRow> {
@@ -217,59 +231,15 @@ export class DriversService {
     const today = new Date();
     const in30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
     const employeeId = driver.employee.id;
+    const current = { state: DocumentState.CURRENT };
 
     const [total, expiringSoon, expired, licence] = await Promise.all([
-      this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null } }),
-      this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null, expiryDate: { gte: today, lte: in30Days } } }),
-      this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null, expiryDate: { lt: today } } }),
-      this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null, type: DocumentType.DRIVING_LICENCE } }),
+      this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null, ...current } }),
+      this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null, ...current, expiryDate: { gte: today, lte: in30Days } } }),
+      this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null, ...current, expiryDate: { lt: today } } }),
+      this.prisma.document.count({ where: { companyId, employeeId, deletedAt: null, ...current, type: DocumentType.DRIVING_LICENCE } }),
     ]);
     return { total, expiringSoon, expired, licenceOnFile: licence > 0 };
-  }
-
-  /**
-   * Records what the driver's phone reports about location permissions. The status is derived
-   * by the shared policy rather than taken from the app, so the app cannot claim tracking is
-   * active when the operating system has denied permission.
-   */
-  async reportLocationState(
-    user: AuthenticatedUser,
-    driverId: string,
-    input: { permission: LocationPermission; locationServicesEnabled: boolean },
-  ): Promise<{ status: string; permission: LocationPermission }> {
-    const existing = await this.prisma.driverLocationState.findUnique({
-      where: { driverId },
-      select: { lastHeartbeatAt: true, recordedAt: true },
-    });
-
-    const status = deriveLocationStatus(
-      {
-        permission: input.permission,
-        locationServicesEnabled: input.locationServicesEnabled,
-        lastHeartbeatAt: existing?.lastHeartbeatAt ?? null,
-        recordedAt: existing?.recordedAt ?? null,
-      },
-      new Date(),
-    );
-
-    const saved = await this.prisma.driverLocationState.upsert({
-      where: { driverId },
-      create: { driverId, companyId: user.companyId, permission: input.permission, status },
-      update: { permission: input.permission, status },
-      select: { status: true, permission: true },
-    });
-
-    await this.audit.record({
-      action: 'driver.location_permission_reported',
-      entityType: 'DriverLocationState',
-      entityId: driverId,
-      companyId: user.companyId,
-      actorUserId: user.id,
-      actorRole: user.role,
-      changes: { permission: input.permission, locationServicesEnabled: input.locationServicesEnabled, status: saved.status },
-    });
-
-    return saved;
   }
 
   private async nextDriverCode(companyId: string): Promise<string> {

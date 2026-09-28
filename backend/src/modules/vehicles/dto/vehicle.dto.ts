@@ -82,6 +82,8 @@ export class UpsertFinancingDto {
 
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(1_000_000_000) outstandingAmount?: number;
   @IsOptional() @IsDateString({}, { message: 'nextDueDate must be an ISO date (YYYY-MM-DD)' }) nextDueDate?: string;
+  /** Final instalment date, as agreed with the lender. */
+  @IsOptional() @IsDateString({}, { message: 'financeEndDate must be an ISO date (YYYY-MM-DD)' }) financeEndDate?: string;
   @IsOptional() @IsEnum(FinanceStatus) status?: FinanceStatus;
 }
 

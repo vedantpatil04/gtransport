@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
+import { ComplianceController } from './compliance.controller';
+import { ComplianceService } from './compliance.service';
 
-/**
- * Compliance domain: document expiry rules and, later, reminder scheduling and
- * insurer/driver notification dispatch. Phase 0 provides the pure expiry policy.
- */
-@Module({})
+/** Document expiry policy and the expiry-event feed for the later notification phase. */
+@Module({
+  controllers: [ComplianceController],
+  providers: [ComplianceService],
+  exports: [ComplianceService],
+})
 export class ComplianceModule {}

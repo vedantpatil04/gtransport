@@ -1,0 +1,100 @@
+{
+  "vehicle": {
+    "id": "01a0d4a2-1ad7-7110-8880-29839cafe697",
+    "registrationNumber": "KA 22 AB 6291",
+    "documents": [
+      {
+        "type": "RC",
+        "status": "NOT_UPLOADED",
+        "daysRemaining": null,
+        "document": null
+      },
+      {
+        "type": "INSURANCE",
+        "status": "VALID",
+        "daysRemaining": null,
+        "document": {
+          "id": "01a0d4a2-1b31-7067-8b5e-0060927d81d6",
+          "type": "INSURANCE",
+          "customName": null,
+          "ownerType": "VEHICLE",
+          "vehicle": {
+            "id": "01a0d4a2-1ad7-7110-8880-29839cafe697",
+            "registrationNumber": "KA 22 AB 6291"
+          },
+          "employee": null,
+          "documentNumber": "INS-OWN",
+          "issuer": null,
+          "issueDate": null,
+          "expiryDate": null,
+          "amount": null,
+          "status": "VALID",
+          "daysRemaining": null,
+          "threshold": null,
+          "state": "CURRENT",
+          "verificationStatus": "PENDING",
+          "verifiedAt": null,
+          "rejectionReason": null,
+          "supersededAt": null,
+          "archivedAt": null,
+          "archiveReason": null,
+          "notes": null,
+          "uploadedAt": "2026-09-24T18:16:28.721Z",
+          "file": null
+        }
+      },
+      {
+        "type": "PUC",
+        "status": "NOT_UPLOADED",
+        "daysRemaining": null,
+        "document": null
+      },
+      {
+        "type": "TYRE_INSURANCE",
+        "status": "NOT_UPLOADED",
+        "daysRemaining": null,
+        "document": null
+      }
+    ]
+  },
+  "personal": [
+    {
+      "type": "DRIVING_LICENCE",
+      "status": "VALID",
+      "daysRemaining": null,
+      "document": {
+        "id": "01a0d4a2-1b25-7128-8d1f-804a7d795609",
+        "type": "DRIVING_LICENCE",
+        "customName": null,
+        "ownerType": "EMPLOYEE",
+        "vehicle": null,
+        "employee": {
+          "id": "01a0d4a2-1abb-7219-ab13-1f44a6f6bd9c",
+          "fullName": "Ramesh Kumar",
+          "driver": {
+            "id": "01a0d4a2-1ac4-771b-8668-b5e225225d24",
+            "driverCode": "GR-D--46291"
+          }
+        },
+        "documentNumber": "DL-OWN",
+        "issuer": null,
+        "issueDate": null,
+        "expiryDate": null,
+        "amount": null,
+        "status": "VALID",
+        "daysRemaining": null,
+        "threshold": null,
+        "state": "CURRENT",
+        "verificationStatus": "PENDING",
+        "verifiedAt": null,
+        "rejectionReason": null,
+        "supersededAt": null,
+        "archivedAt": null,
+        "archiveReason": null,
+        "notes": null,
+        "uploadedAt": "2026-09-24T18:16:28.709Z",
+        "file": null
+      }
+    }
+  ]
+}

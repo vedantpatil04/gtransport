@@ -55,12 +55,53 @@ describe('offline queue', () => {
     expect(item).toMatchObject({ status: 'failed', attempts: 1, lastError: 'still offline' });
   });
 
-  it('eventually gives up rather than retrying forever', async () => {
-    queue.register('fuel.create', jest.fn().mockRejectedValue(new Error('permanently broken')));
+  it('never discards an entry because the network kept failing', async () => {
+    // Phase 2 dropped an item after five failures, which would lose a driver's fuel entry on a
+    // bad day. A temporary failure is now retried for as long as it takes.
+    queue.register('fuel.create', jest.fn().mockRejectedValue(new Error('no network')));
     await queue.enqueue({ kind: 'fuel.create', payload: { litres: 30 }, dedupeKey: 'fuel-1' });
 
-    for (let attempt = 0; attempt < 5; attempt += 1) await queue.drain();
+    for (let attempt = 0; attempt < 12; attempt += 1) await queue.drain();
 
+    const [item] = await queue.list();
+    expect(item).toMatchObject({ status: 'failed', attempts: 12 });
+  });
+
+  it('keeps an entry the server refused, marked for the driver, and moves on to the next', async () => {
+    const refused = Object.assign(new Error('No vehicle is assigned'), { permanent: true });
+    const handler = jest.fn().mockImplementation(async (payload: { id: string }) => {
+      if (payload.id === 'a') throw refused;
+    });
+    queue.register('fuel.create', handler);
+    queue.setClassifier((error) => ((error as { permanent?: boolean }).permanent ? 'permanent' : 'retry'));
+
+    await queue.enqueue({ kind: 'fuel.create', payload: { id: 'a' }, dedupeKey: 'a' });
+    await queue.enqueue({ kind: 'fuel.create', payload: { id: 'b' }, dedupeKey: 'b' });
+
+    await expect(queue.drain()).resolves.toMatchObject({ sent: 1, rejected: 1, remaining: 1 });
+    const [item] = await queue.list();
+    expect(item).toMatchObject({ dedupeKey: 'a', status: 'rejected', lastError: 'No vehicle is assigned' });
+
+    // A rejected entry is not retried on its own; the driver decides what to do with it.
+    handler.mockClear();
+    await queue.drain();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('pauses without spending attempts when the session has expired', async () => {
+    queue.register('fuel.create', jest.fn().mockRejectedValue(new Error('unauthorized')));
+    queue.setClassifier(() => 'halt');
+    await queue.enqueue({ kind: 'fuel.create', payload: {}, dedupeKey: 'fuel-1' });
+
+    await queue.drain();
+    const [item] = await queue.list();
+    expect(item).toMatchObject({ status: 'pending', attempts: 0 });
+  });
+
+  it('lets the driver discard an entry explicitly', async () => {
+    await queue.enqueue({ kind: 'fuel.create', payload: {}, dedupeKey: 'fuel-1' });
+    const [item] = await queue.list();
+    await queue.remove(item!.id);
     await expect(queue.list()).resolves.toHaveLength(0);
   });
 

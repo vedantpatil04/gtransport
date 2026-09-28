@@ -4,7 +4,11 @@ export type Role = 'driver' | 'admin';
 export type FuelType = 'petrol' | 'diesel';
 export type SyncStatus = 'synced' | 'pending';
 
-export type ExpenseCategory = 'toll' | 'parking' | 'repair' | 'food' | 'maintenance' | 'trip' | 'other';
+/**
+ * Operating expense categories. Parking, food and repair were removed in Phase 3: RTO, tyre,
+ * tyre insurance and maintenance/service replace them, matching the production backend.
+ */
+export type ExpenseCategory = 'toll' | 'rto' | 'tyre' | 'tyre_insurance' | 'maintenance' | 'trip' | 'other';
 /** Driver-side update types. `advance` records cash received and becomes a payment record. */
 export type UpdateType = ExpenseCategory | 'advance';
 

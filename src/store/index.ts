@@ -10,7 +10,8 @@ import type {
   FileRef, FuelEntry, FuelType, Lang, NotificationKind, Payment, PaymentMethod, PaymentStatus, PaymentType, ReminderTarget, Role, Trip, Vehicle,
 } from '@/types';
 
-const STORE_VERSION = 4;
+/** Bumped in Phase 3: stored demo data may hold the removed parking/food/repair categories. */
+const STORE_VERSION = 5;
 
 interface UiState {
   version: number;

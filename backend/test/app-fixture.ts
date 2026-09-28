@@ -9,9 +9,22 @@ import { PasswordHasher } from '../src/modules/auth/password-hasher';
 
 export const TEST_PASSWORD = 'e2e-password-1234';
 
-export async function createTestApp(): Promise<INestApplication> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication();
+/**
+ * A provider to stand in for a real external service. Only the two external boundaries — the AI
+ * provider and the email provider — are ever replaced this way, and only from a test file.
+ */
+export interface ProviderOverride {
+  token: symbol | string;
+  value: unknown;
+}
+
+export async function createTestApp(overrides: ProviderOverride[] = []): Promise<INestApplication> {
+  let builder = Test.createTestingModule({ imports: [AppModule] });
+  for (const { token, value } of overrides) {
+    builder = builder.overrideProvider(token).useValue(value);
+  }
+  const moduleRef = await builder.compile();
+  const app = moduleRef.createNestApplication({ rawBody: true });
   configureApp(app, app.get(AppConfigService));
   await app.init();
   return app;

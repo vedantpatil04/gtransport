@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MoreHorizontal, Power, UserPlus } from 'lucide-react';
+import { KeyRound, MoreHorizontal, Power, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,15 +10,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { NativeSelect } from '@/components/ui/input';
 import { employeesApi } from '@/features/api/resources';
-import { canManageFleet, useSession } from '@/features/api/session';
+import { canAdministerAccounts, canManageFleet, useSession } from '@/features/api/session';
 import type { ApiEmployee, EmployeeRole, EmploymentStatus } from '@/features/api/types';
 import { useApiResource, useDebounced } from '@/features/api/useApiResource';
 import { ApiError } from '@/lib/api/client';
 import { fmtDate } from '@/lib/format';
-import { initials } from '@/lib/utils';
+import { cn, initials } from '@/lib/utils';
 import { ConfirmDialog, FilterBar, PageHeader, Panel, SearchInput, Table, TD, TH, TR } from '../components/ui';
 import { ErrorState, SignedOutState, TableLoading } from '../components/states';
 import { EmployeeFormDialog } from '../../employees/EmployeeFormDialog';
+import { AccountAccessSheet, AccountStatusBadge, type AccountSubject } from '../../employees/AccountAccess';
+import { useApp } from '@/store';
 
 const EMPLOYEE_ROLES: EmployeeRole[] = ['DRIVER', 'ACCOUNTING', 'MANAGER', 'ADMIN', 'OTHER'];
 const EMPLOYEE_STATUSES: EmploymentStatus[] = ['ACTIVE', 'ON_LEAVE', 'SUSPENDED', 'INACTIVE', 'EXITED'];
@@ -33,14 +35,17 @@ const STATUS_TONE: Record<EmploymentStatus, 'success' | 'warning' | 'danger' | '
 
 const PAGE_SIZE = 25;
 
-export function EmployeesPage() {
+export function EmployeesPage({ staffOnly = false }: { staffOnly?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const token = useSession((s) => s.token);
   const role = useSession((s) => s.user?.role);
   const mayManage = canManageFleet(role);
+  const mayAdminister = canAdministerAccounts(role);
+  const [params] = useSearchParams();
 
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(params.get('q') ?? '');
+  const [accessFor, setAccessFor] = useState<AccountSubject | null>(null);
   const [roleFilter, setRoleFilter] = useState('');
   const [status, setStatus] = useState('');
   const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);
@@ -58,7 +63,8 @@ export function EmployeesPage() {
     Boolean(token),
   );
 
-  const rows = employees.data?.data ?? [];
+  const rawRows = employees.data?.data ?? [];
+  const rows = useMemo(() => (staffOnly ? rawRows.filter((e) => e.role !== 'DRIVER') : rawRows), [rawRows, staffOnly]);
   const nextCursor = employees.data?.page.nextCursor ?? null;
   const filtersActive = Boolean(q || roleFilter || status);
 
@@ -70,6 +76,7 @@ export function EmployeesPage() {
   };
 
   const activeCount = useMemo(() => rows.filter((e) => e.status === 'ACTIVE').length, [rows]);
+  const selectableRoles = useMemo(() => (staffOnly ? EMPLOYEE_ROLES.filter((r) => r !== 'DRIVER') : EMPLOYEE_ROLES), [staffOnly]);
 
   const toggleStatus = async (employee: ApiEmployee) => {
     const next = employee.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
@@ -86,9 +93,40 @@ export function EmployeesPage() {
 
   return (
     <div>
+      <div className="mb-4 flex flex-wrap items-center gap-1.5 border-b pb-3">
+        <Link
+          to="/admin/employees"
+          className={cn(
+            'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+            !staffOnly ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+          )}
+        >
+          {t('admin.employees.tab.all')}
+        </Link>
+        <Link
+          to="/admin/drivers"
+          className="rounded-md px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {t('admin.employees.tab.drivers')}
+        </Link>
+        <Link
+          to="/admin/employees/staff"
+          className={cn(
+            'rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
+            staffOnly ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+          )}
+        >
+          {t('admin.employees.tab.staff')}
+        </Link>
+      </div>
+
       <PageHeader
-        title={t('admin.employees.title')}
-        description={t('admin.employees.subtitle', { active: activeCount, total: rows.length })}
+        title={staffOnly ? t('admin.employees.staffTitle') : t('admin.employees.title')}
+        description={
+          staffOnly
+            ? t('admin.employees.staffSubtitle', { active: activeCount, total: rows.length })
+            : t('admin.employees.subtitle', { active: activeCount, total: rows.length })
+        }
         actions={
           mayManage && (
             <Button onClick={() => setAdding(true)} disabled={!token}>
@@ -117,7 +155,7 @@ export function EmployeesPage() {
             aria-label={t('admin.employees.role')}
           >
             <option value="">{t('admin.employees.allRoles')}</option>
-            {EMPLOYEE_ROLES.map((r) => (
+            {selectableRoles.map((r) => (
               <option key={r} value={r}>
                 {t(`admin.enum.employeeRole.${r}`)}
               </option>
@@ -139,7 +177,13 @@ export function EmployeesPage() {
         </FilterBar>
 
         {!token ? (
-          <SignedOutState onSignIn={() => navigate('/admin')} />
+          <SignedOutState
+            onSignIn={() => {
+              useSession.getState().signOut();
+              useApp.getState().logout('admin');
+              navigate('/admin');
+            }}
+          />
         ) : employees.loading ? (
           <TableLoading columns={7} />
         ) : employees.error ? (
@@ -156,6 +200,7 @@ export function EmployeesPage() {
                   <TH>{t('admin.common.status')}</TH>
                   <TH>{t('admin.employees.joined')}</TH>
                   <TH>{t('admin.employees.pf')}</TH>
+                  {mayAdminister && <TH>{t('admin.accounts.login')}</TH>}
                   <TH className="w-12" />
                 </tr>
               </thead>
@@ -189,6 +234,25 @@ export function EmployeesPage() {
                         <span className="text-sm text-muted-foreground">—</span>
                       )}
                     </TD>
+                    {mayAdminister && (
+                      <TD>
+                        <button
+                          type="button"
+                          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAccessFor(employee);
+                          }}
+                          aria-label={t('admin.accounts.title')}
+                        >
+                          {employee.account ? (
+                            <AccountStatusBadge status={employee.account.status} />
+                          ) : (
+                            <Badge tone="neutral">{t('admin.accounts.noLogin')}</Badge>
+                          )}
+                        </button>
+                      </TD>
+                    )}
                     <TD>
                       {mayManage && (
                         <DropdownMenu>
@@ -199,6 +263,12 @@ export function EmployeesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()} className="w-52">
                             <DropdownMenuItem onSelect={() => setEditing(employee)}>{t('admin.employees.edit')}</DropdownMenuItem>
+                            {mayAdminister && (
+                              <DropdownMenuItem onSelect={() => setAccessFor(employee)}>
+                                <KeyRound />
+                                {t('admin.accounts.title')}
+                              </DropdownMenuItem>
+                            )}
                             {employee.driver && (
                               <DropdownMenuItem onSelect={() => navigate(`/admin/drivers/${employee.driver?.id}`)}>
                                 {t('admin.employees.openDriver')}
@@ -262,6 +332,7 @@ export function EmployeesPage() {
           employees.reload();
         }}
       />
+      <AccountAccessSheet employee={accessFor} onClose={() => setAccessFor(null)} onChanged={employees.reload} />
       <ConfirmDialog
         open={Boolean(statusTarget)}
         onOpenChange={(open) => !open && setStatusTarget(null)}

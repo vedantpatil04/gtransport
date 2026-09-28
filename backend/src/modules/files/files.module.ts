@@ -1,6 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
 import { AppConfigService } from '../../config/app-config.service';
 import { FileStorage } from './file-storage';
+import { FilesController } from './files.controller';
 import { FilesService } from './files.service';
 import { LocalDiskFileStorage } from './local-disk.storage';
 
@@ -10,6 +11,7 @@ import { LocalDiskFileStorage } from './local-disk.storage';
  * FILE_STORAGE_PROVIDER — no business module changes.
  */
 @Module({
+  controllers: [FilesController],
   providers: [
     {
       provide: FileStorage,

@@ -21,7 +21,10 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
-    "db:seed:demo": "ts-node --transpile-only prisma/seed-demo.ts"
+    "db:seed:demo": "ts-node --transpile-only prisma/seed-demo.ts",
+    "compliance:scan": "node dist/scripts/scan-expiry-events",
+    "ai:worker": "node dist/scripts/run-ai-worker",
+    "inbox:sync": "node dist/scripts/sync-inbox"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.5",
@@ -34,6 +37,8 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "helmet": "^8.1.0",
+    "imapflow": "^1.7.8",
+    "mailparser": "^3.9.28",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^3.25.76"
@@ -45,6 +50,8 @@
     "@nestjs/testing": "^11.2.5",
     "@types/express": "^5.0.6",
     "@types/jest": "^29.5.14",
+    "@types/mailparser": "^3.4.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.20.3",
     "@types/supertest": "^6.0.3",
     "dotenv": "^16.6.1",

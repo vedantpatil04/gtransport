@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "id": "474",
+      "latitude": 15.85,
+      "longitude": 74.498,
+      "accuracyMeters": 9,
+      "speedKmh": 44,
+      "headingDeg": 190,
+      "altitudeMeters": null,
+      "batteryPct": null,
+      "provider": null,
+      "capturedAt": "2026-09-27T09:51:15.302Z",
+      "receivedAt": "2026-09-27T09:53:15.321Z",
+      "vehicleId": "01a0e248-74ea-77f8-972f-580bf5ca8003"
+    },
+    {
+      "id": "473",
+      "latitude": 15.85,
+      "longitude": 74.498,
+      "accuracyMeters": 9,
+      "speedKmh": 44,
+      "headingDeg": 190,
+      "altitudeMeters": null,
+      "batteryPct": null,
+      "provider": null,
+      "capturedAt": "2026-09-27T09:49:15.302Z",
+      "receivedAt": "2026-09-27T09:53:15.318Z",
+      "vehicleId": "01a0e248-74ea-77f8-972f-580bf5ca8003"
+    }
+  ],
+  "page": {
+    "limit": 5,
+    "nextCursor": null
+  }
+}

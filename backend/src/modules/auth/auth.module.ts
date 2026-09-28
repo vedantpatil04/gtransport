@@ -4,7 +4,6 @@ import { AppConfigService } from '../../config/app-config.service';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { PasswordHasher } from './password-hasher';
 
 @Module({
   imports: [
@@ -18,7 +17,8 @@ import { PasswordHasher } from './password-hasher';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordHasher],
-  exports: [PasswordHasher, JwtModule, UsersModule],
+  providers: [AuthService],
+  // PasswordHasher now comes from UsersModule, which account management also needs.
+  exports: [JwtModule, UsersModule],
 })
 export class AuthModule {}

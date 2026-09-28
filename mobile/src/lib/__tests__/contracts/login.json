@@ -1,0 +1,17 @@
+{
+  "accessToken": "redacted-test-access-token",
+  "expiresAt": "2026-09-27T06:35:02.000Z",
+  "expiresIn": "12h",
+  "user": {
+    "id": "01a0deff-d153-71ac-9d5f-9c41104f3735",
+    "role": "DRIVER",
+    "companyId": "01a0deff-d128-70cc-bc65-067f394c9adc",
+    "employeeId": "01a0deff-d14b-7341-8261-59d9e8bc97af",
+    "driverId": "01a0deff-d14f-70e9-8ee0-61ce5a3ae4ff",
+    "status": "ACTIVE",
+    "mustChangePassword": false,
+    "displayName": "Ramesh Kumar",
+    "email": null,
+    "phone": "+919867-22110"
+  }
+}

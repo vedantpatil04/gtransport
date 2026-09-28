@@ -19,10 +19,12 @@ import { useApp } from '@/store';
 import type { PaymentStatus } from '@/types';
 import { DriverCell, FilterBar, PageHeader, Pagination, Panel, SearchInput, StatCard, Table, TD, TH, TR, usePaged } from '../components/ui';
 import { useSyncedData } from '../useAdminData';
+import { useConnected } from '@/features/api/mode';
+import { PaymentsConnected } from './PaymentsConnected';
 
 const TABS: (PaymentStatus | 'all')[] = ['all', 'pending', 'processing', 'paid', 'failed', 'cancelled'];
 
-export function PaymentsPage() {
+function PaymentsDemo() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
   const drivers = useApp((s) => s.drivers);
@@ -187,4 +189,9 @@ export function PaymentsPage() {
       <PaymentSheet paymentId={params.get('payment')} onClose={() => setParam('payment', '')} />
     </div>
   );
+}
+
+/** Live data when the API is configured and an office user is signed in; the approved prototype otherwise. */
+export function PaymentsPage() {
+  return useConnected() ? <PaymentsConnected /> : <PaymentsDemo />;
 }

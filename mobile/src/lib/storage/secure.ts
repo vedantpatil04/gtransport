@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import type { UserRole } from '../../types/domain';
 
 /**
  * Credential storage. Session tokens go into the OS keystore (Android Keystore / iOS
@@ -14,7 +15,18 @@ export interface StoredSession {
   accessToken: string;
   /** Epoch milliseconds; the client treats the session as gone once this passes. */
   expiresAt: number;
-  driverUserId: string;
+  userId: string;
+  /** Kept so the right app opens even when the phone is offline at launch. */
+  role: UserRole;
+}
+
+/** Sessions saved before roles existed here belonged to drivers — the app only admitted them. */
+interface LegacySession {
+  accessToken: string;
+  expiresAt: number;
+  driverUserId?: string;
+  userId?: string;
+  role?: UserRole;
 }
 
 const available = async (): Promise<boolean> => {
@@ -37,8 +49,14 @@ export async function loadSession(): Promise<StoredSession | null> {
   try {
     const raw = await SecureStore.getItemAsync(SESSION_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredSession;
-    if (!parsed.accessToken || typeof parsed.expiresAt !== 'number') return null;
+    const stored = JSON.parse(raw) as LegacySession;
+    if (!stored.accessToken || typeof stored.expiresAt !== 'number') return null;
+    const parsed: StoredSession = {
+      accessToken: stored.accessToken,
+      expiresAt: stored.expiresAt,
+      userId: stored.userId ?? stored.driverUserId ?? '',
+      role: stored.role ?? 'DRIVER',
+    };
     // An expired token is treated as no session at all.
     if (parsed.expiresAt <= Date.now()) {
       await clearSession();

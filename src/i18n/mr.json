@@ -61,24 +61,24 @@
     "category": {
       "fuel": "इंधन",
       "toll": "टोल",
-      "parking": "पार्किंग",
-      "repair": "दुरुस्ती",
-      "food": "जेवण",
-      "maintenance": "देखभाल",
+      "maintenance": "देखभाल / सर्व्हिस",
       "trip": "ट्रिप खर्च",
       "other": "इतर",
-      "advance": "मिळालेली उचल"
+      "advance": "मिळालेली उचल",
+      "rto": "आरटीओ",
+      "tyre": "टायर",
+      "tyre_insurance": "टायर विमा"
     },
     "categoryShort": {
       "fuel": "इंधन",
       "toll": "टोल",
-      "parking": "पार्किंग",
-      "repair": "दुरुस्ती",
-      "food": "जेवण",
-      "maintenance": "देखभाल",
+      "maintenance": "सर्व्हिस",
       "trip": "ट्रिप",
       "other": "इतर",
-      "advance": "उचल"
+      "advance": "उचल",
+      "rto": "आरटीओ",
+      "tyre": "टायर",
+      "tyre_insurance": "टायर विमा"
     },
     "paymentType": {
       "salary": "पगार",
@@ -122,7 +122,8 @@
       "licence": "ड्रायव्हिंग लायसन्स",
       "fitness": "फिटनेस प्रमाणपत्र",
       "permit": "नॅशनल परमिट",
-      "other": "इतर कागदपत्र"
+      "other": "इतर कागदपत्र",
+      "tyre_insurance": "टायर विमा"
     },
     "docTypeLong": {
       "rc": "नोंदणी प्रमाणपत्र (RC)",
@@ -137,7 +138,8 @@
       "pending": "तपासणी बाकी",
       "approved": "मंजूर",
       "verified": "तपासले",
-      "rejected": "नामंजूर"
+      "rejected": "नामंजूर",
+      "needsAttention": "लक्ष द्या"
     },
     "expenseStatus": {
       "submitted": "ऑफिसला पाठवले",
@@ -216,7 +218,8 @@
     "docInDays_other": "{{doc}} {{count}} दिवसांत संपेल",
     "docToday": "{{doc}} आज संपते",
     "docExpired": "{{doc}} ची मुदत संपली आहे",
-    "validTill": "{{date}} पर्यंत वैध"
+    "validTill": "{{date}} पर्यंत वैध",
+    "notUploaded": "अपलोड केलेले नाही"
   },
   "demo": {
     "badge": "प्रोटोटाइप डेमो",
@@ -517,5 +520,10 @@
     "notFound": "पान सापडले नाही",
     "notFoundHint": "ही स्क्रीन अस्तित्वात नाही किंवा हलवली आहे.",
     "goHome": "होमवर जा"
+  },
+  "driverAppNotice": {
+    "title": "चालक फोन अ‍ॅप वापरतात",
+    "body": "तुमच्या फोनवरील गंगामाता ट्रान्सपोर्ट अ‍ॅपमध्ये तुमच्या मोबाइल नंबरने साइन इन करा.",
+    "officeSignIn": "ऑफिस साइन-इन"
   }
 }

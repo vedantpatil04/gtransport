@@ -6,8 +6,11 @@ import { EmptyState } from '@/components/EmptyState';
 import { Plate } from '@/components/Plate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { driversApi } from '@/features/api/resources';
-import { canManageFleet, useSession } from '@/features/api/session';
+import { documentsApi, driversApi } from '@/features/api/resources';
+import { ComplianceBadge, VerificationBadge } from '@/features/documents/compliance';
+import { DocumentDetailDialog, UploadDocumentDialog } from '@/features/documents/DocumentApiDialogs';
+import { canAdministerAccounts, canManageFleet, useSession } from '@/features/api/session';
+import { AccountAccessPanel } from '../../employees/AccountAccess';
 import { useApiResource } from '@/features/api/useApiResource';
 import { fmtDate } from '@/lib/format';
 import { initials } from '@/lib/utils';
@@ -34,6 +37,11 @@ export function DriverProfileConnected() {
   const driver = useApiResource(() => driversApi.get(id as string), [id], Boolean(id));
   const history = useApiResource(() => driversApi.assignments(id as string), [id], Boolean(id));
   const documents = useApiResource(() => driversApi.documentSummary(id as string), [id], Boolean(id));
+  // The licence comes from the central document module, keyed by the employee record.
+  const employeeId = driver.data?.employee.id;
+  const licence = useApiResource(() => documentsApi.person(employeeId as string), [employeeId], Boolean(employeeId));
+  const [openDocument, setOpenDocument] = useState<string | null>(null);
+  const [addingLicence, setAddingLicence] = useState(false);
 
   const reloadAll = () => {
     driver.reload();
@@ -189,6 +197,44 @@ export function DriverProfileConnected() {
           </Panel>
         )}
 
+        <Panel
+          title={t('enum.docType.licence')}
+          action={
+            mayManage ? (
+              <Button size="sm" variant="outline" onClick={() => setAddingLicence(true)}>
+                {t('admin.docsApi.upload')}
+              </Button>
+            ) : undefined
+          }
+        >
+          {(() => {
+            const item = licence.data?.[0];
+            if (!item) return <TableLoading rows={2} columns={2} />;
+            if (!item.document) {
+              return (
+                <div className="flex items-center justify-between gap-3 px-4 py-4">
+                  <span className="text-sm text-muted-foreground">{record.licenceNumber ?? '—'}</span>
+                  <ComplianceBadge status="NOT_UPLOADED" daysRemaining={null} />
+                </div>
+              );
+            }
+            const doc = item.document;
+            return (
+              <button type="button" className="w-full text-left hover:bg-muted/40" onClick={() => setOpenDocument(doc.id)}>
+                <DetailList
+                  rows={[
+                    [t('admin.docsApi.number'), doc.documentNumber ?? record.licenceNumber ?? '—'],
+                    [t('admin.docsApi.expiryDate'), doc.expiryDate ? fmtDate(doc.expiryDate) : '—'],
+                    [t('admin.common.status'), <ComplianceBadge key="s" status={item.status} daysRemaining={item.daysRemaining} />],
+                    [t('admin.docsApi.verification'), <VerificationBadge key="v" value={doc.verificationStatus} />],
+                    [t('admin.docsApi.file'), doc.file?.fileName ?? '—'],
+                  ]}
+                />
+              </button>
+            );
+          })()}
+        </Panel>
+
         <Panel title={t('admin.driversApi.currentVehicle')}>
           {assignment ? (
             <DetailList
@@ -209,6 +255,14 @@ export function DriverProfileConnected() {
           )}
         </Panel>
       </div>
+
+      {canAdministerAccounts(role) && (
+        <Panel title={t('admin.accounts.title')} className="mt-4" bodyClass="p-4">
+          <AccountAccessPanel
+            employee={{ id: record.employee.id, fullName: record.employee.fullName, phone: record.employee.phone ?? null, email: record.employee.email ?? null }}
+          />
+        </Panel>
+      )}
 
       <Panel title={t('admin.driversApi.assignmentHistory')} className="mt-4">
         {history.loading ? (
@@ -245,6 +299,28 @@ export function DriverProfileConnected() {
         )}
       </Panel>
 
+      <DocumentDetailDialog
+        documentId={openDocument}
+        onClose={() => setOpenDocument(null)}
+        onChanged={() => {
+          licence.reload();
+          documents.reload();
+        }}
+      />
+      {employeeId && (
+        <UploadDocumentDialog
+          open={addingLicence}
+          onOpenChange={setAddingLicence}
+          replacing={licence.data?.[0]?.document ?? undefined}
+          presetType="DRIVING_LICENCE"
+          presetEmployeeId={employeeId}
+          onSaved={() => {
+            setAddingLicence(false);
+            licence.reload();
+            documents.reload();
+          }}
+        />
+      )}
       <EditDriverDialog
         driver={record}
         open={editing}

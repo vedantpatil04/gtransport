@@ -10,3 +10,4 @@ storage
 
 # Sandbox-only Prisma config, never part of the project
 prisma.sandbox.config.ts
+storage-test

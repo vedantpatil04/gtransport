@@ -1,8 +1,9 @@
 import { Type } from 'class-transformer';
+import { CreateAccountDto } from '../../users/dto/account.dto';
 import { EmployeeRole, EmploymentStatus, AppLanguage } from '@prisma/client';
 import {
   IsBoolean, IsDateString, IsEmail, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional,
-  IsString, Max, Min, MaxLength, Matches,
+  IsString, Max, Min, MaxLength, Matches, ValidateNested,
 } from 'class-validator';
 import { PaginationQuery } from '../../../common/pagination/pagination';
 
@@ -83,6 +84,15 @@ export class CreateEmployeeDto {
   @IsString()
   @MaxLength(2000)
   notes?: string;
+
+  /**
+   * "Login access": when present, a sign-in account is created in the same transaction. When
+   * absent the employee exists without one. Administrators only (see account-policy.ts).
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateAccountDto)
+  account?: CreateAccountDto;
 }
 
 /** Every field optional; `employeeCode` is deliberately not updatable once issued. */

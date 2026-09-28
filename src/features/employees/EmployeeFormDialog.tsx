@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FieldError, Input, Label, NativeSelect } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { employeesApi } from '@/features/api/resources';
+import { canAdministerAccounts, grantableOfficeRoles, useSession, type ApiRole } from '@/features/api/session';
+import { LoginAccessFields, TemporaryPasswordDialog } from './AccountAccess';
 import type { ApiEmployee } from '@/features/api/types';
 import { ApiError } from '@/lib/api/client';
 
@@ -47,6 +49,17 @@ export function EmployeeFormDialog({
 }) {
   const { t } = useTranslation();
   const editing = Boolean(employee);
+  const sessionRole = useSession((s) => s.user?.role);
+  const grantable = grantableOfficeRoles(sessionRole);
+  // "Login access": explicit, off by default, and only offered to administrators.
+  const offerLogin = !editing && canAdministerAccounts(sessionRole);
+  const [loginAccess, setLoginAccess] = useState(false);
+  const [loginRole, setLoginRole] = useState<ApiRole | ''>('');
+  const [loginVia, setLoginVia] = useState<'PHONE' | 'EMAIL'>('PHONE');
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
+  const [created, setCreated] = useState<{ employee: ApiEmployee; password: string } | null>(null);
 
   const { register, handleSubmit, formState, reset, setError, watch, setValue } = useForm<Values>({
     resolver: zodResolver(schema),
@@ -71,10 +84,27 @@ export function EmployeeFormDialog({
       uan: employee?.payroll?.uan ?? '',
       pfMemberId: employee?.payroll?.pfMemberId ?? '',
     });
+    setLoginAccess(false);
+    setLoginRole('');
+    setLoginErrors({});
   }, [open, employee, reset]);
 
   const err = (key: keyof Values) => (formState.errors[key]?.message ? t(String(formState.errors[key]?.message)) : undefined);
   const pfApplicable = watch('pfApplicable');
+  const businessRole = watch('role');
+  const formPhone = watch('phone');
+  const formEmail = watch('email');
+
+  const toggleLogin = (on: boolean) => {
+    setLoginAccess(on);
+    if (!on) return;
+    // Start from the contact details already typed; the administrator can change them.
+    setLoginPhone(formPhone ?? '');
+    setLoginEmail(formEmail ?? '');
+    setLoginVia(formPhone ? 'PHONE' : 'EMAIL');
+    const suggested = businessRole === 'ADMIN' ? 'ADMIN' : businessRole === 'ACCOUNTING' ? 'ACCOUNTING' : 'MANAGER';
+    setLoginRole(grantable.includes(suggested as ApiRole) ? (suggested as ApiRole) : (grantable[0] ?? ''));
+  };
 
   const submit = async (values: Values) => {
     const blankToUndefined = (value?: string) => (value && value.length > 0 ? value : undefined);
@@ -93,22 +123,39 @@ export function EmployeeFormDialog({
       pfMemberId: values.pfApplicable ? blankToUndefined(values.pfMemberId) : undefined,
     };
     if (!editing) payload.employeeCode = blankToUndefined(values.employeeCode);
+    const withLogin = offerLogin && loginAccess && values.role !== 'DRIVER';
+    if (withLogin) {
+      if (!loginRole) return setLoginErrors({ role: t('admin.accounts.chooseRole') });
+      payload.account = { role: loginRole, ...(loginVia === 'PHONE' ? { phone: loginPhone } : { email: loginEmail }) };
+    }
+    setLoginErrors({});
 
     try {
       const saved = employee ? await employeesApi.update(employee.id, payload) : await employeesApi.create(payload);
       toast.success(t(editing ? 'admin.employees.updated' : 'admin.employees.added', { name: saved.fullName }));
+      if (saved.temporaryPassword) {
+        // Show the one-time password on its own, then hand the new record back.
+        onOpenChange(false);
+        setCreated({ employee: saved, password: saved.temporaryPassword });
+        return;
+      }
       onSaved(saved);
     } catch (error) {
       if (error instanceof ApiError) {
-        // Map field-level messages from the API back onto the form.
+        // Map field-level messages from the API back onto the form (login fields arrive as account.*).
         const fieldErrors = error.fieldErrors;
         let matched = false;
+        const login: Record<string, string> = {};
         for (const [field, message] of Object.entries(fieldErrors)) {
           if (field in schema.shape) {
             setError(field as keyof Values, { message });
             matched = true;
+          } else if (withLogin && ['phone', 'email', 'role', 'account.phone', 'account.email', 'account.role'].includes(field)) {
+            login[field.replace('account.', '')] = message;
+            matched = true;
           }
         }
+        setLoginErrors(login);
         if (!matched) toast.error(error.message);
       } else {
         toast.error(t('admin.api.errorTitle'));
@@ -117,6 +164,7 @@ export function EmployeeFormDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
@@ -209,6 +257,38 @@ export function EmployeeFormDialog({
             )}
           </div>
 
+          {offerLogin && (
+            <div className="rounded-lg border p-3" data-testid="login-access">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">{t('admin.accounts.loginAccess')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {businessRole === 'DRIVER' ? t('admin.accounts.driverHint') : loginAccess ? t('admin.accounts.loginOnHint') : t('admin.accounts.loginOffHint')}
+                  </p>
+                </div>
+                {businessRole !== 'DRIVER' && grantable.length > 0 && (
+                  <Switch checked={loginAccess} onCheckedChange={toggleLogin} aria-label={t('admin.accounts.loginAccess')} />
+                )}
+              </div>
+              {loginAccess && businessRole !== 'DRIVER' && (
+                <div className="mt-3">
+                  <LoginAccessFields
+                    roles={grantable}
+                    role={loginRole}
+                    onRole={setLoginRole}
+                    via={loginVia}
+                    onVia={setLoginVia}
+                    phone={loginPhone}
+                    onPhone={setLoginPhone}
+                    email={loginEmail}
+                    onEmail={setLoginEmail}
+                    errors={loginErrors}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
@@ -220,5 +300,15 @@ export function EmployeeFormDialog({
         </form>
       </DialogContent>
     </Dialog>
+      <TemporaryPasswordDialog
+        password={created?.password ?? null}
+        name={created?.employee.fullName ?? ''}
+        onClose={() => {
+          const saved = created?.employee;
+          setCreated(null);
+          if (saved) onSaved(saved);
+        }}
+      />
+    </>
   );
 }

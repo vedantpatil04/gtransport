@@ -209,6 +209,7 @@ export function FinancingDialog({
     totalInstallments: '',
     paidInstallments: '',
     nextDueDate: '',
+    financeEndDate: '',
     status: 'ACTIVE',
   });
   const [busy, setBusy] = useState(false);
@@ -229,6 +230,7 @@ export function FinancingDialog({
       totalInstallments: financing?.totalInstallments ? String(financing.totalInstallments) : '',
       paidInstallments: financing?.paidInstallments !== null && financing?.paidInstallments !== undefined ? String(financing.paidInstallments) : '',
       nextDueDate: financing?.nextDueDate ?? '',
+      financeEndDate: financing?.financeEndDate ?? '',
       status: financing?.status ?? 'ACTIVE',
     });
     setError(null);
@@ -271,6 +273,7 @@ export function FinancingDialog({
         totalInstallments: numeric(form.totalInstallments),
         paidInstallments: numeric(form.paidInstallments),
         nextDueDate: text(form.nextDueDate),
+        financeEndDate: text(form.financeEndDate),
         status: form.status,
       });
       toast.success(t('admin.vehiclesApi.financeSaved', { reg: vehicle.registrationNumber }));
@@ -347,6 +350,11 @@ export function FinancingDialog({
             <div className="space-y-1.5">
               <Label htmlFor="fd-due">{t('admin.vehiclesApi.nextDue')}</Label>
               <Input id="fd-due" type="date" value={form.nextDueDate} onChange={set('nextDueDate')} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="fd-end">{t('admin.vehiclesApi.financeEnd')}</Label>
+              <Input id="fd-end" type="date" value={form.financeEndDate} onChange={set('financeEndDate')} />
+              <FieldError>{fieldErrors.financeEndDate}</FieldError>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="fd-status">{t('admin.vehiclesApi.financeStatus')}</Label>

@@ -11,7 +11,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * same key is never queued twice, so a double tap cannot create two records.
  */
 
-export type QueueItemStatus = 'pending' | 'failed';
+/**
+ * pending  — waiting for its first attempt
+ * failed   — a temporary failure (no network, server down); will be retried
+ * rejected — the server refused it for good (e.g. validation); kept so the driver can see it
+ */
+export type QueueItemStatus = 'pending' | 'failed' | 'rejected';
+
+/**
+ * How a failed attempt should be treated. Handlers throw errors; this decides what they mean.
+ * - retry:     temporary; keep the item and try again later (never dropped)
+ * - permanent: the server will never accept it; mark rejected and move on
+ * - halt:      stop draining without counting an attempt (e.g. the session expired)
+ */
+export type FailureKind = 'retry' | 'permanent' | 'halt';
 
 export interface QueuedAction<TPayload = unknown> {
   id: string;
@@ -30,7 +43,6 @@ export type QueueHandler = (payload: unknown) => Promise<void>;
 
 const STORAGE_KEY = 'gangamata.offline.queue';
 const SENT_KEYS_KEY = 'gangamata.offline.sent';
-const MAX_ATTEMPTS = 5;
 /** Remembering recent successes is what stops a retry from creating a duplicate record. */
 const SENT_KEYS_LIMIT = 200;
 
@@ -51,8 +63,17 @@ const writeJson = async (key: string, value: unknown): Promise<void> => {
   }
 };
 
+/** Default classification: anything unrecognised is treated as temporary, so nothing is lost. */
+const defaultClassify = (): FailureKind => 'retry';
+
 export class OfflineQueue {
   private handlers = new Map<string, QueueHandler>();
+  private classify: (error: unknown) => FailureKind = defaultClassify;
+
+  /** Installs the rule that decides whether a failure is temporary, permanent or a pause. */
+  setClassifier(classify: (error: unknown) => FailureKind): void {
+    this.classify = classify;
+  }
   private listeners = new Set<(items: QueuedAction[]) => void>();
   private draining = false;
 
@@ -95,9 +116,13 @@ export class OfflineQueue {
   /**
    * Sends everything it can, oldest first. Safe to call repeatedly: concurrent drains are
    * ignored, so regaining connectivity cannot start two passes over the same items.
+   *
+   * A temporary failure stops the pass (the network is probably still down) and the item is
+   * kept for next time — however many attempts it takes. An item is only ever removed once the
+   * server has accepted it, so a driver's entry cannot be silently discarded.
    */
-  async drain(): Promise<{ sent: number; failed: number; remaining: number }> {
-    if (this.draining) return { sent: 0, failed: 0, remaining: (await this.list()).length };
+  async drain(): Promise<{ sent: number; failed: number; rejected: number; remaining: number }> {
+    if (this.draining) return { sent: 0, failed: 0, rejected: 0, remaining: (await this.list()).length };
     this.draining = true;
 
     try {
@@ -105,8 +130,10 @@ export class OfflineQueue {
       const sentKeys = await readJson<string[]>(SENT_KEYS_KEY, []);
       let sent = 0;
       let failed = 0;
+      let rejected = 0;
 
       for (const item of [...items].sort((a, b) => a.createdAt - b.createdAt)) {
+        if (item.status === 'rejected') continue;
         const handler = this.handlers.get(item.kind);
         if (!handler) continue;
 
@@ -116,26 +143,40 @@ export class OfflineQueue {
           sentKeys.push(item.dedupeKey);
           sent += 1;
         } catch (error) {
+          const kind = this.classify(error);
+          const message = (error as Error)?.message;
+
+          if (kind === 'halt') break;
+
+          if (kind === 'permanent') {
+            rejected += 1;
+            items = items.map((candidate) =>
+              candidate.id === item.id ? { ...candidate, status: 'rejected' as const, lastError: message } : candidate,
+            );
+            continue;
+          }
+
           failed += 1;
-          const attempts = item.attempts + 1;
-          items = attempts >= MAX_ATTEMPTS
-            ? items.filter((candidate) => candidate.id !== item.id)
-            : items.map((candidate) =>
-                candidate.id === item.id
-                  ? { ...candidate, attempts, status: 'failed' as const, lastError: (error as Error)?.message }
-                  : candidate,
-              );
-          // Stop on the first failure: the network is probably still down.
+          items = items.map((candidate) =>
+            candidate.id === item.id
+              ? { ...candidate, attempts: candidate.attempts + 1, status: 'failed' as const, lastError: message }
+              : candidate,
+          );
           break;
         }
       }
 
       await writeJson(SENT_KEYS_KEY, sentKeys.slice(-SENT_KEYS_LIMIT));
       await this.save(items);
-      return { sent, failed, remaining: items.length };
+      return { sent, failed, rejected, remaining: items.length };
     } finally {
       this.draining = false;
     }
+  }
+
+  /** Removes one item, e.g. when the driver discards a rejected entry. */
+  async remove(id: string): Promise<void> {
+    await this.save((await this.list()).filter((item) => item.id !== id));
   }
 
   async clear(): Promise<void> {

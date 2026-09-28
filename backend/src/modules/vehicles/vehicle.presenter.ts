@@ -1,5 +1,5 @@
 import { VehicleOwnership } from '@prisma/client';
-import { calculateEmi, outstandingPrincipal, round2 } from '../finance/emi.calculator';
+import { calculateEmi, outstandingPrincipal } from '../finance/emi.calculator';
 import type { VehicleRow } from './vehicles.service';
 
 export interface FinancingView {
@@ -17,8 +17,9 @@ export interface FinancingView {
   remainingInstallments: number | null;
   outstandingAmount: string | null;
   nextDueDate: string | null;
-  /** Derived from the loan terms; absent when the terms are incomplete. */
-  calculated: { emiAmount: number; totalPayable: number; totalInterest: number; outstandingPrincipal: number } | null;
+  financeEndDate: string | null;
+  /** Derived from the loan terms in Decimal; strings so no precision is lost in JSON. */
+  calculated: { emiAmount: string; totalPayable: string; totalInterest: string; outstandingPrincipal: string } | null;
 }
 
 export interface VehicleView {
@@ -44,6 +45,11 @@ export interface VehicleView {
   } | null;
   /** Null for OWNED vehicles: a fully owned vehicle has no EMI to show. */
   financing: FinancingView | null;
+  /**
+   * A closed loan on a vehicle that is now owned: history only, never EMI tools. Kept so paying
+   * off a vehicle never hides what was financed.
+   */
+  pastFinancing: FinancingView | null;
 }
 
 const isoDate = (value: Date | null): string | null => (value ? value.toISOString().slice(0, 10) : null);
@@ -79,6 +85,7 @@ export function presentVehicle(vehicle: VehicleRow): VehicleView {
         }
       : null,
     financing: presentFinancing(vehicle),
+    pastFinancing: vehicle.ownership === VehicleOwnership.OWNED && vehicle.financing ? financingView(vehicle.financing) : null,
   };
 }
 
@@ -88,20 +95,30 @@ export function presentVehicle(vehicle: VehicleRow): VehicleView {
  */
 function presentFinancing(vehicle: VehicleRow): FinancingView | null {
   if (vehicle.ownership !== VehicleOwnership.FINANCED || !vehicle.financing) return null;
-  const f = vehicle.financing;
+  return financingView(vehicle.financing);
+}
 
-  const principal = f.loanAmount ? Number(f.loanAmount) : null;
-  const rate = f.interestRatePct !== null ? Number(f.interestRatePct) : null;
+function financingView(f: NonNullable<VehicleRow['financing']>): FinancingView {
+
   const tenure = f.tenureMonths;
   const paid = f.paidInstallments ?? 0;
 
-  const calculated =
-    principal !== null && rate !== null && tenure !== null && tenure > 0
-      ? {
-          ...calculateEmi({ principal, annualRatePct: rate, tenureMonths: tenure }),
-          outstandingPrincipal: outstandingPrincipal({ principal, annualRatePct: rate, tenureMonths: tenure }, paid),
-        }
-      : null;
+  let calculated: FinancingView['calculated'] = null;
+  if (f.loanAmount !== null && f.interestRatePct !== null && tenure !== null && tenure > 0) {
+    try {
+      const terms = { principal: f.loanAmount, annualRatePct: f.interestRatePct, tenureMonths: tenure };
+      const emi = calculateEmi(terms);
+      calculated = {
+        emiAmount: emi.emiAmount.toFixed(2),
+        totalPayable: emi.totalPayable.toFixed(2),
+        totalInterest: emi.totalInterest.toFixed(2),
+        outstandingPrincipal: outstandingPrincipal(terms, paid).toFixed(2),
+      };
+    } catch {
+      // Stored terms outside the calculator's range: show the recorded figures only.
+      calculated = null;
+    }
+  }
 
   const totalInstallments = f.totalInstallments ?? tenure;
 
@@ -115,12 +132,13 @@ function presentFinancing(vehicle: VehicleRow): FinancingView | null {
     tenureMonths: tenure,
     interestRatePct: f.interestRatePct?.toFixed(2) ?? null,
     // Falls back to the derived EMI when no figure was recorded from the loan agreement.
-    emiAmount: f.emiAmount?.toFixed(2) ?? (calculated ? round2(calculated.emiAmount).toFixed(2) : null),
+    emiAmount: f.emiAmount?.toFixed(2) ?? calculated?.emiAmount ?? null,
     totalInstallments,
     paidInstallments: f.paidInstallments,
     remainingInstallments: totalInstallments !== null ? Math.max(0, totalInstallments - paid) : null,
-    outstandingAmount: f.outstandingAmount?.toFixed(2) ?? (calculated ? calculated.outstandingPrincipal.toFixed(2) : null),
+    outstandingAmount: f.outstandingAmount?.toFixed(2) ?? calculated?.outstandingPrincipal ?? null,
     nextDueDate: isoDate(f.nextDueDate),
+    financeEndDate: isoDate(f.financeEndDate),
     calculated,
   };
 }

@@ -1,0 +1,34 @@
+{
+  "data": [
+    {
+      "id": "01a0d7de-85d1-718c-ae33-465fc4bb97d4",
+      "type": "OTHER",
+      "amount": "300.00",
+      "status": "PENDING_APPROVAL",
+      "method": "CASH",
+      "description": null,
+      "payPeriod": null,
+      "utr": null,
+      "recipientSummary": null,
+      "createdAt": "2026-09-25T09:21:19.825Z",
+      "paidAt": null
+    },
+    {
+      "id": "01a0d7de-8561-737c-b9c9-2c545e24719e",
+      "type": "ALLOWANCE",
+      "amount": "1250.50",
+      "status": "PAID",
+      "method": "CASH",
+      "description": "Festival allowance",
+      "payPeriod": null,
+      "utr": "CASH-042",
+      "recipientSummary": null,
+      "createdAt": "2026-09-25T09:21:19.713Z",
+      "paidAt": "2026-09-25T09:21:19.797Z"
+    }
+  ],
+  "page": {
+    "limit": 25,
+    "nextCursor": null
+  }
+}

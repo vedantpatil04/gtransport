@@ -1,3 +1,4 @@
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -5,7 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { AppText, Card, ErrorView, Loading, Plate } from '../../components/ui';
 import { LocationStatusCard } from '../../features/location/LocationStatusCard';
+import { fuelApi, operationsApi } from '../../lib/api/operations';
 import { useSession } from '../../lib/auth/session-store';
+import { todayIso } from '../../lib/dates';
 import { colors, radius, shadow, spacing, TOUCH_TARGET } from '../../theme/tokens';
 
 /**
@@ -22,12 +25,37 @@ export default function HomeScreen() {
   const refreshDriver = useSession((s) => s.refreshDriver);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const router = useRouter();
+  const token = useSession((s) => s.token);
+  const [today, setToday] = useState<{ fuel: string; other: string } | null>(null);
+
+  const loadToday = useCallback(async () => {
+    if (!token) return;
+    const date = todayIso();
+    try {
+      const [fuel, other] = await Promise.all([
+        fuelApi.list(token, { from: date, to: date, limit: 1 }),
+        operationsApi.list(token, { from: date, to: date }),
+      ]);
+      setToday({ fuel: fuel.totals.amount, other: other.total });
+    } catch {
+      // Offline: the summary simply shows no figures rather than wrong ones.
+      setToday(null);
+    }
+  }, [token]);
+
+  // Refresh whenever Home comes back into view, e.g. after saving a fill-up.
+  useFocusEffect(
+    useCallback(() => {
+      void loadToday();
+    }, [loadToday]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setError(false);
     try {
-      await refreshDriver();
+      await Promise.all([refreshDriver(), loadToday()]);
     } catch {
       setError(true);
     } finally {
@@ -77,31 +105,30 @@ export default function HomeScreen() {
           <Card>
             <View style={styles.cardHead}>
               <AppText variant="h2">{t('home.todaySummary')}</AppText>
-              <AppText variant="label" tone="muted">{t('home.demoData')}</AppText>
             </View>
             <View style={styles.summaryRow}>
               {[
-                { key: 'fuel', label: t('home.fuel') },
-                { key: 'other', label: t('home.otherExpenses') },
-                { key: 'received', label: t('home.received') },
+                { key: 'fuel', label: t('home.fuel'), value: today?.fuel ?? null },
+                { key: 'other', label: t('home.otherExpenses'), value: today?.other ?? null },
+                // Payments arrive with the payments phase; nothing is shown until they are real.
+                { key: 'received', label: t('home.received'), value: null },
               ].map((cell) => (
-                <View key={cell.key} style={styles.summaryCell}>
+                <View key={cell.key} style={styles.summaryCell} testID={`summary-${cell.key}`}>
                   <AppText variant="label" tone="muted" numberOfLines={2}>{cell.label}</AppText>
-                  {/* Placeholder until the fuel and payment phases provide real figures. */}
-                  <AppText variant="figure" tone="muted" style={{ marginTop: spacing.xs }}>—</AppText>
+                  <AppText variant="figure" tone={cell.value === null ? 'muted' : 'default'} style={{ marginTop: spacing.xs }}>
+                    {cell.value === null ? '—' : `₹${Number(cell.value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                  </AppText>
                 </View>
               ))}
             </View>
-            <AppText variant="label" tone="muted" style={{ marginTop: spacing.md }}>{t('home.demoNotice')}</AppText>
           </Card>
 
-          {/* The dominant action in the approved design; the workflow itself is a later phase. */}
+          {/* The dominant action in the approved design. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
-            disabled
             testID="add-fuel"
-            style={[styles.addFuel, { opacity: 0.55 }]}
+            onPress={() => router.push('/fuel/new')}
+            style={({ pressed }) => [styles.addFuel, pressed && { opacity: 0.9 }]}
           >
             <View style={styles.fuelIcon}>
               <AppText variant="h1" style={{ color: '#111111' }}>⛽</AppText>
@@ -109,21 +136,33 @@ export default function HomeScreen() {
             <View style={styles.flex}>
               <AppText variant="h1" tone="inverse" numberOfLines={1}>{t('home.addFuel')}</AppText>
               <AppText variant="label" tone="inverse" style={{ opacity: 0.75 }} numberOfLines={1}>
-                {t('home.comingSoon')}
+                {t('home.addFuelHint')}
               </AppText>
             </View>
           </Pressable>
 
-          {[
-            { key: 'updates', title: t('home.otherUpdates') },
-            { key: 'payments', title: t('home.payments') },
-            { key: 'documents', title: t('home.documents') },
-          ].map((section) => (
-            <Card key={section.key} style={styles.sectionCard}>
-              <AppText variant="h2">{section.title}</AppText>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/updates')} testID="home-updates">
+            <Card style={styles.sectionCard}>
+              <AppText variant="h2">{t('home.otherUpdates')}</AppText>
+              <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>
+                {[t('daily.rto'), t('daily.tyre'), t('daily.tyreInsurance'), t('daily.maintenance')].join(' · ')}
+              </AppText>
+            </Card>
+          </Pressable>
+
+          <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/documents')} testID="home-documents">
+            <Card style={styles.sectionCard}>
+              <AppText variant="h2">{t('home.documents')}</AppText>
+              <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>{t('tabs.documents')}</AppText>
+            </Card>
+          </Pressable>
+
+          <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/payments')} testID="home-payments">
+            <Card style={styles.sectionCard}>
+              <AppText variant="h2">{t('home.payments')}</AppText>
               <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>{t('home.comingSoon')}</AppText>
             </Card>
-          ))}
+          </Pressable>
         </View>
       </ScrollView>
     </View>

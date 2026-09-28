@@ -20,6 +20,8 @@ export interface LocationPermissionSnapshot {
   servicesEnabled: boolean;
   /** False when Android/iOS will no longer show a prompt: the driver must use Settings. */
   canAskAgain: boolean;
+  /** Same, for the separate background-location prompt Android shows after foreground is granted. */
+  canAskBackgroundAgain: boolean;
 }
 
 const stageFrom = (response: Location.LocationPermissionResponse | Location.PermissionResponse): PermissionStage => {
@@ -44,17 +46,23 @@ export async function readPermission(): Promise<LocationPermissionSnapshot> {
     background: backgroundStage,
     servicesEnabled,
     canAskAgain: foreground.canAskAgain,
+    canAskBackgroundAgain: background?.canAskAgain ?? true,
   };
 }
 
 /**
- * Asks for foreground permission, then background if foreground was granted. Android requires
- * that order, and asking for background first simply fails.
+ * Asks for foreground permission, then background if foreground was granted.
+ *
+ * The order is not a preference: Android refuses a background request outright unless foreground
+ * permission is already held, so asking for background first simply fails. Background is requested
+ * by default because continuous tracking is what the product needs — a driver who grants only
+ * foreground is reported as such rather than being asked again on every screen.
  */
 export async function requestPermission(options: { includeBackground?: boolean } = {}): Promise<LocationPermissionSnapshot> {
+  const includeBackground = options.includeBackground ?? true;
   const foreground = await Location.requestForegroundPermissionsAsync();
 
-  if (stageFrom(foreground) === 'GRANTED' && options.includeBackground) {
+  if (stageFrom(foreground) === 'GRANTED' && includeBackground) {
     await Location.requestBackgroundPermissionsAsync().catch(() => null);
   }
 
@@ -77,11 +85,29 @@ export function toApiPermission(snapshot: LocationPermissionSnapshot): LocationP
 }
 
 /**
- * What the driver is told. Phase 2 never reports ACTIVE, because nothing is being tracked yet:
- * the app has permission at best, so it reports OFFLINE rather than pretending.
+ * The status these permissions alone imply, with no knowledge of whether fixes are arriving.
+ *
+ * Deliberately conservative: permission is not tracking, so the best this can report is OFFLINE.
+ * The authoritative status comes from the server, which knows when the last fix actually landed;
+ * see deriveTrackingState in ./tracking-state.ts for what the device reports about itself.
  */
 export function toDisplayStatus(snapshot: LocationPermissionSnapshot): LocationStatus {
   if (!snapshot.servicesEnabled) return 'LOCATION_DISABLED';
   if (snapshot.foreground !== 'GRANTED') return 'PERMISSION_DENIED';
   return 'OFFLINE';
+}
+
+/** True when only the OS settings screen can change the answer — the prompt will not reappear. */
+export function needsSettings(snapshot: LocationPermissionSnapshot): boolean {
+  if (!snapshot.servicesEnabled) return true;
+  if (snapshot.foreground === 'RESTRICTED') return true;
+  if (snapshot.foreground !== 'GRANTED') return !snapshot.canAskAgain;
+  // Android asks for background permission from its settings screen, not from an in-app prompt,
+  // once the one-time "Allow all the time" opportunity has passed.
+  return snapshot.background !== 'GRANTED' && !snapshot.canAskBackgroundAgain;
+}
+
+/** Whether background tracking is fully permitted, which is what continuous tracking needs. */
+export function isBackgroundReady(snapshot: LocationPermissionSnapshot): boolean {
+  return snapshot.servicesEnabled && snapshot.foreground === 'GRANTED' && snapshot.background === 'GRANTED';
 }

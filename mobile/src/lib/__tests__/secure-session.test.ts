@@ -9,7 +9,7 @@ describe('secure session storage', () => {
   });
 
   it('stores the session in the OS keystore, not plain storage', async () => {
-    await saveSession({ accessToken: 'token-1', expiresAt: Date.now() + 60_000, driverUserId: 'u1' });
+    await saveSession({ accessToken: 'token-1', expiresAt: Date.now() + 60_000, userId: 'u1', role: 'DRIVER' });
 
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
       'gangamata.session',
@@ -19,15 +19,21 @@ describe('secure session storage', () => {
   });
 
   it('returns a stored session that is still valid', async () => {
-    await saveSession({ accessToken: 'token-1', expiresAt: Date.now() + 60_000, driverUserId: 'u1' });
-    await expect(loadSession()).resolves.toMatchObject({ accessToken: 'token-1', driverUserId: 'u1' });
+    await saveSession({ accessToken: 'token-1', expiresAt: Date.now() + 60_000, userId: 'u1', role: 'DRIVER' });
+    await expect(loadSession()).resolves.toMatchObject({ accessToken: 'token-1', userId: 'u1', role: 'DRIVER' });
   });
 
   it('treats an expired session as no session and clears it', async () => {
-    await saveSession({ accessToken: 'old', expiresAt: Date.now() - 1, driverUserId: 'u1' });
+    await saveSession({ accessToken: 'old', expiresAt: Date.now() - 1, userId: 'u1', role: 'DRIVER' });
 
     await expect(loadSession()).resolves.toBeNull();
     expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+  });
+
+  it('reads a session saved before roles were stored as a driver session', async () => {
+    const SecureStore = jest.requireMock('expo-secure-store') as typeof import('expo-secure-store');
+    await SecureStore.setItemAsync('gangamata.session', JSON.stringify({ accessToken: 'old-driver', expiresAt: Date.now() + 60_000, driverUserId: 'u9' }));
+    await expect(loadSession()).resolves.toEqual({ accessToken: 'old-driver', expiresAt: expect.any(Number), userId: 'u9', role: 'DRIVER' });
   });
 
   it('survives a corrupt entry rather than crashing at launch', async () => {
@@ -36,7 +42,7 @@ describe('secure session storage', () => {
   });
 
   it('forgets everything on logout', async () => {
-    await saveSession({ accessToken: 'token-1', expiresAt: Date.now() + 60_000, driverUserId: 'u1' });
+    await saveSession({ accessToken: 'token-1', expiresAt: Date.now() + 60_000, userId: 'u1', role: 'DRIVER' });
     await clearSession();
     await expect(loadSession()).resolves.toBeNull();
   });

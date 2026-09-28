@@ -1,24 +1,25 @@
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, type Href } from 'expo-router';
 import { useEffect } from 'react';
 import { useSession } from '../../lib/auth/session-store';
 import { Loading } from '../../components/ui';
+import { routeFor } from './routing';
 
 /**
- * Sends the driver to login when there is no session, and into the app when there is.
- * Redirecting here rather than inside screens means no screen ever renders without a session.
+ * Sends each person to the right place: login without a session, the password change while a
+ * temporary password is in use, the driver app for drivers and the office app for office roles.
+ * Redirecting here rather than inside screens means no screen renders for the wrong person.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const status = useSession((s) => s.status);
-  const segments = useSegments();
+  const role = useSession((s) => s.role);
+  const mustChangePassword = useSession((s) => Boolean(s.user?.mustChangePassword));
+  const segments = useSegments() as string[];
   const router = useRouter();
 
+  const target = routeFor({ status, role, mustChangePassword }, segments);
   useEffect(() => {
-    if (status === 'loading') return;
-    const inAuthGroup = segments[0] === '(auth)';
-
-    if (status === 'signedOut' && !inAuthGroup) router.replace('/(auth)/login');
-    if (status === 'signedIn' && inAuthGroup) router.replace('/(tabs)');
-  }, [status, segments, router]);
+    if (target) router.replace(target as Href);
+  }, [target, router]);
 
   if (status === 'loading') return <Loading />;
   return <>{children}</>;

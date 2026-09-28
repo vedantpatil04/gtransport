@@ -1,70 +1,61 @@
-import { calculateEmi, outstandingPrincipal, round2 } from './emi.calculator';
+import { calculateEmi, instalmentDueDates, outstandingPrincipal } from './emi.calculator';
 
-describe('calculateEmi', () => {
-  it('matches the standard reducing-balance EMI for a typical commercial vehicle loan', () => {
-    // ₹5,20,000 at 11.25% over 48 months. Cross-checked against the closed-form formula.
-    const { emiAmount, totalPayable, totalInterest } = calculateEmi({ principal: 520_000, annualRatePct: 11.25, tenureMonths: 48 });
+const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-    expect(emiAmount).toBeCloseTo(13502.89, 1);
-    expect(totalPayable).toBeCloseTo(emiAmount * 48, 1);
-    expect(totalInterest).toBeCloseTo(totalPayable - 520_000, 1);
+describe('EMI calculator (Decimal)', () => {
+  it('matches the standard reducing-balance EMI', () => {
+    // ₹5,20,000 at 11.25% over 48 months.
+    const { emiAmount, totalPayable, totalInterest } = calculateEmi({ principal: '520000', annualRatePct: '11.25', tenureMonths: 48 });
+    expect(emiAmount.toFixed(2)).toBe('13502.89');
+    expect(totalPayable.toFixed(2)).toBe('648138.72');
+    expect(totalInterest.toFixed(2)).toBe('128138.72');
   });
 
-  it('spreads the principal evenly when the rate is zero', () => {
-    expect(calculateEmi({ principal: 120_000, annualRatePct: 0, tenureMonths: 12 })).toEqual({
-      emiAmount: 10_000,
-      totalPayable: 120_000,
-      totalInterest: 0,
-    });
+  it('makes the figures add up exactly: total = EMI × months, interest = total − principal', () => {
+    const r = calculateEmi({ principal: '1450000', annualRatePct: '9.75', tenureMonths: 60 });
+    expect(r.totalPayable.equals(r.emiAmount.mul(60))).toBe(true);
+    expect(r.totalInterest.equals(r.totalPayable.minus(1450000))).toBe(true);
   });
 
-  it('always costs more than the principal when interest is charged', () => {
-    const { totalInterest } = calculateEmi({ principal: 1_450_000, annualRatePct: 9.75, tenureMonths: 60 });
-    expect(totalInterest).toBeGreaterThan(0);
+  it('handles a zero interest rate', () => {
+    const r = calculateEmi({ principal: 120000, annualRatePct: 0, tenureMonths: 12 });
+    expect(r.emiAmount.toFixed(2)).toBe('10000.00');
+    expect(r.totalInterest.toFixed(2)).toBe('0.00');
   });
 
-  it('rounds every figure to paise so nothing fractional reaches a stored column', () => {
-    const result = calculateEmi({ principal: 333_333, annualRatePct: 7.77, tenureMonths: 17 });
-    for (const value of Object.values(result)) {
-      expect(value).toBe(round2(value));
-    }
+  it('is exact where floating point is not', () => {
+    // 0.1 + 0.2 style error must not appear in money.
+    const r = calculateEmi({ principal: '0.30', annualRatePct: 0, tenureMonths: 3 });
+    expect(r.emiAmount.toFixed(2)).toBe('0.10');
   });
 
-  it('rejects inputs that cannot describe a loan', () => {
-    expect(() => calculateEmi({ principal: -1, annualRatePct: 10, tenureMonths: 12 })).toThrow(RangeError);
-    expect(() => calculateEmi({ principal: 100, annualRatePct: -0.5, tenureMonths: 12 })).toThrow(RangeError);
-    expect(() => calculateEmi({ principal: 100, annualRatePct: 10, tenureMonths: 0 })).toThrow(RangeError);
-    expect(() => calculateEmi({ principal: 100, annualRatePct: 10, tenureMonths: 12.5 })).toThrow(RangeError);
-  });
-});
-
-describe('outstandingPrincipal', () => {
-  const loan = { principal: 520_000, annualRatePct: 11.25, tenureMonths: 48 };
-
-  it('is the full principal before any instalment is paid', () => {
-    expect(outstandingPrincipal(loan, 0)).toBeCloseTo(520_000, 0);
+  it('copes with very large values without losing precision', () => {
+    const r = calculateEmi({ principal: '999999999999.99', annualRatePct: '24', tenureMonths: 600 });
+    expect(r.emiAmount.isFinite()).toBe(true);
+    expect(r.emiAmount.greaterThan(0)).toBe(true);
   });
 
-  it('is zero once every instalment is paid', () => {
-    expect(outstandingPrincipal(loan, 48)).toBeCloseTo(0, 2);
+  it.each([
+    [{ principal: -1, annualRatePct: 10, tenureMonths: 12 }, /loan amount/],
+    [{ principal: '1e13', annualRatePct: 10, tenureMonths: 12 }, /too large/],
+    [{ principal: 100, annualRatePct: -1, tenureMonths: 12 }, /interest rate/],
+    [{ principal: 100, annualRatePct: 101, tenureMonths: 12 }, /interest rate/],
+    [{ principal: 100, annualRatePct: 10, tenureMonths: 0 }, /tenure/],
+    [{ principal: 100, annualRatePct: 10, tenureMonths: 12.5 }, /tenure/],
+    [{ principal: 'abc', annualRatePct: 10, tenureMonths: 12 }, /./],
+  ])('rejects invalid input %#', (input, message) => {
+    expect(() => calculateEmi(input as never)).toThrow(message);
   });
 
-  it('never goes negative when more instalments are recorded than the tenure', () => {
-    expect(outstandingPrincipal(loan, 60)).toBeCloseTo(0, 2);
+  it('reduces the outstanding principal to zero by the last instalment', () => {
+    const loan = { principal: '520000', annualRatePct: '11.25', tenureMonths: 48 };
+    expect(outstandingPrincipal(loan, 0).toFixed(2)).toBe('520000.00');
+    expect(outstandingPrincipal(loan, 48).toFixed(2)).toBe('0.00');
+    expect(outstandingPrincipal(loan, 18).lessThan(outstandingPrincipal(loan, 17))).toBe(true);
   });
 
-  it('falls monotonically as instalments are paid', () => {
-    const balances = [0, 6, 12, 24, 36, 47].map((paid) => outstandingPrincipal(loan, paid));
-    for (let i = 1; i < balances.length; i += 1) {
-      expect(balances[i]).toBeLessThan(balances[i - 1] as number);
-    }
-  });
-
-  it('repays a zero-rate loan in equal steps', () => {
-    expect(outstandingPrincipal({ principal: 120_000, annualRatePct: 0, tenureMonths: 12 }, 3)).toBe(90_000);
-  });
-
-  it('rejects a negative instalment count', () => {
-    expect(() => outstandingPrincipal(loan, -1)).toThrow(RangeError);
+  it('schedules monthly due dates, clamping to month end', () => {
+    expect(instalmentDueDates(new Date('2026-01-31T00:00:00Z'), 3).map(iso)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31']);
+    expect(instalmentDueDates(new Date('2027-12-05T00:00:00Z'), 2).map(iso)).toEqual(['2027-12-05', '2028-01-05']);
   });
 });

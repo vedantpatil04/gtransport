@@ -1,5 +1,6 @@
 import type { Employee, UserRole } from '@prisma/client';
 import { canSeePayroll } from '../auth/roles';
+import { canAdministerAccounts } from '../users/account-policy';
 
 export interface EmployeeView {
   id: string;
@@ -20,15 +21,18 @@ export interface EmployeeView {
   updatedAt: string;
   driver?: { id: string; driverCode: string; status: string } | null;
   payroll?: { baseSalary: string | null; pfApplicable: boolean; uan: string | null; pfMemberId: string | null };
+  /** Sign-in access at a glance — for administrators only; null when the employee has no login. */
+  account?: { role: string; status: string } | null;
 }
 
 export const isoDate = (value: Date | null): string | null => (value ? value.toISOString().slice(0, 10) : null);
 
 export type EmployeeWithDriver = Employee & {
   driver?: { id: string; driverCode: string; status: string } | null;
+  user?: { id: string; role: string; status: string; deletedAt: Date | null } | null;
 };
 
-/** Payroll figures are omitted entirely for roles that may not see them. */
+/** Payroll figures and account access are omitted entirely for roles that may not see them. */
 export function presentEmployee(employee: EmployeeWithDriver, viewerRole: UserRole): EmployeeView {
   return {
     id: employee.id,
@@ -57,6 +61,9 @@ export function presentEmployee(employee: EmployeeWithDriver, viewerRole: UserRo
             pfMemberId: employee.pfMemberId,
           },
         }
+      : {}),
+    ...(canAdministerAccounts(viewerRole)
+      ? { account: employee.user && !employee.user.deletedAt ? { role: employee.user.role, status: employee.user.status } : null }
       : {}),
   };
 }

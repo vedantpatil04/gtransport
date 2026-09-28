@@ -1,0 +1,38 @@
+{
+  "id": "01a0d4a2-1ac4-771b-8668-b5e225225d24",
+  "driverCode": "GR-D--46291",
+  "status": "ACTIVE",
+  "licenceNumber": "KA05-1790273788109-46291",
+  "licenceExpiryDate": null,
+  "homeTown": null,
+  "locationSharingEnabled": false,
+  "location": null,
+  "emergencyContact": {
+    "name": null,
+    "phone": null
+  },
+  "employee": {
+    "id": "01a0d4a2-1abb-7219-ab13-1f44a6f6bd9c",
+    "employeeCode": "DRV-1790273788109-46291",
+    "fullName": "Ramesh Kumar",
+    "phone": null,
+    "email": null,
+    "designation": null,
+    "department": null,
+    "preferredLanguage": "EN",
+    "status": "ACTIVE",
+    "joiningDate": null
+  },
+  "currentAssignment": {
+    "id": "01a0d4a2-1ae1-7209-8334-2929fca0031f",
+    "startedAt": "2026-09-24T18:16:28.637Z",
+    "vehicle": {
+      "id": "01a0d4a2-1ad7-7110-8880-29839cafe697",
+      "registrationNumber": "KA 22 AB 6291",
+      "kind": "TRUCK",
+      "fuelType": "DIESEL",
+      "status": "ACTIVE",
+      "ownership": "OWNED"
+    }
+  }
+}

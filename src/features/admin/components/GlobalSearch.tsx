@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CornerDownLeft, FileText, Fuel, ReceiptIndianRupee, Search, Truck, Users, Wallet } from 'lucide-react';
+import { Contact, CornerDownLeft, FileText, Fuel, ReceiptIndianRupee, Search, Truck, Users, Wallet } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Plate } from '@/components/Plate';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/store';
-import { searchAll, type SearchGroupKey } from '../search';
+import { searchAll, type SearchGroup, type SearchGroupKey } from '../search';
+import { isApiConfigured } from '@/features/api/mode';
+import { employeesApi, vehiclesApi } from '@/features/api/resources';
+import { useApiResource, useDebounced } from '@/features/api/useApiResource';
 
-const ICON: Record<SearchGroupKey, typeof Users> = { drivers: Users, vehicles: Truck, fuel: Fuel, expenses: ReceiptIndianRupee, payments: Wallet, documents: FileText };
+const ICON: Record<SearchGroupKey, typeof Users> = { employees: Contact, drivers: Users, vehicles: Truck, fuel: Fuel, expenses: ReceiptIndianRupee, payments: Wallet, documents: FileText };
 const EXAMPLES = ['Ramesh', 'KA 22 AB 1234', 'IndianOil', 'RZP'];
 
 export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -24,7 +27,13 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
   const payments = useApp((s) => s.payments);
   const documents = useApp((s) => s.documents);
 
-  const groups = useMemo(() => searchAll(query, { drivers, vehicles, fuel, expenses, payments, documents }, t, i18n.language), [query, drivers, vehicles, fuel, expenses, payments, documents, t, i18n.language]);
+  const live = isApiConfigured();
+  const demoGroups = useMemo(
+    () => (live ? [] : searchAll(query, { drivers, vehicles, fuel, expenses, payments, documents }, t, i18n.language)),
+    [live, query, drivers, vehicles, fuel, expenses, payments, documents, t, i18n.language],
+  );
+  const liveGroups = useLiveSearch(live && open ? query : '');
+  const groups = live ? liveGroups : demoGroups;
   const flat = useMemo(() => groups.flatMap((g) => g.items.map((it) => it.to)), [groups]);
 
   useEffect(() => setActive(0), [query]);
@@ -73,7 +82,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
             <div className="px-3 py-6">
               <p className="text-sm text-muted-foreground">{t('admin.search.hint')}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {EXAMPLES.map((ex) => (
+                {(live ? [] : EXAMPLES).map((ex) => (
                   <button key={ex} onClick={() => setQuery(ex)} className="rounded-full border px-3 py-1 text-sm hover:bg-accent">
                     {ex}
                   </button>
@@ -127,4 +136,39 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * Real mode: people and vehicles from the live API (the searches every office role may run).
+ * Sample records are never searched once an API is configured.
+ */
+function useLiveSearch(query: string): SearchGroup[] {
+  const q = useDebounced(query.trim());
+  const enabled = q.length >= 2;
+  const people = useApiResource(() => employeesApi.list({ q, limit: 5 }), [q], enabled);
+  const fleet = useApiResource(() => vehiclesApi.list({ q, limit: 5 }), [q], enabled);
+  if (!enabled) return [];
+  const groups: SearchGroup[] = [];
+  const staff = people.data?.data ?? [];
+  if (staff.length) {
+    groups.push({
+      key: 'employees',
+      total: staff.length,
+      items: staff.map((e) => ({
+        id: e.id,
+        title: e.fullName,
+        sub: `${e.employeeCode}${e.phone ? ` · ${e.phone}` : ''}`,
+        to: e.driver ? `/admin/drivers/${e.driver.id}` : `/admin/employees?q=${encodeURIComponent(e.fullName)}`,
+      })),
+    });
+  }
+  const vans = fleet.data?.data ?? [];
+  if (vans.length) {
+    groups.push({
+      key: 'vehicles',
+      total: vans.length,
+      items: vans.map((v) => ({ id: v.id, title: v.registrationNumber, sub: [v.make, v.model].filter(Boolean).join(' '), to: `/admin/vehicles/${v.id}`, plate: v.registrationNumber })),
+    });
+  }
+  return groups;
 }

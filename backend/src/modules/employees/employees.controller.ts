@@ -25,8 +25,10 @@ export class EmployeesController {
 
   @Post()
   @Roles(...FLEET_MANAGE_ROLES)
-  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateEmployeeDto): Promise<EmployeeView> {
-    return presentEmployee(await this.employees.create(user, dto), user.role);
+  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateEmployeeDto): Promise<EmployeeView & { temporaryPassword?: string }> {
+    const { temporaryPassword, ...employee } = await this.employees.create(user, dto);
+    // Shown once to the administrator who created the login; never retrievable again.
+    return { ...presentEmployee(employee, user.role), ...(temporaryPassword ? { temporaryPassword } : {}) };
   }
 
   @Patch(':id')

@@ -16,4 +16,12 @@ export interface AIConfig {
     apiKey: string;
     appId: string;
   };
+  /** Whether this process drains the receipt queue. */
+  workerEnabled: boolean;
+  workerPollSeconds: number;
+  workerBatchSize: number;
+  /** Automatic attempts before a receipt is left for a person. */
+  maxAttempts: number;
+  /** Below this, an extraction is routed for review rather than offered as ready suggestions. */
+  lowConfidenceThreshold: number;
 }

@@ -32,9 +32,14 @@ enum UserRole {
   @@map("user_role")
 }
 
+/// Login account lifecycle, separate from the employee's employment status.
+/// INVITED: created with a temporary password that must be changed at first sign-in.
+/// ACTIVE: normal. SUSPENDED: temporarily blocked. DISABLED: login removed (e.g. left the company).
 enum UserStatus {
   ACTIVE
   DISABLED
+  INVITED
+  SUSPENDED
 
   @@map("user_status")
 }
@@ -153,11 +158,278 @@ enum DocumentVerificationStatus {
   @@map("document_verification_status")
 }
 
+/// Lifecycle of a financial or operational record. Records are archived, never deleted,
+/// so fuel and expense history stays auditable for the life of the business.
+enum RecordStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("record_status")
+}
+
+/// Vehicle operating expenses a driver or the office records. Parking, food and repair
+/// from the prototype are intentionally absent: they are not production categories.
+/// Tyre insurance is not here either — it is a policy with an expiry, stored as a
+/// TYRE_INSURANCE document so the compliance phase can track it.
+enum OperationCategory {
+  RTO
+  TYRE
+  MAINTENANCE
+
+  @@map("operation_category")
+}
+
+/// Where a document sits in its history. Replacing a document never overwrites it: the old
+/// record becomes SUPERSEDED (keeping its file reference) and the new one is CURRENT.
+enum DocumentState {
+  CURRENT
+  SUPERSEDED
+  ARCHIVED
+
+  @@map("document_state")
+}
+
+/// Expiry warning thresholds, in days before expiry, plus the expiry itself.
+enum ExpiryThreshold {
+  DAYS_30
+  DAYS_15
+  DAYS_7
+  DAYS_3
+  DAYS_1
+  EXPIRED
+
+  @@map("expiry_threshold")
+}
+
+/// Money into or out of the business.
+enum LedgerDirection {
+  INCOME
+  EXPENSE
+
+  @@map("ledger_direction")
+}
+
+/// What a ledger line represents. Operating expenses mirror their Phase 3 records.
+enum LedgerEntryType {
+  FUEL
+  RTO
+  TYRE
+  TYRE_INSURANCE
+  MAINTENANCE
+  SALARY
+  ADVANCE
+  ALLOWANCE
+  OTHER_PAYMENT
+  EMI
+  CUSTOMER_PAYMENT
+  OTHER_INCOME
+  OTHER_EXPENSE
+
+  @@map("ledger_entry_type")
+}
+
+/// The record a ledger line was posted from.
+enum LedgerSourceType {
+  FUEL_ENTRY
+  VEHICLE_EXPENSE
+  DOCUMENT
+  SALARY
+  ADVANCE
+  PAYMENT
+  FINANCE_INSTALLMENT
+  MANUAL
+
+  @@map("ledger_source_type")
+}
+
+enum SalaryStatus {
+  PENDING
+  PAID
+  CANCELLED
+
+  @@map("salary_status")
+}
+
+enum AdvanceType {
+  SALARY_ADVANCE
+  FUEL_ADVANCE
+  TRIP_ADVANCE
+  OTHER_ADVANCE
+
+  @@map("advance_type")
+}
+
+enum AdvanceStatus {
+  PENDING
+  PAID
+  CANCELLED
+
+  @@map("advance_status")
+}
+
+enum PaymentType {
+  SALARY
+  ADVANCE
+  ALLOWANCE
+  OTHER
+
+  @@map("payment_type")
+}
+
+/// Payment lifecycle. Transitions are enforced in payment-state.ts; see the table there.
+/// STATUS_REVIEW_REQUIRED means the provider's result is unknown (e.g. a timeout): the payment
+/// is neither retried nor assumed failed until its real status has been checked.
+enum PaymentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PROCESSING
+  STATUS_REVIEW_REQUIRED
+  PAID
+  FAILED
+  CANCELLED
+  REVERSED
+
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  UPI
+  BANK_TRANSFER
+  CASH
+  OTHER
+
+  @@map("payment_method")
+}
+
+/// Who moved the money. MANUAL means the office paid outside the system and recorded it.
+enum PaymentProvider {
+  MANUAL
+  RAZORPAY
+  RAZORPAYX
+
+  @@map("payment_provider")
+}
+
+/// Internal finance events for a later notification phase to deliver.
+enum FinanceEventType {
+  PAYMENT_CREATED
+  PAYMENT_PROCESSING
+  PAYMENT_PAID
+  PAYMENT_FAILED
+  PAYMENT_REVERSED
+
+  @@map("finance_event_type")
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+
+  @@map("installment_status")
+}
+
 enum StorageProvider {
   LOCAL
   R2
 
   @@map("storage_provider")
+}
+
+// ───────────────────────── Receipt AI (Phase 7) ─────────────────────────
+
+/// Where a service receipt stands between "a photo arrived" and "the office confirmed it".
+///
+/// AI never advances a record past REVIEW_REQUIRED or COMPLETED on its own: CONFIRMED is only
+/// ever set by a person. The names extend the vocabulary the AI module already used in Phase 0
+/// (see modules/ai/receipts/ai-status.ts) rather than inventing a second one.
+enum ServiceReceiptAIStatus {
+  /// No receipt attached, or the record predates AI processing. The resting state.
+  NOT_PROCESSED
+  /// A job exists and is waiting for a worker.
+  PENDING
+  /// A worker has claimed it and the provider is being called.
+  PROCESSING
+  /// Extraction succeeded and looks solid. Values are suggestions awaiting confirmation.
+  COMPLETED
+  /// Extraction succeeded but is uncertain, incomplete or contradicts the record. Needs a human.
+  REVIEW_REQUIRED
+  /// Processing failed. The original receipt is untouched and a retry is available.
+  FAILED
+  /// Failed and waiting for an automatic retry attempt.
+  RETRYING
+  /// A person checked the extraction against the receipt and confirmed the record. Authoritative.
+  CONFIRMED
+  /// A person judged the extraction unusable. The record stands on manually entered values.
+  REJECTED
+
+  @@map("service_receipt_ai_status")
+}
+
+/// Why a processing attempt failed, kept as a code so failures can be counted and compared
+/// without parsing message text. Mirrors AIProcessingFailureCode in modules/ai/types.ts.
+enum AIFailureCode {
+  PROVIDER_UNAVAILABLE
+  PROVIDER_TIMEOUT
+  PROVIDER_BAD_RESPONSE
+  INVALID_AI_OUTPUT
+  UNSUPPORTED_DOCUMENT
+  CONFIGURATION_ERROR
+  RATE_LIMITED
+  FILE_UNAVAILABLE
+  PREPROCESSING_FAILED
+  UNKNOWN
+
+  @@map("ai_failure_code")
+}
+
+// ───────────────────────── Inbox (Phase 7) ─────────────────────────
+
+/// Which mailbox integration produced a message. Stored per message so a company that moves
+/// from one provider to another keeps its history interpretable.
+enum EmailProviderName {
+  IMAP_MAILBOX
+  GMAIL
+  MICROSOFT_GRAPH
+
+  @@map("email_provider_name")
+}
+
+/// What an inbound email appears to be about. Proposed by AI, changeable by a person — the
+/// `classifiedById` column records which of the two decided the current value.
+enum InboxClassification {
+  DOCUMENT
+  SERVICE_INVOICE
+  PAYMENT_NOTIFICATION
+  SUPPLIER
+  CUSTOMER_ENQUIRY
+  OPERATIONAL
+  SPAM
+  UNCLASSIFIED
+
+  @@map("inbox_classification")
+}
+
+/// Where an inbound message stands in the office's own handling of it.
+enum InboxMessageStatus {
+  UNREAD
+  READ
+  ARCHIVED
+
+  @@map("inbox_message_status")
+}
+
+/// AI processing state for one inbound message. Deliberately smaller than the receipt
+/// vocabulary: an email is classified and summarised, never "confirmed" into a financial record.
+enum InboxAIStatus {
+  NOT_PROCESSED
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  SKIPPED
+
+  @@map("inbox_ai_status")
 }
 
 enum LocationStatus {
@@ -179,6 +451,52 @@ enum LocationPermission {
   @@map("location_permission")
 }
 
+/// What the driver's device reports about its own tracking, as distinct from `LocationStatus`,
+/// which is what the server concludes from that report plus how recently a fix actually arrived.
+/// The app may claim TRACKING_ACTIVE only when the OS has granted permission and the background
+/// task is registered; the server still downgrades it if no fix has been received (see
+/// location-status.policy.ts), so "active" can never be asserted into existence by the client.
+enum DriverTrackingState {
+  /// Foreground location permission refused, so nothing can be captured.
+  LOCATION_PERMISSION_DENIED
+  /// Foreground granted but background refused: fixes stop when the app leaves the screen.
+  BACKGROUND_PERMISSION_MISSING
+  /// The device-level location toggle is off.
+  LOCATION_SERVICES_DISABLED
+  /// Permissions in place and the background task is running.
+  TRACKING_ACTIVE
+  /// Deliberately stopped — the driver is off duty or has no vehicle assigned.
+  TRACKING_PAUSED
+  /// The platform refuses to track for a reason the app cannot fix (restricted device, task
+  /// registration failed).
+  TRACKING_UNAVAILABLE
+  /// Tracking works, but captured fixes are still waiting in the device's offline buffer.
+  SYNC_PENDING
+  /// Tracking is registered, yet the newest fix on the device is already older than the
+  /// configured freshness window.
+  LAST_LOCATION_STALE
+
+  @@map("driver_tracking_state")
+}
+
+/// Kinds of fleet-location alert. Only STATIONARY exists today; the column is an enum so a
+/// later phase can add (for example) a geofence-departure alert without a data migration.
+enum FleetAlertType {
+  STATIONARY
+
+  @@map("fleet_alert_type")
+}
+
+/// Alert lifecycle. An alert is never deleted, and displaying one never resolves it: only an
+/// administrator acknowledging or resolving it, or the driver genuinely moving, changes this.
+enum FleetAlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+
+  @@map("fleet_alert_status")
+}
+
 // ───────────────────────────── Tenancy ─────────────────────────────
 
 model Company {
@@ -193,13 +511,26 @@ model Company {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  users       User[]
-  employees   Employee[]
-  drivers     Driver[]
-  vehicles    Vehicle[]
-  documents   Document[]
-  storedFiles StoredFile[]
-  auditLogs   AuditLog[]
+  users            User[]
+  fuelEntries      FuelEntry[]
+  vehicleExpenses  VehicleExpense[]
+  ledgerEntries    FinanceLedgerEntry[]
+  salaryRecords    SalaryRecord[]
+  advances         Advance[]
+  payments         PaymentRecord[]
+  employees        Employee[]
+  drivers          Driver[]
+  vehicles         Vehicle[]
+  documents        Document[]
+  storedFiles      StoredFile[]
+  auditLogs        AuditLog[]
+  locationAlerts   FleetLocationAlert[]
+  receiptAIJobs    ServiceReceiptAIJob[]
+  receiptAIResults ServiceReceiptAIResult[]
+  emailSyncCursors EmailSyncCursor[]
+  inboxMessages    InboxMessage[]
+  inboxAttachments InboxAttachment[]
+  inboxAIResults   InboxAIResult[]
 
   @@map("companies")
 }
@@ -208,22 +539,27 @@ model Company {
 
 /// A login identity. Business person data lives on Employee.
 model User {
-  id           String     @id @default(uuid(7)) @db.Uuid
-  companyId    String     @map("company_id") @db.Uuid
-  employeeId   String?    @unique @map("employee_id") @db.Uuid
+  id                 String     @id @default(uuid(7)) @db.Uuid
+  companyId          String     @map("company_id") @db.Uuid
+  employeeId         String?    @unique @map("employee_id") @db.Uuid
   /// Stored lower-cased.
-  email        String?
+  email              String?
   /// Stored in E.164 form, e.g. +919876543210.
-  phone        String?
-  passwordHash String     @map("password_hash")
-  role         UserRole
-  status       UserStatus @default(ACTIVE)
-  lastLoginAt  DateTime?  @map("last_login_at") @db.Timestamptz(3)
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(3)
-  createdById  String?    @map("created_by_id") @db.Uuid
-  updatedById  String?    @map("updated_by_id") @db.Uuid
+  phone              String?
+  passwordHash       String     @map("password_hash")
+  role               UserRole
+  status             UserStatus @default(ACTIVE)
+  /// Set for a temporary password (new account or reset): only a password change is allowed.
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  /// Bumped when the role, status or password changes; tokens carrying an older value stop working.
+  sessionVersion     Int        @default(0) @map("session_version")
+  passwordChangedAt  DateTime?  @map("password_changed_at") @db.Timestamptz(3)
+  lastLoginAt        DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?  @map("deleted_at") @db.Timestamptz(3)
+  createdById        String?    @map("created_by_id") @db.Uuid
+  updatedById        String?    @map("updated_by_id") @db.Uuid
 
   company  Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
   employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
@@ -264,10 +600,14 @@ model Employee {
   createdById       String?          @map("created_by_id") @db.Uuid
   updatedById       String?          @map("updated_by_id") @db.Uuid
 
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  user      User?
-  driver    Driver?
-  documents Document[]
+  company       Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user          User?
+  driver        Driver?
+  documents     Document[]
+  salaryRecords SalaryRecord[]
+  advances      Advance[]
+  payments      PaymentRecord[]
+  payoutAccount EmployeePayoutAccount?
 
   @@unique([companyId, employeeCode])
   @@index([companyId, status])
@@ -293,18 +633,21 @@ model Driver {
   locationSharingEnabled Boolean      @default(false) @map("location_sharing_enabled")
   /// The one open assignment, if any. Unique, so a driver cannot hold two vehicles at once.
   currentAssignmentId    String?      @unique @map("current_assignment_id") @db.Uuid
-  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(3)
-  createdById            String?   @map("created_by_id") @db.Uuid
-  updatedById            String?   @map("updated_by_id") @db.Uuid
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt              DateTime?    @map("deleted_at") @db.Timestamptz(3)
+  createdById            String?      @map("created_by_id") @db.Uuid
+  updatedById            String?      @map("updated_by_id") @db.Uuid
 
   company           Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
   employee          Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   currentAssignment VehicleAssignment?   @relation("DriverCurrentAssignment", fields: [currentAssignmentId], references: [id], onDelete: Restrict)
   assignments       VehicleAssignment[]  @relation("DriverAssignments")
+  fuelEntries       FuelEntry[]
+  vehicleExpenses   VehicleExpense[]
   locationState     DriverLocationState?
   locationPings     DriverLocationPing[]
+  locationAlerts    FleetLocationAlert[]
 
   @@unique([companyId, driverCode])
   /// Lets other tables reference a driver together with its tenant (composite FK).
@@ -316,32 +659,34 @@ model Driver {
 // ───────────────────────────── Fleet ─────────────────────────────
 
 model Vehicle {
-  id                 String           @id @default(uuid(7)) @db.Uuid
-  companyId          String           @map("company_id") @db.Uuid
+  id                  String           @id @default(uuid(7)) @db.Uuid
+  companyId           String           @map("company_id") @db.Uuid
   /// Normalised upper-case registration, e.g. "KA 22 AB 1234".
-  registrationNumber String           @map("registration_number")
-  make               String?
-  model              String?
-  variant            String?
-  notes              String?
-  kind               VehicleKind
-  fuelType           FuelType         @map("fuel_type")
-  capacityTonnes     Decimal?         @map("capacity_tonnes") @db.Decimal(6, 2)
-  manufactureYear    Int?             @map("manufacture_year")
-  mileageKmpl        Decimal?         @map("mileage_kmpl") @db.Decimal(5, 2)
-  status             VehicleStatus    @default(ACTIVE)
-  ownership          VehicleOwnership @default(OWNED)
+  registrationNumber  String           @map("registration_number")
+  make                String?
+  model               String?
+  variant             String?
+  notes               String?
+  kind                VehicleKind
+  fuelType            FuelType         @map("fuel_type")
+  capacityTonnes      Decimal?         @map("capacity_tonnes") @db.Decimal(6, 2)
+  manufactureYear     Int?             @map("manufacture_year")
+  mileageKmpl         Decimal?         @map("mileage_kmpl") @db.Decimal(5, 2)
+  status              VehicleStatus    @default(ACTIVE)
+  ownership           VehicleOwnership @default(OWNED)
   /// The one open assignment, if any. Unique, so a vehicle cannot have two active drivers.
-  currentAssignmentId String?         @unique @map("current_assignment_id") @db.Uuid
-  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt          DateTime?        @map("deleted_at") @db.Timestamptz(3)
-  createdById        String?          @map("created_by_id") @db.Uuid
-  updatedById        String?          @map("updated_by_id") @db.Uuid
+  currentAssignmentId String?          @unique @map("current_assignment_id") @db.Uuid
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt           DateTime?        @map("deleted_at") @db.Timestamptz(3)
+  createdById         String?          @map("created_by_id") @db.Uuid
+  updatedById         String?          @map("updated_by_id") @db.Uuid
 
   company           Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
   currentAssignment VehicleAssignment?  @relation("VehicleCurrentAssignment", fields: [currentAssignmentId], references: [id], onDelete: Restrict)
   assignments       VehicleAssignment[] @relation("VehicleAssignments")
+  fuelEntries       FuelEntry[]
+  vehicleExpenses   VehicleExpense[]
   financing         VehicleFinancing?
   documents         Document[]
 
@@ -362,20 +707,23 @@ model VehicleFinancing {
   loanAccountNumber String?       @map("loan_account_number")
   financeStartDate  DateTime?     @map("finance_start_date") @db.Date
   totalInstallments Int?          @map("total_installments")
-  loanAmount        Decimal?  @map("loan_amount") @db.Decimal(14, 2)
-  downPayment       Decimal?  @map("down_payment") @db.Decimal(14, 2)
-  tenureMonths      Int?      @map("tenure_months")
-  interestRatePct   Decimal?  @map("interest_rate_pct") @db.Decimal(5, 2)
-  emiAmount         Decimal?  @map("emi_amount") @db.Decimal(12, 2)
-  paidInstallments  Int?      @map("paid_installments")
-  outstandingAmount Decimal?  @map("outstanding_amount") @db.Decimal(14, 2)
-  nextDueDate       DateTime? @map("next_due_date") @db.Date
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById       String?   @map("created_by_id") @db.Uuid
-  updatedById       String?   @map("updated_by_id") @db.Uuid
+  loanAmount        Decimal?      @map("loan_amount") @db.Decimal(14, 2)
+  downPayment       Decimal?      @map("down_payment") @db.Decimal(14, 2)
+  tenureMonths      Int?          @map("tenure_months")
+  interestRatePct   Decimal?      @map("interest_rate_pct") @db.Decimal(5, 2)
+  emiAmount         Decimal?      @map("emi_amount") @db.Decimal(12, 2)
+  paidInstallments  Int?          @map("paid_installments")
+  outstandingAmount Decimal?      @map("outstanding_amount") @db.Decimal(14, 2)
+  nextDueDate       DateTime?     @map("next_due_date") @db.Date
+  /// Final instalment date as agreed with the lender.
+  financeEndDate    DateTime?     @map("finance_end_date") @db.Date
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById       String?       @map("created_by_id") @db.Uuid
+  updatedById       String?       @map("updated_by_id") @db.Uuid
 
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  vehicle      Vehicle                     @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  installments VehicleFinanceInstallment[]
 
   @@map("vehicle_financings")
 }
@@ -413,6 +761,363 @@ model VehicleAssignment {
   @@map("vehicle_assignments")
 }
 
+// ───────────────────────────── Fuel & daily operations ─────────────────────────────
+
+/// A petrol or diesel fill-up. The driver and vehicle come from the authenticated session and
+/// the driver's current assignment — never from what the app sends — and are tied to the
+/// company through composite foreign keys, so a cross-tenant entry is impossible.
+///
+/// The rate per litre is derived (amount / litres) rather than stored, so it can never drift
+/// from the two figures it comes from.
+model FuelEntry {
+  id                 String       @id @default(uuid(7)) @db.Uuid
+  companyId          String       @map("company_id") @db.Uuid
+  driverId           String       @map("driver_id") @db.Uuid
+  vehicleId          String       @map("vehicle_id") @db.Uuid
+  fuelType           FuelType     @map("fuel_type")
+  amount             Decimal      @db.Decimal(12, 2)
+  litres             Decimal      @db.Decimal(10, 3)
+  fuelStation        String       @map("fuel_station")
+  /// Calendar date of the fill-up, as the driver chose it.
+  transactionDate    DateTime     @map("transaction_date") @db.Date
+  receiptFileId      String?      @map("receipt_file_id") @db.Uuid
+  status             RecordStatus @default(ACTIVE)
+  notes              String?
+  archivedAt         DateTime?    @map("archived_at") @db.Timestamptz(3)
+  archiveReason      String?      @map("archive_reason")
+  /// Device-generated key: an entry saved offline and retried is stored exactly once.
+  clientSubmissionId String?      @map("client_submission_id")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById        String?      @map("created_by_id") @db.Uuid
+  updatedById        String?      @map("updated_by_id") @db.Uuid
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  driver      Driver      @relation(fields: [companyId, driverId], references: [companyId, id], onDelete: Restrict)
+  vehicle     Vehicle     @relation(fields: [companyId, vehicleId], references: [companyId, id], onDelete: Restrict)
+  receiptFile StoredFile? @relation(fields: [receiptFileId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, clientSubmissionId])
+  /// Dashboard and financial-year statements: company-wide date-range scans.
+  @@index([companyId, transactionDate(sort: Desc)])
+  /// Per-vehicle and per-driver history and statement filters.
+  @@index([companyId, vehicleId, transactionDate(sort: Desc)])
+  @@index([companyId, driverId, transactionDate(sort: Desc)])
+  @@map("fuel_entries")
+}
+
+/// An RTO, tyre or maintenance/service expense against a vehicle. The driver is optional so the
+/// office can record, say, a tyre purchase for a parked vehicle. Service receipts are stored as
+/// originals so the AI receipt phase can process them later without re-collecting anything.
+model VehicleExpense {
+  id            String            @id @default(uuid(7)) @db.Uuid
+  companyId     String            @map("company_id") @db.Uuid
+  vehicleId     String            @map("vehicle_id") @db.Uuid
+  driverId      String?           @map("driver_id") @db.Uuid
+  category      OperationCategory
+  amount        Decimal           @db.Decimal(12, 2)
+  expenseDate   DateTime          @map("expense_date") @db.Date
+  /// Service centre, tyre dealer or RTO office.
+  vendorName    String?           @map("vendor_name")
+  description   String?
+  receiptFileId String?           @map("receipt_file_id") @db.Uuid
+  status        RecordStatus      @default(ACTIVE)
+  archivedAt    DateTime?         @map("archived_at") @db.Timestamptz(3)
+  archiveReason String?           @map("archive_reason")
+
+  /// ── Receipt AI (Phase 7) ──
+  /// Where the attached receipt stands in AI processing and human verification. The columns
+  /// above (amount, date, vendor) remain the authoritative record throughout: AI writes none of
+  /// them. Verification is what promotes a suggestion into one of those columns, and once
+  /// `aiVerifiedAt` is set a later AI run may add a new result but may not change them.
+  aiStatus           ServiceReceiptAIStatus @default(NOT_PROCESSED) @map("ai_status")
+  /// The extraction version an administrator accepted, if any.
+  acceptedResultId   String?                @map("accepted_result_id") @db.Uuid
+  aiVerifiedAt       DateTime?              @map("ai_verified_at") @db.Timestamptz(3)
+  aiVerifiedById     String?                @map("ai_verified_by_id") @db.Uuid
+  /// Set when an administrator judged the extraction unusable; the record stands on typed values.
+  aiRejectedAt       DateTime?              @map("ai_rejected_at") @db.Timestamptz(3)
+  /// Which fields the administrator took from the extraction rather than typing, e.g.
+  /// ["totalAmount","vendorName"]. Kept so a correction can be told from an acceptance.
+  aiAcceptedFields   String[]               @map("ai_accepted_fields")
+  clientSubmissionId String?                @map("client_submission_id")
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById        String?                @map("created_by_id") @db.Uuid
+  updatedById        String?                @map("updated_by_id") @db.Uuid
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  vehicle     Vehicle     @relation(fields: [companyId, vehicleId], references: [companyId, id], onDelete: Restrict)
+  driver      Driver?     @relation(fields: [companyId, driverId], references: [companyId, id], onDelete: Restrict)
+  receiptFile StoredFile? @relation(fields: [receiptFileId], references: [id], onDelete: Restrict)
+
+  aiJobs         ServiceReceiptAIJob[]
+  aiResults      ServiceReceiptAIResult[]
+  acceptedResult ServiceReceiptAIResult?  @relation("AcceptedExtraction", fields: [acceptedResultId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, clientSubmissionId])
+  /// Category totals and admin lists by date.
+  @@index([companyId, category, expenseDate(sort: Desc)])
+  /// Vehicle service history and per-vehicle expenditure.
+  @@index([companyId, vehicleId, category, expenseDate(sort: Desc)])
+  /// The review queue: receipts needing a person, newest first.
+  @@index([companyId, aiStatus, createdAt(sort: Desc)])
+  @@map("vehicle_expenses")
+}
+
+// ───────────────────────────── Finance & payments ─────────────────────────────
+
+/// The chronological record of money committed in and out of the business.
+///
+/// Each line points at the record it came from (sourceType + sourceId) instead of copying it.
+/// Lines are never edited or deleted: a correction is a reversal line — same type and
+/// direction, NEGATIVE amount, reversalOfId pointing at the original — so a plain SUM nets out
+/// and the full history stays visible. `sequence` numbers the postings for one source, which
+/// also makes posting idempotent under concurrent requests.
+///
+/// The ledger records obligations and expenses, not payout attempts: paying a salary links the
+/// payment to the salary's existing line (paymentRecordId) rather than adding a second one.
+model FinanceLedgerEntry {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  companyId       String           @map("company_id") @db.Uuid
+  transactionDate DateTime         @map("transaction_date") @db.Date
+  type            LedgerEntryType
+  direction       LedgerDirection
+  amount          Decimal          @db.Decimal(14, 2)
+  description     String?
+  employeeId      String?          @map("employee_id") @db.Uuid
+  driverId        String?          @map("driver_id") @db.Uuid
+  vehicleId       String?          @map("vehicle_id") @db.Uuid
+  sourceType      LedgerSourceType @map("source_type")
+  sourceId        String           @map("source_id") @db.Uuid
+  sequence        Int              @default(1)
+  paymentRecordId String?          @map("payment_record_id") @db.Uuid
+  reversalOfId    String?          @unique @map("reversal_of_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById     String?          @map("created_by_id") @db.Uuid
+  updatedById     String?          @map("updated_by_id") @db.Uuid
+
+  company       Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  paymentRecord PaymentRecord?      @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+  reversalOf    FinanceLedgerEntry? @relation("LedgerReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy    FinanceLedgerEntry? @relation("LedgerReversal")
+
+  @@unique([companyId, sourceType, sourceId, sequence])
+  /// Chronological ledger and financial-year totals.
+  @@index([companyId, transactionDate(sort: Desc)])
+  @@index([companyId, type, transactionDate])
+  @@index([companyId, employeeId, transactionDate])
+  @@index([companyId, vehicleId, transactionDate])
+  @@map("finance_ledger_entries")
+}
+
+/// One employee's salary for one month. Advances paid earlier are recovered here; the advance
+/// records themselves stay separate and point at the salary that recovered them.
+model SalaryRecord {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  companyId       String       @map("company_id") @db.Uuid
+  employeeId      String       @map("employee_id") @db.Uuid
+  /// First day of the month the salary is for.
+  payPeriod       DateTime     @map("pay_period") @db.Date
+  baseSalary      Decimal      @map("base_salary") @db.Decimal(12, 2)
+  allowances      Decimal      @default(0) @db.Decimal(12, 2)
+  advanceRecovery Decimal      @default(0) @map("advance_recovery") @db.Decimal(12, 2)
+  deductions      Decimal      @default(0) @db.Decimal(12, 2)
+  /// base + allowances − advance recovery − deductions. Enforced by a CHECK constraint.
+  netPayable      Decimal      @map("net_payable") @db.Decimal(12, 2)
+  status          SalaryStatus @default(PENDING)
+  paidAt          DateTime?    @map("paid_at") @db.Timestamptz(3)
+  notes           String?
+  cancelledAt     DateTime?    @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason    String?      @map("cancel_reason")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById     String?      @map("created_by_id") @db.Uuid
+  updatedById     String?      @map("updated_by_id") @db.Uuid
+
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employee          Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  recoveredAdvances Advance[]
+  payments          PaymentRecord[]
+
+  @@index([companyId, payPeriod])
+  @@index([companyId, employeeId, payPeriod])
+  @@map("salary_records")
+}
+
+/// Money given ahead of salary, kept as its own record. Recovered through a later salary.
+model Advance {
+  id                  String        @id @default(uuid(7)) @db.Uuid
+  companyId           String        @map("company_id") @db.Uuid
+  employeeId          String        @map("employee_id") @db.Uuid
+  type                AdvanceType
+  amount              Decimal       @db.Decimal(12, 2)
+  advanceDate         DateTime      @map("advance_date") @db.Date
+  reason              String?
+  status              AdvanceStatus @default(PENDING)
+  recoveredInSalaryId String?       @map("recovered_in_salary_id") @db.Uuid
+  notes               String?
+  cancelledAt         DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason        String?       @map("cancel_reason")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById         String?       @map("created_by_id") @db.Uuid
+  updatedById         String?       @map("updated_by_id") @db.Uuid
+
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employee          Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  recoveredInSalary SalaryRecord?   @relation(fields: [recoveredInSalaryId], references: [id], onDelete: Restrict)
+  payments          PaymentRecord[]
+
+  @@index([companyId, advanceDate])
+  @@index([companyId, employeeId, status])
+  @@map("advances")
+}
+
+/// Money paid to an employee or driver, through RazorpayX or recorded as a manual payment.
+///
+/// idempotencyKey is the key for the CURRENT payout attempt. It is generated and stored before
+/// the provider is called and reused for every retry of that attempt, so a timeout or a double
+/// click can never create a second payout. A new key is issued only after a definitive failure.
+model PaymentRecord {
+  id                    String          @id @default(uuid(7)) @db.Uuid
+  companyId             String          @map("company_id") @db.Uuid
+  employeeId            String          @map("employee_id") @db.Uuid
+  type                  PaymentType
+  amount                Decimal         @db.Decimal(12, 2)
+  status                PaymentStatus   @default(DRAFT)
+  method                PaymentMethod
+  provider              PaymentProvider
+  salaryRecordId        String?         @map("salary_record_id") @db.Uuid
+  advanceId             String?         @map("advance_id") @db.Uuid
+  description           String?
+  attempt               Int             @default(0)
+  idempotencyKey        String?         @unique @map("idempotency_key")
+  providerReference     String?         @unique @map("provider_reference")
+  providerStatus        String?         @map("provider_status")
+  /// Bank UTR once the provider reports it, or the office's own reference for a manual payment.
+  paymentReference      String?         @map("payment_reference")
+  /// Masked destination at the time of payment (e.g. "XXXX4417 · SBIN0001234"), for the record.
+  recipientSummary      String?         @map("recipient_summary")
+  /// The provider fund account this payment was sent to, fixed when first sent: a retry of the
+  /// same attempt must repeat the identical request even if the payee's details change later.
+  providerFundAccountId String?         @map("provider_fund_account_id")
+  failureReason         String?         @map("failure_reason")
+  submittedAt           DateTime?       @map("submitted_at") @db.Timestamptz(3)
+  approvedAt            DateTime?       @map("approved_at") @db.Timestamptz(3)
+  approvedById          String?         @map("approved_by_id") @db.Uuid
+  sentAt                DateTime?       @map("sent_at") @db.Timestamptz(3)
+  paidAt                DateTime?       @map("paid_at") @db.Timestamptz(3)
+  failedAt              DateTime?       @map("failed_at") @db.Timestamptz(3)
+  cancelledAt           DateTime?       @map("cancelled_at") @db.Timestamptz(3)
+  reversedAt            DateTime?       @map("reversed_at") @db.Timestamptz(3)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById           String?         @map("created_by_id") @db.Uuid
+  updatedById           String?         @map("updated_by_id") @db.Uuid
+
+  company       Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employee      Employee               @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  salaryRecord  SalaryRecord?          @relation(fields: [salaryRecordId], references: [id], onDelete: Restrict)
+  advance       Advance?               @relation(fields: [advanceId], references: [id], onDelete: Restrict)
+  ledgerEntries FinanceLedgerEntry[]
+  events        PaymentProviderEvent[]
+  financeEvents FinanceEvent[]
+
+  @@index([companyId, status])
+  @@index([companyId, employeeId, createdAt(sort: Desc)])
+  @@index([salaryRecordId])
+  @@index([advanceId])
+  @@map("payment_records")
+}
+
+/// Every webhook received from a payment provider, kept for idempotency and audit. The event id
+/// is unique per provider, so a redelivered webhook is recognised and ignored.
+model PaymentProviderEvent {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  provider          PaymentProvider
+  eventId           String          @map("event_id")
+  eventType         String          @map("event_type")
+  providerReference String?         @map("provider_reference")
+  paymentRecordId   String?         @map("payment_record_id") @db.Uuid
+  /// Payload with account details removed.
+  payload           Json
+  outcome           String?
+  receivedAt        DateTime        @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt       DateTime?       @map("processed_at") @db.Timestamptz(3)
+
+  paymentRecord PaymentRecord? @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, eventId])
+  @@index([providerReference])
+  @@map("payment_provider_events")
+}
+
+/// Internal finance events for a later notification phase (the document-expiry pattern).
+model FinanceEvent {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  companyId       String           @map("company_id") @db.Uuid
+  type            FinanceEventType
+  paymentRecordId String           @map("payment_record_id") @db.Uuid
+  employeeId      String           @map("employee_id") @db.Uuid
+  occurredAt      DateTime         @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  notifiedAt      DateTime?        @map("notified_at") @db.Timestamptz(3)
+
+  paymentRecord PaymentRecord @relation(fields: [paymentRecordId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentRecordId, type])
+  @@index([companyId, notifiedAt, occurredAt])
+  @@map("finance_events")
+}
+
+/// Where an employee's payouts go. Full account numbers are never stored: they are sent once to
+/// the payout provider to create a fund account, and only the provider's ids and masked details
+/// are kept here.
+model EmployeePayoutAccount {
+  id                    String          @id @default(uuid(7)) @db.Uuid
+  companyId             String          @map("company_id") @db.Uuid
+  employeeId            String          @unique @map("employee_id") @db.Uuid
+  method                PaymentMethod
+  accountHolderName     String          @map("account_holder_name")
+  ifsc                  String?
+  accountNumberLast4    String?         @map("account_number_last4")
+  upiIdMasked           String?         @map("upi_id_masked")
+  provider              PaymentProvider
+  providerContactId     String?         @map("provider_contact_id")
+  providerFundAccountId String?         @map("provider_fund_account_id")
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById           String?         @map("created_by_id") @db.Uuid
+  updatedById           String?         @map("updated_by_id") @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([companyId])
+  @@map("employee_payout_accounts")
+}
+
+/// One EMI of a financed vehicle. Generated from the loan terms; kept when the loan closes.
+model VehicleFinanceInstallment {
+  id                String            @id @default(uuid(7)) @db.Uuid
+  financingId       String            @map("financing_id") @db.Uuid
+  installmentNumber Int               @map("installment_number")
+  dueDate           DateTime          @map("due_date") @db.Date
+  amount            Decimal           @db.Decimal(12, 2)
+  status            InstallmentStatus @default(PENDING)
+  paidAt            DateTime?         @map("paid_at") @db.Date
+  paymentReference  String?           @map("payment_reference")
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById       String?           @map("created_by_id") @db.Uuid
+  updatedById       String?           @map("updated_by_id") @db.Uuid
+
+  financing VehicleFinancing @relation(fields: [financingId], references: [id], onDelete: Restrict)
+
+  @@unique([financingId, installmentNumber])
+  @@map("vehicle_finance_installments")
+}
+
 // ───────────────────────────── Files & documents ─────────────────────────────
 
 /// Metadata for a binary object held in external storage. The bytes are never stored here.
@@ -431,8 +1136,12 @@ model StoredFile {
   updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(3)
 
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  documents Document[]
+  company          Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  documents        Document[]
+  fuelReceipts     FuelEntry[]
+  expenseReceipts  VehicleExpense[]
+  receiptAIJobs    ServiceReceiptAIJob[]
+  inboxAttachments InboxAttachment[]
 
   @@unique([provider, objectKey])
   @@index([companyId, createdAt])
@@ -454,6 +1163,16 @@ model Document {
   issueDate          DateTime?                  @map("issue_date") @db.Date
   expiryDate         DateTime?                  @map("expiry_date") @db.Date
   fileId             String?                    @map("file_id") @db.Uuid
+  /// Premium or fee paid for this document, e.g. a tyre insurance premium.
+  amount             Decimal?                   @db.Decimal(12, 2)
+  /// Device-generated key: a document submitted offline and retried is stored once.
+  clientSubmissionId String?                    @map("client_submission_id")
+  state              DocumentState              @default(CURRENT)
+  /// The version that replaced this one. Following the chain gives the full history.
+  supersededById     String?                    @unique @map("superseded_by_id") @db.Uuid
+  supersededAt       DateTime?                  @map("superseded_at") @db.Timestamptz(3)
+  archivedAt         DateTime?                  @map("archived_at") @db.Timestamptz(3)
+  archiveReason      String?                    @map("archive_reason")
   verificationStatus DocumentVerificationStatus @default(PENDING) @map("verification_status")
   verifiedById       String?                    @map("verified_by_id") @db.Uuid
   verifiedAt         DateTime?                  @map("verified_at") @db.Timestamptz(3)
@@ -465,63 +1184,517 @@ model Document {
   createdById        String?                    @map("created_by_id") @db.Uuid
   updatedById        String?                    @map("updated_by_id") @db.Uuid
 
-  company  Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  vehicle  Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
-  employee Employee?   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  file     StoredFile? @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  company      Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  vehicle      Vehicle?              @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  employee     Employee?             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  file         StoredFile?           @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  supersededBy Document?             @relation("DocumentVersions", fields: [supersededById], references: [id], onDelete: Restrict)
+  supersedes   Document?             @relation("DocumentVersions")
+  expiryEvents DocumentExpiryEvent[]
 
-  @@index([companyId, expiryDate])
-  @@index([companyId, type])
-  @@index([vehicleId])
-  @@index([employeeId])
+  @@unique([companyId, clientSubmissionId])
+  /// Compliance overview: current documents by expiry date and by type.
+  @@index([companyId, state, expiryDate])
+  @@index([companyId, state, type])
+  /// Pending-verification queue.
+  @@index([companyId, state, verificationStatus])
+  /// The current document of each type for one vehicle or one person.
+  @@index([vehicleId, type, state])
+  @@index([employeeId, type, state])
   @@map("documents")
+}
+
+/// A document crossing an expiry threshold, recorded once per threshold. Nothing is sent in
+/// Phase 4: this is the durable feed a later notification phase reads (undelivered events are
+/// those with no notified_at), so a warning can never be lost or sent twice.
+model DocumentExpiryEvent {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  companyId     String          @map("company_id") @db.Uuid
+  documentId    String          @map("document_id") @db.Uuid
+  threshold     ExpiryThreshold
+  /// The expiry date this event refers to; a corrected date raises fresh events.
+  expiryDate    DateTime        @map("expiry_date") @db.Date
+  daysRemaining Int             @map("days_remaining")
+  detectedAt    DateTime        @default(now()) @map("detected_at") @db.Timestamptz(3)
+  notifiedAt    DateTime?       @map("notified_at") @db.Timestamptz(3)
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@unique([documentId, threshold, expiryDate])
+  /// The notification phase's work queue: undelivered events, oldest first.
+  @@index([companyId, notifiedAt, detectedAt])
+  @@map("document_expiry_events")
 }
 
 // ───────────────────────────── Location ─────────────────────────────
 
-/// Latest known location/heartbeat per driver (one row per driver, updated in place).
+/// The current whereabouts of one driver: exactly one row per driver, updated in place.
+///
+/// This is the read model behind the admin Live Fleet screen. It exists so that screen never
+/// has to touch `driver_location_pings`, which grows without bound — opening Live Fleet is one
+/// indexed scan of at most one row per driver, whatever the history holds.
+///
+/// The row only ever moves forward in time: an out-of-order fix (a stale point that reached the
+/// server after a newer one) is written to history but must not overwrite what is here. That
+/// comparison is `recorded_at`, the device clock of the fix, not arrival order.
 model DriverLocationState {
-  driverId        String             @id @map("driver_id") @db.Uuid
-  companyId       String             @map("company_id") @db.Uuid
-  status          LocationStatus     @default(OFFLINE)
-  permission      LocationPermission @default(UNKNOWN)
-  latitude        Decimal?           @db.Decimal(9, 6)
-  longitude       Decimal?           @db.Decimal(9, 6)
-  accuracyMeters  Decimal?           @map("accuracy_meters") @db.Decimal(8, 2)
-  speedKmh        Decimal?           @map("speed_kmh") @db.Decimal(6, 2)
-  headingDeg      Decimal?           @map("heading_deg") @db.Decimal(5, 2)
-  batteryPct      Int?               @map("battery_pct")
-  /// Device timestamp of the last fix.
-  recordedAt      DateTime?          @map("recorded_at") @db.Timestamptz(3)
-  lastHeartbeatAt DateTime?          @map("last_heartbeat_at") @db.Timestamptz(3)
-  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  driverId  String  @id @map("driver_id") @db.Uuid
+  companyId String  @map("company_id") @db.Uuid
+  /// The vehicle the driver held when the last fix was recorded. Denormalised from the
+  /// assignment so the fleet list needs no join per marker; history keeps its own copy.
+  vehicleId String? @map("vehicle_id") @db.Uuid
 
-  driver Driver @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  /// What the server concludes: derived, never taken from the app. See location-status.policy.ts.
+  status                  LocationStatus      @default(OFFLINE)
+  /// What the device last reported about its own tracking.
+  trackingState           DriverTrackingState @default(TRACKING_UNAVAILABLE) @map("tracking_state")
+  permission              LocationPermission  @default(UNKNOWN)
+  /// The device-level location toggle, as last reported. Stored so status can be re-derived
+  /// later (on an admin read, for instance) without asking the phone again.
+  locationServicesEnabled Boolean             @default(false) @map("location_services_enabled")
+  /// Fixes still waiting in the device's offline buffer, as last reported.
+  pendingUploads          Int                 @default(0) @map("pending_uploads")
 
+  latitude       Decimal? @db.Decimal(9, 6)
+  longitude      Decimal? @db.Decimal(9, 6)
+  accuracyMeters Decimal? @map("accuracy_meters") @db.Decimal(8, 2)
+  speedKmh       Decimal? @map("speed_kmh") @db.Decimal(6, 2)
+  headingDeg     Decimal? @map("heading_deg") @db.Decimal(5, 2)
+  altitudeMeters Decimal? @map("altitude_meters") @db.Decimal(8, 2)
+  batteryPct     Int?     @map("battery_pct")
+
+  /// Device timestamp of the last fix. The ordering key for "is this event newer".
+  recordedAt      DateTime? @map("recorded_at") @db.Timestamptz(3)
+  /// Server timestamp at which that fix was stored, so a device with a wrong clock cannot make
+  /// itself look fresh.
+  receivedAt      DateTime? @map("received_at") @db.Timestamptz(3)
+  /// Last contact of any kind from this device — a fix or a tracking-state report. This is what
+  /// "last seen" means on the admin screen, and what decides OFFLINE.
+  lastHeartbeatAt DateTime? @map("last_heartbeat_at") @db.Timestamptz(3)
+
+  /// ── Stationary detection ──
+  /// The fixed point the driver is being measured against, set when they entered the current
+  /// stationary region. It deliberately does not follow them around inside the radius: an
+  /// anchor that crept along with each fix would let a slow drift accumulate unnoticed, and
+  /// would let GPS jitter reset the timer. Movement is "further than the radius from here".
+  stationaryAnchorLat Decimal?  @map("stationary_anchor_lat") @db.Decimal(9, 6)
+  stationaryAnchorLng Decimal?  @map("stationary_anchor_lng") @db.Decimal(9, 6)
+  /// When the driver entered that region. Null before the first usable fix.
+  stationarySince     DateTime? @map("stationary_since") @db.Timestamptz(3)
+  /// The alert already raised for the current stationary period, if any. Its presence is what
+  /// stops every later fix in the same period from raising another alert; it is cleared when
+  /// real movement starts a new period.
+  stationaryAlertId   String?   @map("stationary_alert_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  driver          Driver              @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  stationaryAlert FleetLocationAlert? @relation("CurrentStationaryAlert", fields: [stationaryAlertId], references: [id], onDelete: SetNull)
+
+  /// The Live Fleet query: every current location for one company, newest contact first.
   @@index([companyId, status])
+  @@index([companyId, lastHeartbeatAt(sort: Desc)])
+  @@index([companyId, vehicleId])
   @@map("driver_location_states")
 }
 
-/// Append-only location history. Highest-volume table: designed for future monthly
-/// range partitioning on `recorded_at` (see docs/backend/data-retention.md).
+/// Append-only location history — every accepted fix, kept for the life of the business.
+///
+/// By far the highest-volume table. Nothing references it by foreign key and every row carries
+/// `recorded_at`, so it stays shaped for monthly `RANGE` partitioning and partition detachment
+/// to cold storage when volume justifies it (docs/backend/data-retention.md). Until then a BRIN
+/// index on `recorded_at` keeps range scans cheap at a fraction of a B-tree's size, because the
+/// table is written in almost perfect timestamp order.
 model DriverLocationPing {
-  id             BigInt   @id @default(autoincrement())
-  companyId      String   @map("company_id") @db.Uuid
-  driverId       String   @map("driver_id") @db.Uuid
+  id        BigInt  @id @default(autoincrement())
+  companyId String  @map("company_id") @db.Uuid
+  driverId  String  @map("driver_id") @db.Uuid
+  /// The vehicle assigned at the moment of capture. Historical rows are never rewritten when a
+  /// driver is given a different vehicle, so a past route stays attached to the truck that drove it.
+  vehicleId String? @map("vehicle_id") @db.Uuid
+
   latitude       Decimal  @db.Decimal(9, 6)
   longitude      Decimal  @db.Decimal(9, 6)
   accuracyMeters Decimal? @map("accuracy_meters") @db.Decimal(8, 2)
   speedKmh       Decimal? @map("speed_kmh") @db.Decimal(6, 2)
   headingDeg     Decimal? @map("heading_deg") @db.Decimal(5, 2)
-  recordedAt     DateTime @map("recorded_at") @db.Timestamptz(3)
-  receivedAt     DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+  altitudeMeters Decimal? @map("altitude_meters") @db.Decimal(8, 2)
+  batteryPct     Int?     @map("battery_pct")
+  /// Which sensor produced the fix ("gps", "network", "fused"), when the platform says. Used to
+  /// explain a poor fix; never used for authorisation.
+  provider       String?
+
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz(3)
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  /// Device-generated key. A fix that was buffered offline and uploaded more than once is
+  /// stored exactly once; the unique constraint below is what enforces that, not a lookup.
+  clientSubmissionId String @map("client_submission_id")
 
   driver Driver @relation(fields: [driverId], references: [id], onDelete: Restrict)
 
+  /// Retrying an upload must not create a second row. Scoped by company so two tenants cannot
+  /// collide on a device-generated id.
+  @@unique([companyId, clientSubmissionId])
+  /// Recent history for one driver (the driver detail panel, route playback).
   @@index([driverId, recordedAt(sort: Desc)])
+  /// Recent location events for one vehicle.
+  @@index([vehicleId, recordedAt(sort: Desc)])
   @@index([companyId, recordedAt])
   @@map("driver_location_pings")
+}
+
+/// An operational alert about a driver's location. Today that means "stationary for longer than
+/// the configured threshold"; the type column leaves room for more.
+///
+/// Alerts are records, not notifications: one is written when the condition is first met and
+/// then kept for good, so the office can see that a four-hour stop happened even after the
+/// driver moved on. Nothing auto-resolves from being looked at.
+model FleetLocationAlert {
+  id        String  @id @default(uuid(7)) @db.Uuid
+  companyId String  @map("company_id") @db.Uuid
+  driverId  String  @map("driver_id") @db.Uuid
+  /// The vehicle the driver held when the alert fired, kept as it was then.
+  vehicleId String? @map("vehicle_id") @db.Uuid
+
+  type   FleetAlertType   @default(STATIONARY)
+  status FleetAlertStatus @default(ACTIVE)
+
+  /// When the condition was met (threshold reached), not when the stop began.
+  triggeredAt     DateTime @map("triggered_at") @db.Timestamptz(3)
+  /// When the driver entered the region they then failed to leave.
+  stationarySince DateTime @map("stationary_since") @db.Timestamptz(3)
+  /// Where they were. Held on the alert rather than as a reference into the history table,
+  /// which carries no incoming foreign keys so it can be partitioned later.
+  latitude        Decimal  @db.Decimal(9, 6)
+  longitude       Decimal  @db.Decimal(9, 6)
+  /// Stationary duration at the moment the alert fired.
+  durationMinutes Int      @map("duration_minutes")
+  /// The radius the decision was made with, so an alert stays interpretable after the
+  /// configured default changes.
+  radiusMeters    Int      @map("radius_meters")
+
+  acknowledgedAt   DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+  acknowledgedById String?   @map("acknowledged_by_id") @db.Uuid
+  acknowledgeNote  String?   @map("acknowledge_note")
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(3)
+  resolvedById     String?   @map("resolved_by_id") @db.Uuid
+  /// Why it closed: "movement" when the driver left the region, "manual" when the office closed it.
+  resolvedReason   String?   @map("resolved_reason")
+  /// When the driver was first seen outside the region. Recorded even if the alert was already
+  /// acknowledged, because it is the fact the office actually wants.
+  movedAt          DateTime? @map("moved_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company    Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  driver     Driver                @relation(fields: [companyId, driverId], references: [companyId, id], onDelete: Restrict)
+  /// Back-reference for the one state row currently pointing at this alert.
+  currentFor DriverLocationState[] @relation("CurrentStationaryAlert")
+
+  /// The unacknowledged-alerts badge and the alerts list.
+  @@index([companyId, status, triggeredAt(sort: Desc)])
+  @@index([driverId, triggeredAt(sort: Desc)])
+  @@index([companyId, type, status])
+  @@map("fleet_location_alerts")
+}
+
+// ───────────────────────── Receipt AI (Phase 7) ─────────────────────────
+
+/// One AI processing attempt-cycle for a service receipt.
+///
+/// The job is the durable record of work to be done, so a worker restart, a crash mid-call or a
+/// redeploy loses nothing: the row is still PENDING and the next worker picks it up. Workers claim
+/// rows with SELECT ... FOR UPDATE SKIP LOCKED, which is what lets several run at once without two
+/// of them calling the provider for the same receipt.
+///
+/// Jobs are never deleted. A retry creates a new job rather than resetting this one, so the
+/// history of what was attempted, when, against which provider, survives (§29).
+model ServiceReceiptAIJob {
+  id               String @id @default(uuid(7)) @db.Uuid
+  companyId        String @map("company_id") @db.Uuid
+  /// The maintenance record this receipt belongs to.
+  vehicleExpenseId String @map("vehicle_expense_id") @db.Uuid
+  /// The stored original. Held on the job too, so the job remains interpretable even if the
+  /// expense is later pointed at a replacement scan.
+  receiptFileId    String @map("receipt_file_id") @db.Uuid
+
+  status      ServiceReceiptAIStatus @default(PENDING)
+  /// 1 for the first attempt. Compared against maxAttempts to decide RETRYING versus FAILED.
+  attempt     Int                    @default(1)
+  /// Attempts allowed for this job before it stops retrying by itself.
+  maxAttempts Int                    @default(3) @map("max_attempts")
+
+  /// Which provider and model were configured when the job ran. Recorded on the job, not read
+  /// back from configuration later, because configuration changes and history should not.
+  provider String?
+  model    String?
+
+  /// Set when a worker claims the row; cleared when it finishes. A row locked far in the past
+  /// belonged to a worker that died, and is reclaimable.
+  claimedAt DateTime? @map("claimed_at") @db.Timestamptz(3)
+  /// Identifies the worker that holds the claim, for diagnosing a stuck job.
+  claimedBy String?   @map("claimed_by")
+
+  queuedAt      DateTime  @default(now()) @map("queued_at") @db.Timestamptz(3)
+  startedAt     DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt    DateTime? @map("finished_at") @db.Timestamptz(3)
+  /// Earliest time a failed job may be tried again — backoff, so a provider that is down is not
+  /// hammered by every queued receipt at once.
+  nextAttemptAt DateTime? @map("next_attempt_at") @db.Timestamptz(3)
+
+  failureCode    AIFailureCode? @map("failure_code")
+  /// A short, safe explanation. Never the prompt, never the receipt's contents.
+  failureMessage String?        @map("failure_message")
+
+  /// Who asked for this run. Null for the automatic job created by the upload itself.
+  requestedById String? @map("requested_by_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company        Company                  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  vehicleExpense VehicleExpense           @relation(fields: [vehicleExpenseId], references: [id], onDelete: Restrict)
+  receiptFile    StoredFile               @relation(fields: [receiptFileId], references: [id], onDelete: Restrict)
+  results        ServiceReceiptAIResult[]
+
+  /// The worker's claim query: the oldest runnable job for this company.
+  @@index([status, nextAttemptAt, queuedAt])
+  @@index([companyId, status, queuedAt(sort: Desc)])
+  @@index([vehicleExpenseId, createdAt(sort: Desc)])
+  @@map("service_receipt_ai_jobs")
+}
+
+/// One extraction produced by one successful job run — the AI's proposal, never the record.
+///
+/// Results are versioned per expense and kept for good. Re-running against a newer model adds
+/// version 2 beside version 1; it does not replace it, and it does not touch a record the office
+/// has already confirmed (§14, §29). Which version the office accepted is recorded on the expense.
+model ServiceReceiptAIResult {
+  id               String @id @default(uuid(7)) @db.Uuid
+  companyId        String @map("company_id") @db.Uuid
+  vehicleExpenseId String @map("vehicle_expense_id") @db.Uuid
+  jobId            String @map("job_id") @db.Uuid
+
+  /// 1, 2, 3 … per expense. Unique, so two workers cannot both claim to be version 2.
+  version  Int
+  provider String
+  model    String
+
+  /// The validated extraction, exactly as the shared schema accepted it. Stored as JSON because
+  /// it is a proposal about a document, not a set of business columns — promoting a value into
+  /// a column is what admin verification does.
+  extraction       Json
+  /// The provider's own overall confidence, 0–1. Advisory: it routes the workflow (§11), it does
+  /// not decide truth.
+  confidence       Decimal? @db.Decimal(4, 3)
+  /// Notes the extraction raised about ambiguity or unreadable areas, surfaced in review.
+  warnings         String[]
+  /// Checks the application ran against the extraction — totals that do not add up, a vehicle
+  /// number that is not this vehicle, a date in the future.
+  validationIssues String[] @map("validation_issues")
+
+  /// How the document was prepared before the model saw it ("image", "pdf:text", "pdf:raster").
+  /// Explains a poor extraction without re-running anything.
+  preparation     String?
+  /// Characters of machine-readable text found in the document itself, before any model ran.
+  /// A digital PDF invoice has thousands; a photograph has none.
+  sourceTextChars Int?    @map("source_text_chars")
+  /// Wall-clock milliseconds the provider call took. Capacity planning, and spotting a model
+  /// that has quietly become too slow.
+  durationMs      Int?    @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  vehicleExpense VehicleExpense      @relation(fields: [vehicleExpenseId], references: [id], onDelete: Restrict)
+  job            ServiceReceiptAIJob @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  /// The expense rows that accepted this particular version.
+  acceptedBy     VehicleExpense[]    @relation("AcceptedExtraction")
+
+  @@unique([vehicleExpenseId, version])
+  @@index([companyId, createdAt(sort: Desc)])
+  @@map("service_receipt_ai_results")
+}
+
+// ───────────────────────── Inbox (Phase 7) ─────────────────────────
+
+/// Where synchronisation with one mailbox last got to.
+///
+/// One row per company per provider per mailbox. The cursor is whatever that provider uses to
+/// mean "after this point" — an IMAP UIDVALIDITY/UID pair, a Gmail history id, a Graph delta
+/// link — so the abstraction never has to agree on a shape.
+model EmailSyncCursor {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  companyId String            @map("company_id") @db.Uuid
+  provider  EmailProviderName
+  /// The mailbox or folder this cursor tracks, e.g. "INBOX".
+  mailbox   String
+
+  /// Opaque to everything but the provider that issued it.
+  cursor String?
+
+  lastSyncStartedAt   DateTime? @map("last_sync_started_at") @db.Timestamptz(3)
+  lastSyncFinishedAt  DateTime? @map("last_sync_finished_at") @db.Timestamptz(3)
+  /// Null after a clean run. Present means the last attempt failed and why.
+  lastError           String?   @map("last_error")
+  /// Consecutive failures, so a mailbox that has been unreachable for days is visible.
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  messagesSynced      Int       @default(0) @map("messages_synced")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, provider, mailbox])
+  @@map("email_sync_cursors")
+}
+
+/// An inbound email, normalised into the office's own vocabulary.
+///
+/// The provider's message id is unique per company, which is what makes synchronisation
+/// idempotent: running the sync twice, or re-reading an overlapping window after a failure,
+/// finds the row already there instead of creating a second copy (§19).
+///
+/// Body text is stored; HTML is stored only as inert text for display, never rendered as markup
+/// by the API, and is not executed anywhere (§24).
+model InboxMessage {
+  id        String            @id @default(uuid(7)) @db.Uuid
+  companyId String            @map("company_id") @db.Uuid
+  provider  EmailProviderName
+  mailbox   String            @default("INBOX")
+
+  /// The provider's stable identifier. The idempotency key for the whole ingestion path.
+  providerMessageId String  @map("provider_message_id")
+  /// The provider's conversation identifier, where it has one.
+  providerThreadId  String? @map("provider_thread_id")
+  /// RFC 5322 Message-ID, kept so the same mail seen through a second provider is recognisable.
+  rfcMessageId      String? @map("rfc_message_id")
+
+  fromAddress String   @map("from_address")
+  fromName    String?  @map("from_name")
+  toAddresses String[] @map("to_addresses")
+  ccAddresses String[] @map("cc_addresses")
+  subject     String?
+
+  receivedAt DateTime @map("received_at") @db.Timestamptz(3)
+
+  /// Plain text body, truncated to a sane length. The original remains in the mailbox.
+  bodyText String?  @map("body_text")
+  /// Whether the message carried an HTML part, so the UI can say the text is a rendering of it.
+  hasHtml  Boolean  @default(false) @map("has_html")
+  /// Provider labels or folders, for triage.
+  labels   String[]
+
+  status         InboxMessageStatus  @default(UNREAD)
+  classification InboxClassification @default(UNCLASSIFIED)
+  /// Null when the current classification came from AI; set when a person chose it. This is how
+  /// a later AI run knows not to overwrite a human decision.
+  classifiedById String?             @map("classified_by_id") @db.Uuid
+  classifiedAt   DateTime?           @map("classified_at") @db.Timestamptz(3)
+
+  aiStatus         InboxAIStatus  @default(NOT_PROCESSED) @map("ai_status")
+  aiAttempts       Int            @default(0) @map("ai_attempts")
+  aiFailureCode    AIFailureCode? @map("ai_failure_code")
+  aiFailureMessage String?        @map("ai_failure_message")
+
+  /// What the provider said about authentication (SPF/DKIM/DMARC), when it says anything.
+  /// Displayed, never acted on automatically.
+  authenticationResults String? @map("authentication_results")
+  /// Raw size as the provider reported it, for spotting a message whose body was truncated.
+  sizeBytes             Int?    @map("size_bytes")
+  /// True when the body was longer than the stored limit.
+  bodyTruncated         Boolean @default(false) @map("body_truncated")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  attachments InboxAttachment[]
+  aiResults   InboxAIResult[]
+
+  /// Synchronisation idempotency. The reason a repeated sync cannot duplicate a message.
+  @@unique([companyId, provider, providerMessageId])
+  /// The inbox list: newest first, filtered by status or classification.
+  @@index([companyId, receivedAt(sort: Desc)])
+  @@index([companyId, status, receivedAt(sort: Desc)])
+  @@index([companyId, classification, receivedAt(sort: Desc)])
+  @@index([companyId, aiStatus])
+  @@map("inbox_messages")
+}
+
+/// A file that arrived on an inbound email.
+///
+/// Attachments are filtered before anything is downloaded (type, size, extension) and the ones
+/// that pass are stored through the same FileStorage abstraction as every other file in the
+/// system — the bytes never go into PostgreSQL. A rejected attachment keeps its row so the
+/// office can see that something arrived and why it was not kept.
+model InboxAttachment {
+  id        String @id @default(uuid(7)) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  messageId String @map("message_id") @db.Uuid
+
+  /// The provider's handle for fetching this part.
+  providerAttachmentId String @map("provider_attachment_id")
+  filename             String
+  mimeType             String @map("mime_type")
+  sizeBytes            Int    @map("size_bytes")
+
+  /// Null when the attachment was not stored — see skipReason.
+  fileId     String? @map("file_id") @db.Uuid
+  /// Why a file was not kept: "unsupported_type", "too_large", "suspicious_extension",
+  /// "download_failed". Present exactly when fileId is null.
+  skipReason String? @map("skip_reason")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  message InboxMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  file    StoredFile?  @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  /// One row per provider part, so re-syncing a message cannot duplicate its attachments.
+  @@unique([messageId, providerAttachmentId])
+  @@index([companyId, createdAt(sort: Desc)])
+  @@map("inbox_attachments")
+}
+
+/// What AI made of one inbound email. A suggestion the office can accept, change or ignore.
+///
+/// Versioned like receipt results, and for the same reason: a later model may read the same mail
+/// differently, and both readings are worth keeping. Nothing here ever changes a financial or
+/// vehicle record by itself (§21).
+model InboxAIResult {
+  id        String @id @default(uuid(7)) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  messageId String @map("message_id") @db.Uuid
+
+  version  Int
+  provider String
+  model    String
+
+  /// The classification this run proposed. Applied to the message only when no person has
+  /// already classified it.
+  classification InboxClassification
+  confidence     Decimal?            @db.Decimal(4, 3)
+  /// A few lines an administrator can read instead of the whole mail.
+  summary        String?
+  /// References the mail mentions — invoice numbers, vehicle registrations, amounts — as
+  /// extracted text. Never written into a business record automatically.
+  extraction     Json?
+  warnings       String[]
+  durationMs     Int?                @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  message InboxMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, version])
+  @@index([companyId, createdAt(sort: Desc)])
+  @@map("inbox_ai_results")
 }
 
 // ───────────────────────────── Audit ─────────────────────────────

@@ -2,10 +2,11 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
   AppLanguage, DriverStatus, EmployeeRole, EmploymentStatus, FinanceStatus, FuelType,
-  PrismaClient, VehicleKind, VehicleOwnership, VehicleStatus,
+  PrismaClient, UserRole, UserStatus, VehicleKind, VehicleOwnership, VehicleStatus,
 } from '@prisma/client';
 import { config as loadEnv } from 'dotenv';
 import { envFilePaths } from '../src/config/env-files';
+import { PasswordHasher } from '../src/modules/auth/password-hasher';
 import { calculateEmi, outstandingPrincipal } from '../src/modules/finance/emi.calculator';
 
 loadEnv({ path: envFilePaths(), quiet: true });
@@ -242,6 +243,43 @@ async function main(): Promise<void> {
           }));
         if (!existingDriver) console.log(`  driver   ${spec.driver.code} → ${spec.name}`);
         driverIdByCode.set(spec.driver.code, driver.id);
+
+        const existingUser = await prisma.user.findFirst({ where: { companyId: company.id, employeeId: employee.id } });
+        if (!existingUser) {
+          const defaultPassword = process.env.SEED_DRIVER_PASSWORD || 'Driver123!';
+          const passwordHash = await new PasswordHasher().hash(defaultPassword);
+          await prisma.user.create({
+            data: {
+              companyId: company.id,
+              employeeId: employee.id,
+              phone: spec.phone,
+              role: UserRole.DRIVER,
+              passwordHash,
+              status: spec.status === EmploymentStatus.ACTIVE ? UserStatus.ACTIVE : UserStatus.DISABLED,
+            },
+          });
+          console.log(`  user     ${spec.phone} (${spec.name}) — passcode from SEED_DRIVER_PASSWORD (see .env.example)`);
+        }
+      }
+
+      // Office staff get a login for their role too, so the role-aware apps can be tried.
+      const officeRole = spec.role === EmployeeRole.ACCOUNTING ? UserRole.ACCOUNTING : spec.role === EmployeeRole.MANAGER ? UserRole.MANAGER : null;
+      if (!spec.driver && officeRole && spec.status === EmploymentStatus.ACTIVE) {
+        const existingUser = await prisma.user.findFirst({ where: { companyId: company.id, employeeId: employee.id } });
+        if (!existingUser) {
+          const staffPassword = process.env.SEED_STAFF_PASSWORD || 'Office123!';
+          await prisma.user.create({
+            data: {
+              companyId: company.id,
+              employeeId: employee.id,
+              phone: spec.phone,
+              role: officeRole,
+              passwordHash: await new PasswordHasher().hash(staffPassword),
+              status: UserStatus.ACTIVE,
+            },
+          });
+          console.log(`  user     ${spec.phone} (${spec.name}, ${officeRole}) — password from SEED_STAFF_PASSWORD (see .env.example)`);
+        }
       }
     }
 
@@ -319,7 +357,7 @@ async function main(): Promise<void> {
             nextDueDate: spec.finance.status === FinanceStatus.ACTIVE ? dateOnly(12) : null,
           },
         });
-        console.log(`  finance  ${spec.registration} ${spec.finance.lender} EMI ₹${emiAmount.toLocaleString('en-IN')}`);
+        console.log(`  finance  ${spec.registration} ${spec.finance.lender} EMI ₹${emiAmount.toFixed(2)}`);
       }
     }
 

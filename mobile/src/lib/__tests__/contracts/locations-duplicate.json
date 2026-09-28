@@ -1,0 +1,17 @@
+{
+  "stored": 0,
+  "duplicates": 1,
+  "rejected": 0,
+  "results": [
+    {
+      "clientSubmissionId": "contract-1790502795302-a",
+      "outcome": "duplicate"
+    }
+  ],
+  "state": {
+    "status": "ACTIVE",
+    "trackingState": "TRACKING_ACTIVE",
+    "lastSeenAt": "2026-09-27T09:53:15.348Z"
+  },
+  "alertRaised": false
+}

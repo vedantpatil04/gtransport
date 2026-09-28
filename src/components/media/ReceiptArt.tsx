@@ -86,7 +86,7 @@ export function ExpenseBillArt({ expense, reg }: { expense: Expense; reg: string
   return (
     <Paper>
       <div className="text-center">
-        <div className="font-bold">{isToll ? expense.note.toUpperCase() : expense.category === 'maintenance' || expense.category === 'repair' ? 'SRI BASAVESHWAR AUTO WORKS' : 'CASH BILL'}</div>
+        <div className="font-bold">{isToll ? expense.note.toUpperCase() : expense.category === 'maintenance' || expense.category === 'tyre' ? 'SRI BASAVESHWAR AUTO WORKS' : 'CASH BILL'}</div>
         <div className="text-[10px] text-[#666]">{isToll ? TOLL_OPERATOR : 'Old P.B. Road, Belagavi'}</div>
       </div>
       <Rule />

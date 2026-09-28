@@ -15,6 +15,8 @@ import { docStatus, responsibleDriverId } from '@/features/documents/expiry';
 import { fmtDate, fmtDayMonth } from '@/lib/format';
 import { cn, normalize } from '@/lib/utils';
 import { useApp } from '@/store';
+import { useConnected } from '@/features/api/mode';
+import { DocumentsConnected } from './DocumentsConnected';
 import type { DocRecord, ReminderTarget } from '@/types';
 import { ConfirmDialog, PageHeader, Panel, SearchInput, Table, TD, TH, TR } from '../components/ui';
 import { useComplianceCounts } from '../useAdminData';
@@ -30,7 +32,7 @@ const bandOf = (d: DocRecord): Band => {
   return 'valid';
 };
 
-export function DocumentsPage() {
+function DocumentsDemo() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
   const documents = useApp((s) => s.documents);
@@ -276,4 +278,13 @@ function DocMenu({ doc, onView, onReplace, onRemind }: { doc: DocRecord; onView:
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+
+/**
+ * Demo mode keeps the approved prototype exactly as it was; connected mode reads the real
+ * Phase 4 documents. Same "Documents & Compliance" entry — no second tab.
+ */
+export function DocumentsPage() {
+  return useConnected() ? <DocumentsConnected /> : <DocumentsDemo />;
 }

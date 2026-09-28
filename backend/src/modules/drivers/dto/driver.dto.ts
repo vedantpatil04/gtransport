@@ -1,8 +1,9 @@
 import { Type } from 'class-transformer';
 import { DriverStatus } from '@prisma/client';
-import { IsBoolean, IsDateString, IsEnum, IsOptional, IsString, IsUUID, MaxLength, Matches } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsOptional, IsString, IsUUID, MaxLength, Matches, ValidateNested } from 'class-validator';
 import { PaginationQuery } from '../../../common/pagination/pagination';
 import { PHONE_PATTERN } from '../../employees/dto/employee.dto';
+import { DriverAccountDto } from '../../users/dto/account.dto';
 
 export class CreateDriverDto {
   /** The existing employee who becomes a driver. A person is never duplicated. */
@@ -45,6 +46,15 @@ export class CreateDriverDto {
   @IsOptional()
   @IsEnum(DriverStatus)
   status?: DriverStatus;
+
+  /**
+   * Driver app sign-in, created in the same transaction as the profile (role DRIVER).
+   * Administrators only; omit to add the driver without a login.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DriverAccountDto)
+  account?: DriverAccountDto;
 }
 
 export class UpdateDriverDto {

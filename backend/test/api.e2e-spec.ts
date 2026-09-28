@@ -210,9 +210,31 @@ describe('Gangamata API (e2e)', () => {
     it('rejects impossible coordinates', async () => {
       await expect(
         prisma.driverLocationPing.create({
-          data: { companyId: seed.company.id, driverId: seed.driver.id, latitude: 99, longitude: 0, recordedAt: new Date() },
+          data: {
+            companyId: seed.company.id,
+            driverId: seed.driver.id,
+            latitude: 99,
+            longitude: 0,
+            recordedAt: new Date(),
+            // Required since Phase 6: every fix carries the device key that makes a retry safe.
+            clientSubmissionId: `coords-${Date.now()}`,
+          },
         }),
       ).rejects.toThrow(/coordinates_range/);
+    });
+
+    it('stores a fix only once however many times it is uploaded', async () => {
+      const submissionId = `dup-${Date.now()}`;
+      const fix = {
+        companyId: seed.company.id,
+        driverId: seed.driver.id,
+        latitude: 15.85,
+        longitude: 74.498,
+        recordedAt: new Date(),
+        clientSubmissionId: submissionId,
+      };
+      await prisma.driverLocationPing.create({ data: fix });
+      await expect(prisma.driverLocationPing.create({ data: fix })).rejects.toThrow(/Unique constraint/);
     });
 
     it('allows only one open assignment per driver, even writing directly to the database', async () => {

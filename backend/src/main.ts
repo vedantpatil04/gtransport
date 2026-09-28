@@ -8,7 +8,8 @@ import { EnvValidationError } from './config/env.schema';
 
 async function bootstrap(): Promise<void> {
   // Logs are buffered until configuration is validated, so a config error is the first thing shown.
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // rawBody: payment webhooks are verified against the exact bytes the provider signed.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
   const config = app.get(AppConfigService);
 
   app.useLogger(createLogger(config.logLevel, config.isProduction));

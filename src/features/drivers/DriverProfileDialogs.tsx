@@ -10,6 +10,8 @@ import type { ApiDriver, ApiEmployee, ApiVehicle } from '@/features/api/types';
 import { useApiResource } from '@/features/api/useApiResource';
 import { ApiError } from '@/lib/api/client';
 import { InlineBusy } from '../admin/components/states';
+import { canAdministerAccounts, useSession } from '@/features/api/session';
+import { LoginAccessFields, TemporaryPasswordDialog } from '../employees/AccountAccess';
 
 /**
  * Creates a driver profile on top of an existing employee. There is deliberately no way to
@@ -32,6 +34,14 @@ export function CreateDriverProfileDialog({
   const [homeTown, setHomeTown] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Driver app sign-in, created with the profile in one step. Administrators only.
+  const offerLogin = canAdministerAccounts(useSession((s) => s.user?.role));
+  const [loginAccess, setLoginAccess] = useState(false);
+  const [loginVia, setLoginVia] = useState<'PHONE' | 'EMAIL'>('PHONE');
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
+  const [created, setCreated] = useState<{ driver: ApiDriver; password: string } | null>(null);
 
   // Employees who do not have a driver profile yet are the only valid choices.
   const candidates = useApiResource(() => employeesApi.list({ status: 'ACTIVE', limit: 100 }), [open], open);
@@ -47,8 +57,19 @@ export function CreateDriverProfileDialog({
       setLicenceExpiryDate('');
       setHomeTown('');
       setError(null);
+      setLoginAccess(false);
+      setLoginErrors({});
     }
   }, [open]);
+
+  const chosen = available.find((employee) => employee.id === employeeId);
+  const alreadyHasLogin = Boolean(chosen?.account);
+  useEffect(() => {
+    setLoginPhone(chosen?.phone ?? '');
+    setLoginEmail(chosen?.email ?? '');
+    setLoginVia(chosen?.phone || !chosen?.email ? 'PHONE' : 'EMAIL');
+    if (chosen?.account) setLoginAccess(false);
+  }, [chosen]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -56,22 +77,37 @@ export function CreateDriverProfileDialog({
     setBusy(true);
     setError(null);
     try {
+      const withLogin = offerLogin && loginAccess && !alreadyHasLogin;
       const driver = await driversApi.create({
         employeeId,
         licenceNumber: licenceNumber || undefined,
         licenceExpiryDate: licenceExpiryDate || undefined,
         homeTown: homeTown || undefined,
+        ...(withLogin ? { account: loginVia === 'PHONE' ? { phone: loginPhone } : { email: loginEmail } } : {}),
       });
       toast.success(t('admin.driversApi.created', { name: driver.employee.fullName }));
+      if (driver.temporaryPassword) {
+        onOpenChange(false);
+        setCreated({ driver, password: driver.temporaryPassword });
+        return;
+      }
       onCreated(driver);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : t('admin.api.errorTitle'));
+      if (cause instanceof ApiError) {
+        const login: Record<string, string> = {};
+        for (const [field, message] of Object.entries(cause.fieldErrors)) {
+          if (['account.phone', 'account.email', 'phone', 'email'].includes(field)) login[field.replace('account.', '')] = message;
+        }
+        setLoginErrors(login);
+        setError(Object.keys(login).length ? null : cause.message);
+      } else setError(t('admin.api.errorTitle'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
@@ -111,6 +147,36 @@ export function CreateDriverProfileDialog({
               <Input id="dp-home" value={homeTown} onChange={(e) => setHomeTown(e.target.value)} />
             </div>
           </div>
+          {offerLogin && employeeId && (
+            <div className="rounded-lg border p-3" data-testid="driver-login-access">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">{t('admin.accounts.driverLogin')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {alreadyHasLogin ? t('admin.accounts.alreadyHasLogin') : loginAccess ? t('admin.accounts.loginOnHint') : t('admin.accounts.loginOffHint')}
+                  </p>
+                </div>
+                {!alreadyHasLogin && <Switch checked={loginAccess} onCheckedChange={setLoginAccess} aria-label={t('admin.accounts.driverLogin')} />}
+              </div>
+              {loginAccess && !alreadyHasLogin && (
+                <div className="mt-3">
+                  <LoginAccessFields
+                    fixedRole
+                    roles={['DRIVER']}
+                    role="DRIVER"
+                    onRole={() => undefined}
+                    via={loginVia}
+                    onVia={setLoginVia}
+                    phone={loginPhone}
+                    onPhone={setLoginPhone}
+                    email={loginEmail}
+                    onEmail={setLoginEmail}
+                    errors={loginErrors}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <FieldError>{error ?? undefined}</FieldError>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -123,6 +189,16 @@ export function CreateDriverProfileDialog({
         </form>
       </DialogContent>
     </Dialog>
+      <TemporaryPasswordDialog
+        password={created?.password ?? null}
+        name={created?.driver.employee.fullName ?? ''}
+        onClose={() => {
+          const driver = created?.driver;
+          setCreated(null);
+          if (driver) onCreated(driver);
+        }}
+      />
+    </>
   );
 }
 

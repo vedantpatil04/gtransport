@@ -16,12 +16,14 @@ import { exportXlsx } from '@/lib/exporters';
 import { fmtDate, inr } from '@/lib/format';
 import { cn, normalize, sum } from '@/lib/utils';
 import { useApp } from '@/store';
+import { useConnected } from '@/features/api/mode';
+import { OperationsConnected } from './OperationsConnected';
 import type { ExpenseCategory } from '@/types';
 import { ConfirmDialog, DriverCell, FilterBar, PageHeader, Pagination, Panel, SearchInput, Table, TD, TH, TR, usePaged } from '../components/ui';
 import { DATE_RANGES, inRange, type DateRange } from '../filters';
 import { useSyncedData } from '../useAdminData';
 
-export function ExpensesPage() {
+function ExpensesDemo() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
   const drivers = useApp((s) => s.drivers);
@@ -259,4 +261,13 @@ export function ExpensesPage() {
       />
     </div>
   );
+}
+
+
+/**
+ * Demo mode keeps the approved prototype exactly as it was; connected mode reads the real
+ * Phase 3 data from the API. Same route, no additional tabs.
+ */
+export function ExpensesPage() {
+  return useConnected() ? <OperationsConnected /> : <ExpensesDemo />;
 }

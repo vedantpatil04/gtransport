@@ -1,4 +1,5 @@
 import type { ExpoConfig } from 'expo/config';
+import { withProjectBuildGradle, type ConfigPlugin } from '@expo/config-plugins';
 
 /**
  * Gangamata Transport — driver app configuration.
@@ -11,6 +12,32 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000';
 
 /** Brand navy, matching --primary in the approved web app. */
 const BRAND_NAVY = '#1B2B44';
+
+const withAndroidSharedCppPlugin: ConfigPlugin = (config) => {
+  return withProjectBuildGradle(config, (modConfig) => {
+    const snippet = `  def configureAndroid = { project ->
+    def androidExt = project.extensions.findByName("android")
+    if (androidExt != null) {
+      androidExt.defaultConfig {
+        externalNativeBuild {
+          cmake {
+            arguments "-DCMAKE_SHARED_LINKER_FLAGS=-lc++_shared"
+          }
+        }
+      }
+    }
+  }
+  plugins.withId("com.android.application") { configureAndroid(delegate) }
+  plugins.withId("com.android.library") { configureAndroid(delegate) }`;
+    if (!modConfig.modResults.contents.includes('CMAKE_SHARED_LINKER_FLAGS')) {
+      modConfig.modResults.contents = modConfig.modResults.contents.replace(
+        /allprojects\s*\{[\s\S]*?repositories\s*\{[\s\S]*?\}\s*\}/,
+        (match) => `${match}\n${snippet}`
+      );
+    }
+    return modConfig;
+  });
+};
 
 const config: ExpoConfig = {
   name: 'Gangamata Transport',
@@ -54,7 +81,17 @@ const config: ExpoConfig = {
 
   plugins: [
     'expo-router',
+    // Development builds: the app includes the native modules Expo Go lacks (e.g. Android push).
+    ['expo-dev-client', { launchMode: 'most-recent' }],
     'expo-secure-store',
+    [
+      'expo-image-picker',
+      {
+        cameraPermission: 'Gangamata Transport uses the camera to photograph fuel and service receipts.',
+        photosPermission: 'Gangamata Transport lets you choose a receipt photo from your gallery.',
+        microphonePermission: false,
+      },
+    ],
     [
       'expo-splash-screen',
       {
@@ -86,4 +123,4 @@ const config: ExpoConfig = {
   },
 };
 
-export default config;
+export default withAndroidSharedCppPlugin(config);

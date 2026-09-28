@@ -178,17 +178,17 @@ export function createSeed(now = new Date()): DemoData {
     const age = (now.getTime() - new Date(e.createdAt).getTime()) / 86_400_000;
     expenses.push({
       id, sync: 'synced', enteredBy: e.enteredBy ?? 'driver',
-      receipt: e.category === 'toll' || e.category === 'repair' || e.category === 'maintenance' ? { id: `gen:expense:${id}`, kind: 'generated', uploaded: true } : null,
+      receipt: e.category === 'toll' || e.category === 'rto' || e.category === 'tyre' || e.category === 'maintenance' ? { id: `gen:expense:${id}`, kind: 'generated', uploaded: true } : null,
       status: e.status ?? (age > 2 ? (rng.chance(0.04) ? 'rejected' : 'approved') : 'submitted'),
       ...e,
     });
   };
   const EXP_RULES: [ExpenseCategory, number, number, number, string[]][] = [
     ['toll', 0.55, 95, 645, ['Hattargi toll plaza', 'Kognoli toll plaza', 'Tapewadi toll plaza', 'Bankapur toll plaza', 'Guttal toll plaza', 'Kini toll plaza']],
-    ['food', 0.6, 120, 350, ['Lunch at dhaba', 'Breakfast', 'Dinner']],
-    ['parking', 0.25, 50, 150, ['APMC yard parking', 'Market parking', 'Night halt parking']],
+    // Parking, food and repair were removed in Phase 3; RTO and tyre expenses replace them.
+    ['rto', 0.03, 400, 2500, ['Permit renewal fee', 'Fitness certificate fee', 'Road tax payment']],
+    ['tyre', 0.01, 8000, 18500, ['Rear tyre replacement', 'New front tyre', 'Tyre retreading']],
     ['trip', 0.2, 300, 900, ['Loading hamali', 'Unloading hamali', 'Weighbridge charge']],
-    ['repair', 0.04, 650, 4800, ['Puncture repair', 'Clutch plate', 'Battery replacement', 'Brake shoe change']],
     ['other', 0.08, 100, 500, ['Tarpaulin rope', 'Mobile recharge', 'Vehicle wash']],
   ];
   for (let d = 0; d < dayCount; d++) {
@@ -218,7 +218,7 @@ export function createSeed(now = new Date()): DemoData {
   }
   // Ramesh's day so far (matches the home-screen example: ₹850 other expenses)
   pushExpense({ driverId: ramesh.id, vehicleId: ramesh.vehicleId!, category: 'toll', amount: 450, note: 'Hattargi toll plaza', date: today, createdAt: todayAt(0.35) });
-  pushExpense({ driverId: ramesh.id, vehicleId: ramesh.vehicleId!, category: 'food', amount: 400, note: 'Breakfast', date: today, createdAt: todayAt(0.7) });
+  pushExpense({ driverId: ramesh.id, vehicleId: ramesh.vehicleId!, category: 'rto', amount: 400, note: 'Permit renewal fee', date: today, createdAt: todayAt(0.7) });
 
   // ---------- Payments ----------
   const payments: Payment[] = [];
@@ -371,9 +371,9 @@ export function createSeed(now = new Date()): DemoData {
   const liveExp = expenses.filter((e) => e.status !== 'rejected');
   const perDay = {
     fuel: sumOf(fuel, (f) => f.amount) / dayCount,
-    maintenance: sumOf(liveExp.filter((e) => e.category === 'maintenance' || e.category === 'repair'), (e) => e.amount) / dayCount,
+    maintenance: sumOf(liveExp.filter((e) => e.category === 'maintenance' || e.category === 'tyre' || e.category === 'tyre_insurance'), (e) => e.amount) / dayCount,
     tolls: sumOf(liveExp.filter((e) => e.category === 'toll'), (e) => e.amount) / dayCount,
-    other: sumOf(liveExp.filter((e) => ['parking', 'food', 'trip', 'other'].includes(e.category)), (e) => e.amount) / dayCount,
+    other: sumOf(liveExp.filter((e) => ['rto', 'trip', 'other'].includes(e.category)), (e) => e.amount) / dayCount,
   };
   const salaryRun = sumOf(payments.filter((p) => p.type === 'salary'), (p) => p.amount);
   const history: MonthSummary[] = [6, 5, 4, 3, 2, 1].map((back) => {
