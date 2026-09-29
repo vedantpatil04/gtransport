@@ -88,4 +88,4 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { key: 'settings', to: '/admin/settings', icon: Settings },
 ];
 
-export const MOBILE_NAV: AdminNavKey[] = ['dashboard', 'fleet', 'employees', 'finance'];
+export const MOBILE_NAV: AdminNavKey[] = ['dashboard', 'vehicles', 'fuel', 'finance'];

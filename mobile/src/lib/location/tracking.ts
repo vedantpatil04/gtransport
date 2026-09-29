@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 type TaskManagerModule = typeof import('expo-task-manager');
 
@@ -232,8 +233,11 @@ export interface TrackingStartResult {
   reason?: 'permission' | 'background-permission' | 'services' | 'platform';
 }
 
+let webWatcher: { remove: () => void } | null = null;
+
 /** Whether the OS currently holds our task. The truthful answer to "is tracking running?". */
 export async function isTrackingRegistered(): Promise<boolean> {
+  if (webWatcher !== null) return true;
   if (!TaskManager) return false;
   try {
     return await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK);
@@ -254,10 +258,31 @@ export async function startTracking(policy?: TrackingPolicy): Promise<TrackingSt
   const snapshot = await readPermission();
   if (!snapshot.servicesEnabled) return { started: false, reason: 'services' };
   if (snapshot.foreground !== 'GRANTED') return { started: false, reason: 'permission' };
-  if (snapshot.background !== 'GRANTED') return { started: false, reason: 'background-permission' };
 
-  if (!TaskManager) return { started: false, reason: 'platform' };
   const effective = policy ?? (await readPolicy());
+
+  // Web or environments without TaskManager: watchPositionAsync keeps updates alive while app is active
+  if (Platform.OS === 'web' || !TaskManager) {
+    if (webWatcher) return { started: true };
+    try {
+      if (typeof Location.watchPositionAsync === 'function') {
+        webWatcher = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, timeInterval: 15_000, distanceInterval: 10 },
+          (loc) => { void handleLocations([loc]); },
+        );
+      }
+      if (typeof Location.getCurrentPositionAsync === 'function') {
+        void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+          .then((loc) => { if (loc) void handleLocations([loc]); })
+          .catch(() => {});
+      }
+      return { started: true };
+    } catch {
+      return { started: false, reason: 'platform' };
+    }
+  }
+
+  if (snapshot.background !== 'GRANTED') return { started: false, reason: 'background-permission' };
 
   try {
     if (await isTrackingRegistered()) return { started: true };
@@ -287,6 +312,13 @@ export async function startTracking(policy?: TrackingPolicy): Promise<TrackingSt
       showsBackgroundLocationIndicator: true,
     });
 
+    // Capture an immediate fix on native so the driver's location is reported right away
+    if (typeof Location.getCurrentPositionAsync === 'function') {
+      void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        .then((loc) => { if (loc) void handleLocations([loc]); })
+        .catch(() => {});
+    }
+
     return { started: true };
   } catch {
     // Task registration refused by the platform (restricted device, unsupported configuration).
@@ -296,6 +328,14 @@ export async function startTracking(policy?: TrackingPolicy): Promise<TrackingSt
 
 /** Stops tracking. Used when the driver signs out, or when the office withdraws the assignment. */
 export async function stopTracking(): Promise<void> {
+  if (webWatcher) {
+    try {
+      webWatcher.remove();
+    } catch {
+      /* ignore */
+    }
+    webWatcher = null;
+  }
   if (!TaskManager) return;
   try {
     if (await isTrackingRegistered()) await Location.stopLocationUpdatesAsync(LOCATION_TASK);

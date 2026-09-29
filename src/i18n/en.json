@@ -769,6 +769,7 @@
       "accuracy": "to within {{metres}} m",
       "recentFixes": "Recent positions",
       "noFixes": "No positions recorded yet",
+      "noLiveLocation": "No live location reported yet.",
       "mapUnavailable": "The map could not be displayed",
       "mapUnavailableBody": "The driver list beside it is unaffected and shows every current location.",
       "filter": {

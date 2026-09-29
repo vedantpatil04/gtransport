@@ -269,8 +269,12 @@ export function FleetConnected() {
               </li>
             ))}
             {!list.length && (
-              <li className="px-4 py-10 text-center text-sm text-muted-foreground">
-                {fleet.loading ? t('admin.api.loading') : t('admin.common.noResults')}
+              <li className="px-4 py-10 text-center text-sm text-muted-foreground" data-testid="fleet-empty-state">
+                {fleet.loading
+                  ? t('admin.api.loading')
+                  : !rows.length
+                    ? t('admin.fleet.noLiveLocation')
+                    : t('admin.common.noResults')}
               </li>
             )}
           </ul>

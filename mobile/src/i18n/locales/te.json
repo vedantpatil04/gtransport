@@ -277,10 +277,19 @@
       "finance": "ఆర్థికం",
       "vehicles": "వాహనాలు",
       "fuel": "ఇంధనం",
-      "documents": "పత్రాలు",
+      "documents": "పత్రాలు మరియు సమ్మతి",
       "employees": "ఉద్యోగులు",
       "profile": "ప్రొఫైల్",
-      "more": "మరిన్ని"
+      "more": "మరిన్ని",
+      "fleet": "లైవ్ ఫ్లీట్",
+      "reports": "నివేదికలు",
+      "inbox": "ఇన్‌బాక్స్",
+      "settings": "సెట్టింగ్‌లు"
+    },
+    "section": {
+      "operations": "కార్యకలాపాలు",
+      "management": "నిర్వహణ",
+      "system": "సిస్టమ్"
     },
     "role": {
       "SUPER_ADMIN": "సూపర్ అడ్మిన్",

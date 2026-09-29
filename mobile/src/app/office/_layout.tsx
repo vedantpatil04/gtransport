@@ -11,6 +11,8 @@ import { colors, TOUCH_TARGET } from '../../theme/tokens';
  * and the rest under More. Modules a role may not use are not routes it can reach from here;
  * the API refuses them regardless.
  */
+export type TabScreenModule = 'dashboard' | 'finance' | 'vehicles' | 'fuel' | 'documents' | 'employees' | 'profile';
+
 const ICONS: Record<OfficeModule | 'more', string> = {
   dashboard: '⌂',
   finance: '₹',
@@ -18,12 +20,16 @@ const ICONS: Record<OfficeModule | 'more', string> = {
   fuel: '⛽',
   documents: '▤',
   employees: '☷',
+  fleet: '⌖',
+  reports: '◰',
+  inbox: '✉',
+  settings: '⚙',
   profile: '☻',
   more: '⋯',
 };
 
-/** Route file for each module (the dashboard is the index). */
-const ROUTE: Record<OfficeModule, string> = {
+/** Route file for each local module screen (the dashboard is the index). */
+const ROUTE: Record<TabScreenModule, string> = {
   dashboard: 'index',
   finance: 'finance',
   vehicles: 'vehicles',
@@ -33,7 +39,7 @@ const ROUTE: Record<OfficeModule, string> = {
   profile: 'profile',
 };
 
-const ALL: OfficeModule[] = ['dashboard', 'finance', 'vehicles', 'fuel', 'documents', 'employees', 'profile'];
+const TAB_MODULES: TabScreenModule[] = ['dashboard', 'finance', 'vehicles', 'fuel', 'documents', 'employees', 'profile'];
 
 function TabIcon({ name, color }: { name: OfficeModule | 'more'; color: ColorValue }) {
   return (
@@ -49,7 +55,8 @@ export default function OfficeLayout() {
   const tabs = tabsFor(role);
   const hasMore = moreFor(role).length > 0;
   // Tab order follows the role; everything else is declared but hidden from the bar.
-  const order: OfficeModule[] = [...tabs, ...ALL.filter((m) => !tabs.includes(m))];
+  const activeTabs = tabs.filter((m): m is TabScreenModule => (TAB_MODULES as OfficeModule[]).includes(m));
+  const order: TabScreenModule[] = [...activeTabs, ...TAB_MODULES.filter((m) => !activeTabs.includes(m))];
 
   return (
     <Tabs

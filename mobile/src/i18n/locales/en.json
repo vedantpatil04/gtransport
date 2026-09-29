@@ -277,10 +277,19 @@
       "finance": "Finance",
       "vehicles": "Vehicles",
       "fuel": "Fuel",
-      "documents": "Documents",
+      "documents": "Documents & Compliance",
       "employees": "Employees",
       "profile": "Profile",
-      "more": "More"
+      "more": "More",
+      "fleet": "Live Fleet",
+      "reports": "Reports",
+      "inbox": "Inbox",
+      "settings": "Settings"
+    },
+    "section": {
+      "operations": "Operations",
+      "management": "Management",
+      "system": "System"
     },
     "role": {
       "SUPER_ADMIN": "Super admin",

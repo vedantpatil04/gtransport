@@ -19,6 +19,7 @@ import type { MotionState } from '@/types';
 import { PageHeader, SearchInput } from '../components/ui';
 import { useSyncedData } from '../useAdminData';
 import { isApiConfigured } from '@/features/api/mode';
+import { useSession } from '@/features/api/session';
 import { FleetConnected } from './FleetConnected';
 
 const FILTERS: (MotionState | 'all')[] = ['all', 'moving', 'stopped', 'offline', 'none'];
@@ -215,7 +216,8 @@ function DriverLocationCard({ item, now, onClose, flat }: { item: FleetItem; now
   );
 }
 
-/** Real mode shows the live fleet; without an API the approved prototype runs on its simulation. */
+/** Real mode shows the live fleet; without an API or valid session the approved prototype runs on its simulation. */
 export function Fleet() {
-  return isApiConfigured() ? <FleetConnected /> : <FleetDemo />;
+  const token = useSession((s) => s.token);
+  return isApiConfigured() && token ? <FleetConnected /> : <FleetDemo />;
 }

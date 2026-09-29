@@ -277,10 +277,19 @@
       "finance": "वित्त",
       "vehicles": "वाहने",
       "fuel": "इंधन",
-      "documents": "कागदपत्रे",
+      "documents": "कागदपत्रे आणि अनुपालन",
       "employees": "कर्मचारी",
       "profile": "प्रोफाइल",
-      "more": "अधिक"
+      "more": "अधिक",
+      "fleet": "थेट फ्लीट",
+      "reports": "अहवाल",
+      "inbox": "इनबॉक्स",
+      "settings": "सेटिंग्ज"
+    },
+    "section": {
+      "operations": "ऑपरेशन्स",
+      "management": "व्यवस्थापन",
+      "system": "प्रणाली"
     },
     "role": {
       "SUPER_ADMIN": "सुपर अ‍ॅडमिन",

@@ -13,7 +13,7 @@ export const API_PREFIX = 'api/v1';
  * tested is exactly what runs in production.
  */
 export function configureApp(app: INestApplication, config: AppConfigService): void {
-  app.setGlobalPrefix(API_PREFIX, { exclude: ['health'] });
+  app.setGlobalPrefix(API_PREFIX, { exclude: ['', 'health'] });
   app.use(requestIdMiddleware);
   app.use(helmet());
 

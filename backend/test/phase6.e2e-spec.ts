@@ -540,6 +540,20 @@ describe('Phase 6: live fleet & location intelligence (e2e)', () => {
       const noMatch = await as(admin).get('/locations/fleet?q=NobodyHere').expect(200);
       expect(noMatch.body.data).toHaveLength(0);
     });
+
+    it('returns empty fleet state with zero summary when no drivers have reported', async () => {
+      await resetDriver();
+      const response = await as(admin).get('/locations/fleet').expect(200);
+      expect(response.body.data).toHaveLength(0);
+      expect(response.body.summary).toEqual({
+        total: 0,
+        active: 0,
+        stale: 0,
+        offline: 0,
+        unavailable: 0,
+        alerting: 0,
+      });
+    });
   });
 
   describe('tracking state reporting', () => {

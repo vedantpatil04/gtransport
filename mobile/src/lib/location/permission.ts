@@ -33,12 +33,16 @@ const stageFrom = (response: Location.LocationPermissionResponse | Location.Perm
 
 /** Reads the current state without prompting. */
 export async function readPermission(): Promise<LocationPermissionSnapshot> {
-  const servicesEnabled = await Location.hasServicesEnabledAsync().catch(() => false);
-  const foreground = await Location.getForegroundPermissionsAsync();
-  const background = await Location.getBackgroundPermissionsAsync().catch(() => null);
+  const isWeb = Platform.OS === 'web';
+  const servicesEnabled = await Location.hasServicesEnabledAsync().catch(() => true);
+  const foreground = await Location.getForegroundPermissionsAsync().catch(() => ({
+    status: Location.PermissionStatus.UNDETERMINED,
+    canAskAgain: true,
+  } as Location.PermissionResponse));
+  const background = isWeb ? null : await Location.getBackgroundPermissionsAsync().catch(() => null);
 
   const foregroundStage = stageFrom(foreground);
-  const backgroundStage = background ? stageFrom(background) : 'UNKNOWN';
+  const backgroundStage = isWeb ? foregroundStage : (background ? stageFrom(background) : 'UNKNOWN');
 
   return {
     stage: !servicesEnabled ? 'LOCATION_SERVICES_OFF' : foregroundStage,
@@ -46,7 +50,7 @@ export async function readPermission(): Promise<LocationPermissionSnapshot> {
     background: backgroundStage,
     servicesEnabled,
     canAskAgain: foreground.canAskAgain,
-    canAskBackgroundAgain: background?.canAskAgain ?? true,
+    canAskBackgroundAgain: isWeb ? false : (background?.canAskAgain ?? true),
   };
 }
 
@@ -59,10 +63,11 @@ export async function readPermission(): Promise<LocationPermissionSnapshot> {
  * foreground is reported as such rather than being asked again on every screen.
  */
 export async function requestPermission(options: { includeBackground?: boolean } = {}): Promise<LocationPermissionSnapshot> {
+  const isWeb = Platform.OS === 'web';
   const includeBackground = options.includeBackground ?? true;
   const foreground = await Location.requestForegroundPermissionsAsync();
 
-  if (stageFrom(foreground) === 'GRANTED' && includeBackground) {
+  if (stageFrom(foreground) === 'GRANTED' && includeBackground && !isWeb) {
     await Location.requestBackgroundPermissionsAsync().catch(() => null);
   }
 
@@ -71,6 +76,7 @@ export async function requestPermission(options: { includeBackground?: boolean }
 
 /** Opens the OS settings screen, for when the prompt will no longer appear. */
 export async function openLocationSettings(): Promise<void> {
+  if (Platform.OS === 'web') return;
   if (Platform.OS === 'ios') {
     await Linking.openURL('app-settings:');
     return;
@@ -99,6 +105,7 @@ export function toDisplayStatus(snapshot: LocationPermissionSnapshot): LocationS
 
 /** True when only the OS settings screen can change the answer — the prompt will not reappear. */
 export function needsSettings(snapshot: LocationPermissionSnapshot): boolean {
+  if (Platform.OS === 'web') return false;
   if (!snapshot.servicesEnabled) return true;
   if (snapshot.foreground === 'RESTRICTED') return true;
   if (snapshot.foreground !== 'GRANTED') return !snapshot.canAskAgain;

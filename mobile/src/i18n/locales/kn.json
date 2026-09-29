@@ -277,10 +277,19 @@
       "finance": "ಹಣಕಾಸು",
       "vehicles": "ವಾಹನಗಳು",
       "fuel": "ಇಂಧನ",
-      "documents": "ದಾಖಲೆಗಳು",
+      "documents": "ದಾಖಲೆಗಳು ಮತ್ತು ಅನುಸರಣೆ",
       "employees": "ಉದ್ಯೋಗಿಗಳು",
       "profile": "ಪ್ರೊಫೈಲ್",
-      "more": "ಇನ್ನಷ್ಟು"
+      "more": "ಇನ್ನಷ್ಟು",
+      "fleet": "ಲೈವ್ ಫ್ಲೀಟ್",
+      "reports": "ವರದಿಗಳು",
+      "inbox": "ಇನ್‌ಬಾಕ್ಸ್",
+      "settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು"
+    },
+    "section": {
+      "operations": "ಕಾರ್ಯಾಚರಣೆಗಳು",
+      "management": "ನಿರ್ವಹಣೆ",
+      "system": "ವ್ಯವಸ್ಥೆ"
     },
     "role": {
       "SUPER_ADMIN": "ಸೂಪರ್ ಅಡ್ಮಿನ್",

@@ -277,10 +277,19 @@
       "finance": "நிதி",
       "vehicles": "வாகனங்கள்",
       "fuel": "எரிபொருள்",
-      "documents": "ஆவணங்கள்",
+      "documents": "ஆவணங்கள் மற்றும் இணக்கம்",
       "employees": "பணியாளர்கள்",
       "profile": "சுயவிவரம்",
-      "more": "மேலும்"
+      "more": "மேலும்",
+      "fleet": "லைவ் ஃப்ளீட்",
+      "reports": "அறிக்கைகள்",
+      "inbox": "இன்பாக்ஸ்",
+      "settings": "அமைப்புகள்"
+    },
+    "section": {
+      "operations": "செயல்பாடுகள்",
+      "management": "மேலாண்மை",
+      "system": "அமைப்பு"
     },
     "role": {
       "SUPER_ADMIN": "சூப்பர் நிர்வாகி",

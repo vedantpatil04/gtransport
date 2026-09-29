@@ -15,12 +15,26 @@ interface HealthResponse {
  * process supervisors can call it without credentials. Returns 503 when the database is
  * unreachable, so an unhealthy instance is taken out of rotation instead of serving errors.
  */
-@Controller('health')
+@Controller()
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Public()
   @Get()
+  root() {
+    return {
+      name: 'Gangamata Transport API',
+      status: 'online',
+      message: 'REST API server is running. Open http://localhost:5173 for the web application or http://localhost:8081 for mobile.',
+      endpoints: {
+        health: '/health',
+        api: '/api/v1',
+      },
+    };
+  }
+
+  @Public()
+  @Get('health')
   async check(@Res({ passthrough: true }) response: Response): Promise<HealthResponse> {
     let database: 'up' | 'down' = 'up';
     try {

@@ -6,13 +6,82 @@ import type { OfficeRole, UserRole } from '../../types/domain';
  * API's rules (payroll is ADMIN, SUPER_ADMIN and ACCOUNTING only) so nobody is shown a screen
  * that would only answer 403 — the API stays the authority.
  */
-export type OfficeModule = 'dashboard' | 'finance' | 'vehicles' | 'fuel' | 'documents' | 'employees' | 'profile';
+export type OfficeModule =
+  | 'dashboard'
+  | 'finance'
+  | 'vehicles'
+  | 'fuel'
+  | 'documents'
+  | 'employees'
+  | 'fleet'
+  | 'reports'
+  | 'inbox'
+  | 'settings'
+  | 'profile';
+
+export type OfficeSectionKey = 'operations' | 'management' | 'system';
+
+export interface OfficeSection {
+  key: OfficeSectionKey;
+  modules: OfficeModule[];
+}
+
+export const MORE_SECTIONS: Record<OfficeSectionKey, OfficeModule[]> = {
+  operations: ['fleet', 'employees', 'documents'],
+  management: ['reports', 'inbox'],
+  system: ['settings', 'profile'],
+};
 
 const MODULES: Record<OfficeRole, OfficeModule[]> = {
-  SUPER_ADMIN: ['dashboard', 'vehicles', 'fuel', 'finance', 'employees', 'documents', 'profile'],
-  ADMIN: ['dashboard', 'vehicles', 'fuel', 'finance', 'employees', 'documents', 'profile'],
-  MANAGER: ['dashboard', 'vehicles', 'fuel', 'documents', 'employees', 'profile'],
-  ACCOUNTING: ['dashboard', 'finance', 'fuel', 'vehicles', 'employees', 'documents', 'profile'],
+  SUPER_ADMIN: [
+    'dashboard',
+    'vehicles',
+    'fuel',
+    'finance',
+    'fleet',
+    'employees',
+    'documents',
+    'reports',
+    'inbox',
+    'settings',
+    'profile',
+  ],
+  ADMIN: [
+    'dashboard',
+    'vehicles',
+    'fuel',
+    'finance',
+    'fleet',
+    'employees',
+    'documents',
+    'reports',
+    'inbox',
+    'settings',
+    'profile',
+  ],
+  MANAGER: [
+    'dashboard',
+    'vehicles',
+    'fuel',
+    'documents',
+    'fleet',
+    'employees',
+    'reports',
+    'inbox',
+    'profile',
+  ],
+  ACCOUNTING: [
+    'dashboard',
+    'finance',
+    'fuel',
+    'vehicles',
+    'fleet',
+    'employees',
+    'documents',
+    'reports',
+    'inbox',
+    'profile',
+  ],
 };
 
 /** Up to four modules on the tab bar; the rest (and Profile) under More. */
@@ -37,6 +106,20 @@ export function moreFor(role: UserRole | null | undefined): OfficeModule[] {
   return modulesFor(role).filter((m) => !tabs.includes(m));
 }
 
+export function sectionsFor(role: UserRole | null | undefined): OfficeSection[] {
+  const allowed = new Set(moreFor(role));
+  const sections: OfficeSection[] = [];
+
+  for (const [key, mods] of Object.entries(MORE_SECTIONS) as [OfficeSectionKey, OfficeModule[]][]) {
+    const matching = mods.filter((m) => allowed.has(m));
+    if (matching.length > 0) {
+      sections.push({ key, modules: matching });
+    }
+  }
+
+  return sections;
+}
+
 /** Payroll figures (salaries, payments) — the same roles the API allows. */
 export const seesPayroll = (role: UserRole | null | undefined): boolean => role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'ACCOUNTING';
 
@@ -46,5 +129,18 @@ export const seesPayroll = (role: UserRole | null | undefined): boolean => role 
  * depend on that having run.
  */
 export function officePath(module: OfficeModule | 'more'): Href {
-  return (module === 'dashboard' ? '/office' : `/office/${module}`) as Href;
+  switch (module) {
+    case 'dashboard':
+      return '/office' as Href;
+    case 'fleet':
+      return '/admin/fleet' as Href;
+    case 'reports':
+      return '/admin/reports' as Href;
+    case 'inbox':
+      return '/admin/inbox' as Href;
+    case 'settings':
+      return '/admin/settings' as Href;
+    default:
+      return `/office/${module}` as Href;
+  }
 }
