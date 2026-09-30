@@ -1,7 +1,7 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BatteryLow, Gauge, MapPin, Navigation, Phone, RefreshCw, TriangleAlert, UploadCloud, X } from 'lucide-react';
+import { BatteryLow, ExternalLink, Gauge, MapPin, Navigation, Phone, RefreshCw, TriangleAlert, UploadCloud, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Plate } from '@/components/Plate';
 import { MotionDot } from '@/components/status';
@@ -513,14 +513,27 @@ function DriverLocationPanel({
         )}
       </div>
 
-      <div className="flex gap-2 border-t p-3">
-        <Button asChild className="flex-1" data-testid="fleet-view-driver">
+      <div className="flex flex-wrap gap-2 border-t p-3">
+        <Button asChild className="flex-1 min-w-[120px]" data-testid="fleet-view-driver">
           <Link to={`/admin/drivers/${row.driverId}`}>{t('admin.fleet.viewDriver')}</Link>
         </Button>
+        {row.position && (
+          <Button asChild variant="outline" data-testid="fleet-open-google-maps">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${row.position.latitude},${row.position.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5"
+            >
+              <ExternalLink className="size-4" />
+              <span>{t('admin.fleet.openGoogleMaps')}</span>
+            </a>
+          </Button>
+        )}
         {row.employee.phone && (
           <Button asChild variant="outline" size="icon" aria-label={t('admin.drivers.call')}>
             <a href={`tel:${row.employee.phone}`}>
-              <Phone />
+              <Phone className="size-4" />
             </a>
           </Button>
         )}

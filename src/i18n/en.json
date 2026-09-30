@@ -751,6 +751,7 @@
       "todayExpenses": "Expenses",
       "todayPaid": "Paid today",
       "viewDriver": "View Driver",
+      "openGoogleMaps": "Open in Google Maps",
       "liveSubtitle": "{{active}} of {{total}} drivers reporting",
       "refresh": "Refresh",
       "alertBanner_one": "{{count}} driver has been stationary past the alert threshold",

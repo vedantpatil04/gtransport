@@ -34,6 +34,35 @@ const stageFrom = (response: Location.LocationPermissionResponse | Location.Perm
 /** Reads the current state without prompting. */
 export async function readPermission(): Promise<LocationPermissionSnapshot> {
   const isWeb = Platform.OS === 'web';
+
+  if (isWeb && typeof navigator !== 'undefined' && navigator.permissions?.query) {
+    try {
+      const queryResult = await navigator.permissions.query({ name: 'geolocation' });
+      if (queryResult.state === 'granted') {
+        return {
+          stage: 'GRANTED',
+          foreground: 'GRANTED',
+          background: 'GRANTED',
+          servicesEnabled: true,
+          canAskAgain: true,
+          canAskBackgroundAgain: false,
+        };
+      }
+      if (queryResult.state === 'denied') {
+        return {
+          stage: 'DENIED',
+          foreground: 'DENIED',
+          background: 'DENIED',
+          servicesEnabled: true,
+          canAskAgain: false,
+          canAskBackgroundAgain: false,
+        };
+      }
+    } catch {
+      /* Fallback to expo-location if query is unsupported */
+    }
+  }
+
   const servicesEnabled = await Location.hasServicesEnabledAsync().catch(() => true);
   const foreground = await Location.getForegroundPermissionsAsync().catch(() => ({
     status: Location.PermissionStatus.UNDETERMINED,

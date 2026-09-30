@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Gauge, MapPin, Navigation, Phone, Route, X } from 'lucide-react';
+import { ExternalLink, Gauge, MapPin, Navigation, Phone, Route, X } from 'lucide-react';
 import { Plate } from '@/components/Plate';
 import { MotionDot, MotionLabel } from '@/components/status';
 import { Button } from '@/components/ui/button';
@@ -202,13 +202,24 @@ function DriverLocationCard({ item, now, onClose, flat }: { item: FleetItem; now
           <p className="figure font-bold text-success">{inr(today.received)}</p>
         </div>
       </div>
-      <div className="flex gap-2 border-t p-3">
-        <Button asChild className="flex-1" data-testid="fleet-view-driver">
+      <div className="flex flex-wrap gap-2 border-t p-3">
+        <Button asChild className="flex-1 min-w-[120px]" data-testid="fleet-view-driver">
           <Link to={`/admin/drivers/${driver.id}`}>{t('admin.fleet.viewDriver')}</Link>
+        </Button>
+        <Button asChild variant="outline" data-testid="fleet-open-google-maps">
+          <a
+            href={`https://www.google.com/maps/search/?api=1&query=${pos.lat},${pos.lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5"
+          >
+            <ExternalLink className="size-4" />
+            <span>{t('admin.fleet.openGoogleMaps')}</span>
+          </a>
         </Button>
         <Button asChild variant="outline" size="icon" aria-label={t('admin.drivers.call')}>
           <a href="tel:+919800000000">
-            <Phone />
+            <Phone className="size-4" />
           </a>
         </Button>
       </div>

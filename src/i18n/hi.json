@@ -751,6 +751,7 @@
       "todayExpenses": "खर्च",
       "todayPaid": "आज भुगतान",
       "viewDriver": "ड्राइवर देखें",
+      "openGoogleMaps": "Google Maps में खोलें",
       "liveSubtitle": "{{total}} में से {{active}} ड्राइवर रिपोर्ट कर रहे हैं",
       "refresh": "रीफ़्रेश करें",
       "alertBanner_one": "{{count}} ड्राइवर तय समय से ज़्यादा एक ही जगह रुका है",

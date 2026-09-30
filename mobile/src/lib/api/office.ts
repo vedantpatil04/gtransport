@@ -94,7 +94,49 @@ const qs = (query: Record<string, string | number | undefined>) => {
   return out ? `?${out}` : '';
 };
 
+export interface OfficeFleetLocation {
+  driverId: string;
+  driverCode: string;
+  employee: { fullName: string; employeeCode: string; phone: string | null };
+  vehicle: { registrationNumber: string; make: string | null; model: string | null } | null;
+  status: 'ACTIVE' | 'STALE' | 'OFFLINE' | 'PERMISSION_DENIED' | 'LOCATION_DISABLED';
+  trackingState: string;
+  position: {
+    latitude: number;
+    longitude: number;
+    accuracyMeters: number | null;
+    speedKmh: number | null;
+    headingDeg: number | null;
+  } | null;
+  capturedAt: string | null;
+  lastSeenAt: string | null;
+  stale: boolean;
+  alert: {
+    id: string;
+    type: string;
+    status: string;
+    triggeredAt: string;
+    stationarySince: string;
+    durationMinutes: number;
+  } | null;
+}
+
+export interface OfficeFleetResponse {
+  data: OfficeFleetLocation[];
+  summary: {
+    total: number;
+    active: number;
+    stale: number;
+    offline: number;
+    unavailable: number;
+    alerting: number;
+  };
+  refreshSeconds: number;
+}
+
 export const officeApi = {
+  fleet: (token: string, query: { q?: string; status?: string } = {}) =>
+    apiRequest<OfficeFleetResponse>(`/locations/fleet${qs(query)}`, { token }),
   employees: (token: string, query: { q?: string; cursor?: string; limit?: number } = {}) =>
     apiRequest<Page<OfficeEmployee>>(`/employees${qs(query)}`, { token }),
   vehicles: (token: string, query: { q?: string; cursor?: string; limit?: number } = {}) =>
@@ -107,3 +149,4 @@ export const officeApi = {
   payments: (token: string, query: { status?: string; cursor?: string; limit?: number } = {}) =>
     apiRequest<Page<OfficePayment>>(`/payments${qs(query)}`, { token }),
 };
+

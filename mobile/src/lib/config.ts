@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 export type AppEnvironment = 'development' | 'staging' | 'production';
 
@@ -10,6 +11,13 @@ interface Extra {
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
 function resolveDefaultApiUrl(): string {
+  if (
+    Platform.OS === 'web' &&
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ) {
+    return 'http://localhost:3000';
+  }
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }

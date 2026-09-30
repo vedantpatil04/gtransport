@@ -57,22 +57,24 @@ export const vectorProvider: MapProvider = {
   kmPerUnit: 1.11,
 };
 
+/** The production Mapbox provider for embedded fleet view. */
+export const mapboxProvider: MapProvider = {
+  name: 'mapbox',
+  project: (latitude, longitude) => project(latitude, longitude),
+  bounds: MAP_BOUNDS,
+  kmPerUnit: 1.11,
+};
+
 /**
  * Which provider is in use.
  *
- * `VITE_MAP_PROVIDER` exists so a deployment can be pointed at a different implementation without
- * a code change. Only `vector` is implemented; anything else falls back to it with a warning
- * rather than rendering a blank panel, because the location data behind the map must stay usable
- * even when the map itself will not draw.
+ * Uses Mapbox by default as the embedded fleet map provider.
+ * If VITE_MAP_PROVIDER="vector" is explicitly set, uses the offline vector map.
  */
 export function resolveMapProvider(): MapProvider {
   const configured = (import.meta.env.VITE_MAP_PROVIDER as string | undefined)?.trim().toLowerCase();
-  if (!configured || configured === 'vector') return vectorProvider;
-
-  if (import.meta.env.DEV) {
-    console.warn(`[map] VITE_MAP_PROVIDER="${configured}" is not implemented; using the built-in vector map.`);
-  }
-  return vectorProvider;
+  if (configured === 'vector') return vectorProvider;
+  return mapboxProvider;
 }
 
 /** A city id, for the nearest-place label. Re-exported so screens need not import from data/geo. */

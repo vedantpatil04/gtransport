@@ -56,12 +56,12 @@ export const LOCATION_TASK = 'gangamata-background-location';
 const POLICY_KEY = 'gangamata.location.policy';
 
 export const DEFAULT_POLICY: TrackingPolicy = {
-  movingIntervalSeconds: 60,
-  stationaryIntervalSeconds: 900,
-  distanceMeters: 150,
+  movingIntervalSeconds: 10,
+  stationaryIntervalSeconds: 180,
+  distanceMeters: 15,
   bufferLimit: DEFAULT_BUFFER_LIMIT,
   maxBatchSize: 100,
-  staleAfterMinutes: 15,
+  staleAfterMinutes: 10,
 };
 
 /**
@@ -267,12 +267,12 @@ export async function startTracking(policy?: TrackingPolicy): Promise<TrackingSt
     try {
       if (typeof Location.watchPositionAsync === 'function') {
         webWatcher = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.Balanced, timeInterval: 15_000, distanceInterval: 10 },
+          { accuracy: Location.Accuracy.High, timeInterval: 5_000, distanceInterval: 5 },
           (loc) => { void handleLocations([loc]); },
         );
       }
       if (typeof Location.getCurrentPositionAsync === 'function') {
-        void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
           .then((loc) => { if (loc) void handleLocations([loc]); })
           .catch(() => {});
       }
@@ -288,33 +288,25 @@ export async function startTracking(policy?: TrackingPolicy): Promise<TrackingSt
     if (await isTrackingRegistered()) return { started: true };
 
     await Location.startLocationUpdatesAsync(LOCATION_TASK, {
-      accuracy: Location.Accuracy.Balanced,
-      // Distance and time together: a fix when the vehicle has moved meaningfully, and a fix at
-      // least every interval so a parked truck still reports and stationary detection can run.
+      accuracy: Location.Accuracy.High,
       distanceInterval: effective.distanceMeters,
       timeInterval: effective.movingIntervalSeconds * 1_000,
-      // iOS would otherwise suspend updates for a device it judges stationary — the one case the
-      // office most needs reported.
       pausesUpdatesAutomatically: false,
       activityType: Location.ActivityType.AutomotiveNavigation,
-      // Android requires a visible notification for background location, and being explicit about
-      // it is also the honest thing to do: the driver can always see that tracking is on.
       foregroundService: {
-        notificationTitle: 'Gangamata Transport',
-        notificationBody: 'Sharing your location with the office while you are on duty.',
+        notificationTitle: 'Gangamata Transport — Live Tracking',
+        notificationBody: 'Sharing your vehicle location in real-time with the office.',
         notificationColor: '#1B2B44',
         killServiceOnDestroy: false,
       },
-      // Batched delivery: the OS may hand over several fixes at once, which costs far less battery
-      // than waking the app for every single one.
       deferredUpdatesInterval: effective.movingIntervalSeconds * 1_000,
       deferredUpdatesDistance: effective.distanceMeters,
       showsBackgroundLocationIndicator: true,
     });
 
-    // Capture an immediate fix on native so the driver's location is reported right away
+    // Capture an immediate fix on native so the driver's location is reported right away with zero lag
     if (typeof Location.getCurrentPositionAsync === 'function') {
-      void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+      void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
         .then((loc) => { if (loc) void handleLocations([loc]); })
         .catch(() => {});
     }

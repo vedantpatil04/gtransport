@@ -4,7 +4,8 @@ import { Crosshair, Minus, Plus } from 'lucide-react';
 import { BORDERS, CITIES, CITY_IDS, COASTLINE, HIGHWAYS, MAP_BOUNDS, REGION_LABELS, project, toLatLng } from '@/data/geo';
 import { MOTION_HEX } from '@/components/status';
 import { cn } from '@/lib/utils';
-import type { MapMarker } from './provider';
+import { MapboxMap } from './MapboxMap';
+import { resolveMapProvider, type MapMarker } from './provider';
 
 interface View {
   x: number;
@@ -16,29 +17,26 @@ const MAJOR_CITIES = new Set(['pune', 'kolhapur', 'belagavi', 'hubballi', 'panaj
 const pt = (lat: number, lng: number) => project(lat, lng);
 const path = (pts: { x: number; y: number }[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
 
+export interface FleetMapProps {
+  markers: MapMarker[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  className?: string;
+  simulated?: boolean;
+}
+
 /**
  * Hand-built vector map of the fleet's operating region (Maharashtra–Karnataka–Goa), drawn from
  * real coordinates. No map API, no key, and no third-party request.
- *
- * The component takes plain `MapMarker`s — latitude, longitude, a tone and a label — and knows
- * nothing about where they came from. That is what lets the same map serve the prototype's
- * simulation and Phase 6's real fleet data without two maps existing, and it keeps projection
- * (see ./provider.ts) the only place that deals in SVG coordinates.
  */
-export function FleetMap({
+export function VectorFleetMap({
   markers,
   selectedId,
   onSelect,
   className,
   /** Shown in the legend. The prototype's positions are simulated; real fleet data is not. */
   simulated = false,
-}: {
-  markers: MapMarker[];
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  className?: string;
-  simulated?: boolean;
-}) {
+}: FleetMapProps) {
   const { t } = useTranslation();
   const wrap = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 560 });
@@ -290,3 +288,28 @@ export function FleetMap({
     </div>
   );
 }
+
+/**
+ * Embedded map component for Fleet view.
+ * Uses Mapbox by default as the primary provider with stable lifecycle and efficient updates,
+ * and falls back seamlessly to the vector map if WebGL/network is unavailable.
+ */
+export function FleetMap(props: FleetMapProps) {
+  const provider = resolveMapProvider();
+  const [fallbackToVector, setFallbackToVector] = useState(false);
+
+  if (provider.name === 'mapbox' && !fallbackToVector) {
+    return (
+      <MapboxMap
+        markers={props.markers}
+        selectedId={props.selectedId}
+        onSelect={props.onSelect}
+        className={props.className}
+        onError={() => setFallbackToVector(true)}
+      />
+    );
+  }
+
+  return <VectorFleetMap {...props} />;
+}
+

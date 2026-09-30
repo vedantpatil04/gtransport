@@ -74,7 +74,15 @@
     "paused": "Tracking off duty",
     "syncPending_one": "{{count}} location waiting to send",
     "syncPending_other": "{{count}} locations waiting to send",
-    "syncNow": "Send now"
+    "syncNow": "Send now",
+    "compulsoryTitle": "Real-Time Location Required",
+    "compulsoryBadge": "MANDATORY FOR DRIVERS",
+    "compulsoryBody": "Gangamata Transport policy requires continuous real-time GPS tracking while you are on duty. This allows the office to coordinate dispatches, ensure vehicle safety, and monitor routes without delay.",
+    "compulsoryServicesOff": "Device GPS / Location is turned off. Turn on location services to continue.",
+    "compulsoryPermissionRequired": "Location permission is required. Tap below to grant permission.",
+    "compulsoryEnableBtn": "Enable Location Now",
+    "compulsorySettingsBtn": "Open Location Settings",
+    "compulsorySignOut": "Not on duty? Sign Out"
   },
   "tabs": {
     "home": "Home",
