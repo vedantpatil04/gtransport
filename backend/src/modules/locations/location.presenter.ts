@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { canSeePayroll } from '../auth/roles';
+import { deriveLocationStatus, type LocationStaleness } from './location-status.policy';
 import type { UserRole } from '@prisma/client';
 
 /**
@@ -57,6 +58,11 @@ export interface FleetLocationView {
   vehicle: { id: string; registrationNumber: string; kind: string } | null;
   /** Null until the driver's first accepted fix; the row still exists to carry the tracking state. */
   position: { latitude: number; longitude: number; accuracyMeters: number | null; speedKmh: number | null; headingDeg: number | null; altitudeMeters: number | null } | null;
+  /**
+   * What the driver's signals say as of this request, not as of their last report: a driver who has
+   * gone quiet turns from ACTIVE to STALE to OFFLINE with the clock, using the same policy (and the
+   * same thresholds) that classified them when they last reported.
+   */
   status: string;
   trackingState: string;
   permission: string;
@@ -77,7 +83,7 @@ export interface FleetLocationView {
   alert: { id: string; status: string; triggeredAt: string; stationarySince: string; durationMinutes: number } | null;
 }
 
-export function presentFleetLocation(row: FleetLocationRow, now: Date, staleAfterMs: number): FleetLocationView {
+export function presentFleetLocation(row: FleetLocationRow, now: Date, staleness: LocationStaleness): FleetLocationView {
   const latitude = num(row.latitude);
   const longitude = num(row.longitude);
   const capturedAt = row.recordedAt;
@@ -106,7 +112,19 @@ export function presentFleetLocation(row: FleetLocationRow, now: Date, staleAfte
             headingDeg: num(row.headingDeg),
             altitudeMeters: num(row.altitudeMeters),
           },
-    status: row.status,
+    // The stored column is what the last report concluded; time has passed since. The policy is a
+    // pure function of the same signals, so asking it again now can only differ by the clock.
+    status: deriveLocationStatus(
+      {
+        permission: row.permission,
+        locationServicesEnabled: row.locationServicesEnabled,
+        lastHeartbeatAt: row.lastHeartbeatAt,
+        recordedAt: capturedAt,
+        trackingState: row.trackingState,
+      },
+      now,
+      staleness,
+    ),
     trackingState: row.trackingState,
     permission: row.permission,
     locationServicesEnabled: row.locationServicesEnabled,
@@ -115,7 +133,7 @@ export function presentFleetLocation(row: FleetLocationRow, now: Date, staleAfte
     capturedAt: iso(capturedAt),
     receivedAt: iso(row.receivedAt),
     lastSeenAt: iso(row.lastHeartbeatAt),
-    stale: !capturedAt || now.getTime() - capturedAt.getTime() > staleAfterMs,
+    stale: !capturedAt || now.getTime() - capturedAt.getTime() > staleness.staleAfterMs,
     stationarySince: iso(row.stationarySince),
     stationaryMinutes: row.stationarySince ? Math.max(0, Math.floor((now.getTime() - row.stationarySince.getTime()) / 60_000)) : null,
     alert: row.stationaryAlert

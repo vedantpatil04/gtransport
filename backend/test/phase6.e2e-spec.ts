@@ -556,6 +556,195 @@ describe('Phase 6: live fleet & location intelligence (e2e)', () => {
     });
   });
 
+  describe('recent history agrees with the current location', () => {
+    interface Position { id: string; capturedAt: string; latitude: number; longitude: number }
+    const history = async (query = ''): Promise<{ data: Position[]; page: { nextCursor: string | null } }> =>
+      (await as(admin).get(`/locations/drivers/${seed.driver.id}/history${query}`).expect(200)).body;
+    /** What the fleet screen calls current: the position, when it was captured, and the status. */
+    const currentRow = async () => {
+      const rows = (await as(admin).get('/locations/fleet').expect(200)).body.data as {
+        driverId: string;
+        status: string;
+        capturedAt: string;
+        position: { latitude: number; longitude: number };
+      }[];
+      const row = rows.find((d) => d.driverId === seed.driver.id)!;
+      return { status: row.status, capturedAt: row.capturedAt, position: { latitude: row.position.latitude, longitude: row.position.longitude } };
+    };
+    const capturedMs = (p: { capturedAt: string }) => new Date(p.capturedAt).getTime();
+
+    beforeEach(resetDriver);
+
+    it('starts with the current location even when an older backlog was uploaded after it', async () => {
+      await submit(driver, [fix({ capturedAt: minutesAgo(1), ...northOf(2_000) })]).expect(200);
+      // The phone reconnects and drains what it buffered offline: older captures, uploaded later,
+      // so they are stored later and carry the higher ids.
+      await submit(driver, [fix({ capturedAt: minutesAgo(90), ...northOf(500) }), fix({ capturedAt: minutesAgo(80), ...northOf(900) })]).expect(200);
+
+      const { data } = await history();
+      const current = await currentRow();
+
+      expect(data).toHaveLength(3);
+      expect(data[0]).toMatchObject({ capturedAt: current.capturedAt, latitude: current.position.latitude, longitude: current.position.longitude });
+      expect(data.map(capturedMs)).toEqual([...data.map(capturedMs)].sort((a, b) => b - a));
+    });
+
+    it('keeps the current location on the first page however large the late backlog is', async () => {
+      await submit(driver, [fix({ capturedAt: minutesAgo(1), ...DEPOT })]).expect(200);
+      await submit(driver, [10, 20, 30, 40, 50, 60].map((m) => fix({ capturedAt: minutesAgo(100 + m), ...northOf(m * 100) }))).expect(200);
+
+      const { data } = await history('?limit=3');
+      const current = await currentRow();
+
+      // Ordered by insertion, the six backlog rows would fill this page and the live fix would not be on it at all.
+      expect(data).toHaveLength(3);
+      expect(data[0]).toMatchObject({ capturedAt: current.capturedAt, latitude: current.position.latitude, longitude: current.position.longitude });
+    });
+
+    it('leaves the current location and its status alone when a backlog arrives', async () => {
+      await submit(driver, [fix({ capturedAt: minutesAgo(1), ...northOf(2_000) })]).expect(200);
+      const before = await currentRow();
+
+      await submit(driver, [fix({ capturedAt: minutesAgo(90), ...northOf(500) })]).expect(200);
+
+      expect(await currentRow()).toEqual(before);
+    });
+
+    it('lists the fix the current location kept first when two fixes share a capture time', async () => {
+      const sameInstant = minutesAgo(2);
+      await submit(driver, [fix({ capturedAt: sameInstant, ...northOf(100) })]).expect(200);
+      // Same instant, stored later: the current location only advances on a strictly newer time, so it keeps the first.
+      await submit(driver, [fix({ capturedAt: sameInstant, ...northOf(700) })]).expect(200);
+
+      const { data } = await history();
+      const current = await currentRow();
+
+      expect(data).toHaveLength(2);
+      expect(data[0]).toMatchObject({ latitude: current.position.latitude, longitude: current.position.longitude });
+      expect(Number(data[0]!.id)).toBeLessThan(Number(data[1]!.id));
+    });
+
+    it('pages through capture order without gaps or repeats, whatever order the fixes arrived in', async () => {
+      // Deliberately shuffled arrival order, one fix per upload, plus two fixes on the same instant.
+      for (const minutes of [5, 1, 7, 3, 6, 2, 4]) await submit(driver, [fix({ capturedAt: minutesAgo(minutes), ...northOf(minutes * 50) })]).expect(200);
+      const tie = minutesAgo(3.5);
+      await submit(driver, [fix({ capturedAt: tie, ...northOf(1_000) })]).expect(200);
+      await submit(driver, [fix({ capturedAt: tie, ...northOf(1_100) })]).expect(200);
+
+      const everything = (await history('?limit=50')).data;
+      expect(everything).toHaveLength(9);
+      everything.forEach((p, i) => {
+        if (i === 0) return;
+        const previous = everything[i - 1]!;
+        expect(capturedMs(previous)).toBeGreaterThanOrEqual(capturedMs(p));
+        if (capturedMs(previous) === capturedMs(p)) expect(Number(previous.id)).toBeLessThan(Number(p.id));
+      });
+
+      const paged: Position[] = [];
+      let cursor: string | null = null;
+      do {
+        const page = await history(`?limit=4${cursor ? `&cursor=${cursor}` : ''}`);
+        paged.push(...page.data);
+        cursor = page.page.nextCursor;
+      } while (cursor);
+
+      expect(paged.map((p) => p.id)).toEqual(everything.map((p) => p.id));
+      expect(new Set(paged.map((p) => p.id)).size).toBe(paged.length);
+    });
+
+    it('applies the same order to a vehicle’s history and to the driver’s own', async () => {
+      await submit(driver, [fix({ capturedAt: minutesAgo(1), ...northOf(2_000) })]).expect(200);
+      await submit(driver, [fix({ capturedAt: minutesAgo(90), ...northOf(500) }), fix({ capturedAt: minutesAgo(80), ...northOf(900) })]).expect(200);
+
+      const vehicle = (await as(admin).get(`/locations/vehicles/${seed.vehicle.id}/history`).expect(200)).body.data as Position[];
+      const mine = (await as(driver).get('/locations/mine').expect(200)).body.data as Position[];
+
+      for (const list of [vehicle, mine]) {
+        expect(list).toHaveLength(3);
+        expect(list.map(capturedMs)).toEqual([...list.map(capturedMs)].sort((a, b) => b - a));
+      }
+    });
+
+    it('still filters by capture time while ordering by it', async () => {
+      await submit(driver, [fix({ capturedAt: minutesAgo(1), ...DEPOT })]).expect(200);
+      await submit(driver, [fix({ capturedAt: minutesAgo(90), ...northOf(500) }), fix({ capturedAt: minutesAgo(80), ...northOf(900) })]).expect(200);
+
+      const { data } = await history(`?from=${encodeURIComponent(minutesAgo(85))}`);
+
+      expect(data).toHaveLength(2);
+      expect(capturedMs(data[0]!)).toBeGreaterThan(capturedMs(data[1]!));
+    });
+
+    it('refuses a cursor that is not a position in this driver’s history, rather than guessing', async () => {
+      await submit(driver, [fix({ capturedAt: minutesAgo(2) })]).expect(200);
+      const someoneElses = await prisma.driverLocationPing.create({
+        data: { companyId: seed.company.id, driverId: seed.otherDriver.id, latitude: 15.9, longitude: 74.5, recordedAt: new Date(), clientSubmissionId: `foreign-${Date.now()}` },
+        select: { id: true },
+      });
+
+      await as(admin).get(`/locations/drivers/${seed.driver.id}/history?cursor=${someoneElses.id}`).expect(400);
+      await as(admin).get(`/locations/drivers/${seed.driver.id}/history?cursor=999999999999`).expect(400);
+    });
+  });
+
+  describe('status ages with the clock', () => {
+    // The stored row only changes when a phone reports. Letting time pass is simulated by moving
+    // its timestamps back, exactly as waiting would have: the stored status is left saying ACTIVE.
+    const quietFor = (minutes: number) =>
+      prisma.driverLocationState.update({
+        where: { driverId: seed.driver.id },
+        data: { recordedAt: new Date(minutesAgo(minutes)), lastHeartbeatAt: new Date(minutesAgo(minutes)) },
+      });
+    const fleet = async (query = '') => (await as(admin).get(`/locations/fleet${query}`).expect(200)).body;
+    const mine = (body: { data: { driverId: string }[] }) => body.data.find((d) => d.driverId === seed.driver.id) as { status: string; stale: boolean } | undefined;
+
+    beforeEach(async () => {
+      await resetDriver();
+      await submit(driver, [fix({ capturedAt: minutesAgo(1), ...DEPOT })]).expect(200);
+    });
+
+    it('starts as ACTIVE for a driver who has just reported', async () => {
+      expect(mine(await fleet())).toMatchObject({ status: 'ACTIVE', stale: false });
+    });
+
+    it('turns to STALE once the newest fix is older than the stale window, with nobody reporting it', async () => {
+      await quietFor(20);
+
+      const body = await fleet();
+      expect(mine(body)).toMatchObject({ status: 'STALE', stale: true });
+      expect(body.summary).toMatchObject({ active: 0, stale: 1, offline: 0 });
+    });
+
+    it('turns to OFFLINE once nothing has been heard for the offline window', async () => {
+      await quietFor(40);
+
+      const body = await fleet();
+      expect(mine(body)).toMatchObject({ status: 'OFFLINE' });
+      expect(body.summary).toMatchObject({ active: 0, stale: 0, offline: 1 });
+    });
+
+    it('filters by the status the office is shown, not by the one stored at the last report', async () => {
+      await quietFor(20);
+
+      expect((await fleet('?status=STALE')).data.map((d: { driverId: string }) => d.driverId)).toEqual([seed.driver.id]);
+      expect((await fleet('?status=ACTIVE')).data).toHaveLength(0);
+    });
+
+    it('says the same thing on the single-driver detail the panel can ask for', async () => {
+      await quietFor(20);
+      const response = await as(admin).get(`/locations/drivers/${seed.driver.id}`).expect(200);
+      expect(response.body).toMatchObject({ status: 'STALE', stale: true });
+    });
+
+    it('leaves the stationary period alone: ageing a status does not touch how long the driver has been parked', async () => {
+      const before = (await fleet()).data[0].stationaryMinutes;
+      await quietFor(20);
+      expect(mine(await fleet())).toMatchObject({ status: 'STALE' });
+      // The stationary clock runs from when the stop began, independent of the status shown.
+      expect((await fleet()).data[0].stationaryMinutes).toBeGreaterThanOrEqual(before ?? 0);
+    });
+  });
+
   describe('tracking state reporting', () => {
     beforeEach(resetDriver);
 

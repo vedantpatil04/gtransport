@@ -296,7 +296,7 @@ export function FleetConnected() {
           />
           {selected && isDesktop && (
             <div className="absolute left-3 top-3 w-[340px] animate-in fade-in slide-in-from-left-2 duration-200">
-              <DriverLocationPanel row={selected} now={now} canManage={canManageFleet(role)} onClose={() => select(null)} onChanged={fleet.reload} />
+              <DriverLocationPanel key={selected.driverId} row={selected} now={now} canManage={canManageFleet(role)} onClose={() => select(null)} onChanged={fleet.reload} />
             </div>
           )}
         </div>
@@ -308,7 +308,7 @@ export function FleetConnected() {
             <SheetTitle className="sr-only">{selected?.employee.fullName}</SheetTitle>
             {selected && (
               <div className="p-3">
-                <DriverLocationPanel row={selected} now={now} canManage={canManageFleet(role)} onClose={() => select(null)} onChanged={fleet.reload} flat />
+                <DriverLocationPanel key={selected.driverId} row={selected} now={now} canManage={canManageFleet(role)} onClose={() => select(null)} onChanged={fleet.reload} flat />
               </div>
             )}
           </SheetContent>
@@ -372,7 +372,12 @@ function DriverLocationPanel({
   const { t, i18n } = useTranslation();
   const [working, setWorking] = useState(false);
 
-  const history = useApiResource(() => fleetApi.driverHistory(row.driverId, { limit: 5 }), [row.driverId]);
+  // Recent positions follow the live row. They are read when this driver's panel opens, and read
+  // again whenever the fleet poll shows the driver has been heard from since — a new fix, or an
+  // offline backlog uploaded behind it — so the list never describes the driver as they were when
+  // the panel opened. Keyed on the last contact rather than on every poll, a quiet driver costs no
+  // extra requests; and a refresh keeps the old list on screen until the new one arrives.
+  const history = useApiResource(() => fleetApi.driverHistory(row.driverId, { limit: 5 }), [row.driverId, row.lastSeenAt]);
 
   const acknowledge = async () => {
     if (!row.alert || working) return;
@@ -498,6 +503,14 @@ function DriverLocationPanel({
 
       <div className="px-4 py-3">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('admin.fleet.recentFixes')}</p>
+        {history.error && !history.loading && (
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-danger" role="alert" data-testid="fleet-history-error">
+            {t('admin.fleet.historyError')}
+            <button type="button" onClick={history.reload} className="font-semibold underline">
+              {t('admin.api.retry')}
+            </button>
+          </p>
+        )}
         {history.loading ? (
           <p className="mt-1.5 text-xs text-muted-foreground">{t('admin.api.loading')}</p>
         ) : history.data?.data.length ? (
@@ -512,7 +525,8 @@ function DriverLocationPanel({
             ))}
           </ul>
         ) : (
-          <p className="mt-1.5 text-xs text-muted-foreground">{t('admin.fleet.noFixes')}</p>
+          // A failed request is not an empty history, and must not read like one.
+          !history.error && <p className="mt-1.5 text-xs text-muted-foreground">{t('admin.fleet.noFixes')}</p>
         )}
       </div>
 

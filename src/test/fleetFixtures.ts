@@ -1,4 +1,4 @@
-import type { ApiFleetLocation, ApiFleetResponse } from '@/features/api/types';
+import type { ApiFleetLocation, ApiFleetResponse, ApiLocationPing, ApiPingPage } from '@/features/api/types';
 
 /** One driver as GET /locations/fleet returns them: active, moving, with a good fix. */
 export function fleetRow(overrides: Partial<ApiFleetLocation> = {}): ApiFleetLocation {
@@ -72,4 +72,29 @@ export function fleetResponse(rows: ApiFleetLocation[], refreshSeconds = 5): Api
     refreshSeconds,
     serverTime: new Date().toISOString(),
   };
+}
+
+/** One stored fix, as GET /locations/drivers/:id/history returns it. */
+export function pingRow(overrides: Partial<ApiLocationPing> = {}): ApiLocationPing {
+  const now = new Date().toISOString();
+  return {
+    id: '1',
+    latitude: 15.85,
+    longitude: 74.498,
+    accuracyMeters: 8,
+    speedKmh: 54,
+    headingDeg: 344,
+    altitudeMeters: null,
+    batteryPct: 80,
+    provider: 'gps',
+    capturedAt: now,
+    receivedAt: now,
+    vehicleId: 'veh-1',
+    ...overrides,
+  };
+}
+
+/** History as the endpoint serves it: the rows are already in the order the screen should show them. */
+export function pingPage(rows: ApiLocationPing[]): ApiPingPage {
+  return { data: rows, page: { limit: 5, nextCursor: null } };
 }

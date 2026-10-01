@@ -619,7 +619,6 @@ export class LocationsService {
             }
           : {}),
       },
-      ...(query.status ? { status: query.status } : {}),
       ...(query.trackingState ? { trackingState: query.trackingState } : {}),
       ...(query.alerting === 1 ? { stationaryAlert: { status: FleetAlertStatus.ACTIVE } } : {}),
     };
@@ -630,8 +629,11 @@ export class LocationsService {
       orderBy: [{ lastHeartbeatAt: 'desc' }, { driverId: 'asc' }],
     });
 
-    const staleAfterMs = this.config.staleness.staleAfterMs;
-    const data = rows.map((row) => presentFleetLocation(row, now, staleAfterMs));
+    const staleness = this.config.staleness;
+    const data = rows
+      .map((row) => presentFleetLocation(row, now, staleness))
+      // Filtered on the status the office is shown (as of now), not on the column stored at the last report.
+      .filter((view) => !query.status || view.status === query.status);
 
     return {
       data,
@@ -663,11 +665,11 @@ export class LocationsService {
       if (!driver) throw new NotFoundException('Driver not found.');
       throw new NotFoundException('This driver has not reported a location yet.');
     }
-    return presentFleetLocation(row as FleetLocationRow, new Date(), this.config.staleness.staleAfterMs);
+    return presentFleetLocation(row as FleetLocationRow, new Date(), this.config.staleness);
   }
 
   /**
-   * One driver's location history, newest first, paged on the ping id.
+   * One driver's location history, newest first.
    *
    * Always bounded and always indexed: the caller gets a page, never "all of it", so this cannot
    * become the query that loads years of fixes into memory.
@@ -676,27 +678,7 @@ export class LocationsService {
     const driver = await this.prisma.driver.findFirst({ where: { id: driverId, companyId, deletedAt: null }, select: { id: true } });
     if (!driver) throw new NotFoundException('Driver not found.');
 
-    const recordedAt = this.rangeFilter(query.from, query.to);
-    const cursor = query.cursor ? BigInt(query.cursor) : null;
-
-    const rows = await this.prisma.driverLocationPing.findMany({
-      where: {
-        companyId,
-        driverId,
-        ...(recordedAt ? { recordedAt } : {}),
-        ...(cursor === null ? {} : { id: { lt: cursor } }),
-      },
-      select: PING_VIEW,
-      orderBy: { id: 'desc' },
-      take: query.limit + 1,
-    });
-
-    const hasMore = rows.length > query.limit;
-    const page = (hasMore ? rows.slice(0, query.limit) : rows) as PingRow[];
-    return {
-      data: page.map(presentPing),
-      page: { limit: query.limit, nextCursor: hasMore ? (page[page.length - 1]?.id.toString() ?? null) : null },
-    };
+    return this.pingPage({ companyId, driverId }, query);
   }
 
   /** Recent fixes for one vehicle, whoever was driving it at the time. */
@@ -704,13 +686,44 @@ export class LocationsService {
     const vehicle = await this.prisma.vehicle.findFirst({ where: { id: vehicleId, companyId, deletedAt: null }, select: { id: true } });
     if (!vehicle) throw new NotFoundException('Vehicle not found.');
 
-    const recordedAt = this.rangeFilter(query.from, query.to);
-    const cursor = query.cursor ? BigInt(query.cursor) : null;
+    return this.pingPage({ companyId, vehicleId }, query);
+  }
+
+  /**
+   * One page of fixes, newest first — newest by when the device *captured* them.
+   *
+   * That is the clock the current-location row advances on, so the first row here is always the
+   * position the fleet screen shows as current. Ordering by insertion (the ping id) cannot promise
+   * that: a phone that reconnects uploads its offline backlog after its newest fix, and a pair of
+   * concurrent uploads can reach the server out of order, so old captures would carry the higher
+   * ids and sit on top — or, with a backlog larger than a page, push the current fix off it.
+   *
+   * Two fixes can share a capture instant (one OS callback delivered, and stored, twice). The
+   * current row only advances on a strictly newer time, so it keeps the first of them; listing the
+   * earliest-stored first means this page and the current row never name different positions.
+   *
+   * Paged on a keyset over (capture time, id), so a page costs the same however long the history
+   * is. The cursor stays what it always was — the id of the last ping returned — and its capture
+   * time is looked up to find its place in the order. It must belong to this history: a stranger's
+   * ping id is refused, so a cursor cannot be used to read another driver's timestamps.
+   */
+  private async pingPage(scope: Prisma.DriverLocationPingWhereInput, query: LocationHistoryQuery) {
+    const conditions: Prisma.DriverLocationPingWhereInput[] = [scope];
+
+    const capturedWithin = this.rangeFilter(query.from, query.to);
+    if (capturedWithin) conditions.push({ recordedAt: capturedWithin });
+
+    if (query.cursor) {
+      const cursor = BigInt(query.cursor);
+      const anchor = await this.prisma.driverLocationPing.findFirst({ where: { AND: [scope, { id: cursor }] }, select: { recordedAt: true } });
+      if (!anchor) throw new BadRequestException('"cursor" is not a position in this history.');
+      conditions.push({ OR: [{ recordedAt: { lt: anchor.recordedAt } }, { recordedAt: anchor.recordedAt, id: { gt: cursor } }] });
+    }
 
     const rows = await this.prisma.driverLocationPing.findMany({
-      where: { companyId, vehicleId, ...(recordedAt ? { recordedAt } : {}), ...(cursor === null ? {} : { id: { lt: cursor } }) },
+      where: { AND: conditions },
       select: PING_VIEW,
-      orderBy: { id: 'desc' },
+      orderBy: [{ recordedAt: 'desc' }, { id: 'asc' }],
       take: query.limit + 1,
     });
 

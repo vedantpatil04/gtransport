@@ -773,6 +773,7 @@
       "accuracy": "to within {{metres}} m",
       "recentFixes": "Recent positions",
       "noFixes": "No positions recorded yet",
+      "historyError": "Recent positions could not be loaded.",
       "noLiveLocation": "No live location reported yet.",
       "filter": {
         "all": "All",
