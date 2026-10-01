@@ -1,315 +1,198 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Crosshair, Minus, Plus } from 'lucide-react';
-import { BORDERS, CITIES, CITY_IDS, COASTLINE, HIGHWAYS, MAP_BOUNDS, REGION_LABELS, project, toLatLng } from '@/data/geo';
+import { Loader2, MapPin, RefreshCw } from 'lucide-react';
 import { MOTION_HEX } from '@/components/status';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapboxMap } from './MapboxMap';
-import { resolveMapProvider, type MapMarker } from './provider';
-
-interface View {
-  x: number;
-  y: number;
-  w: number;
-}
-
-const MAJOR_CITIES = new Set(['pune', 'kolhapur', 'belagavi', 'hubballi', 'panaji', 'bengaluru', 'davanagere', 'vijayapura', 'solapur', 'ballari']);
-const pt = (lat: number, lng: number) => project(lat, lng);
-const path = (pts: { x: number; y: number }[]) => pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+import { MapLibreMap } from './MapLibreMap';
+import { isPlottable, resolveMapStyle, type MapMarker, type MapStatus } from './provider';
 
 export interface FleetMapProps {
   markers: MapMarker[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   className?: string;
+  /** Shown in the legend. The prototype's positions are simulated; real fleet data is not. */
   simulated?: boolean;
+  /**
+   * True until the first fleet response has arrived. Until then an empty marker list means "not
+   * here yet", and the map must not claim that nobody is reporting.
+   */
+  loading?: boolean;
+  /** Pixels on the left edge covered by the driver panel; messages and selections stay clear of it. */
+  focusInsetLeft?: number;
 }
 
 /**
- * Hand-built vector map of the fleet's operating region (Maharashtra–Karnataka–Goa), drawn from
- * real coordinates. No map API, no key, and no third-party request.
+ * The fleet map, and the honest states around it.
+ *
+ * It is a convenience, not the record: the list beside it answers every operational question. So a
+ * map that cannot draw says exactly that — with a retry — and never stands in a drawing of the
+ * region that merely looks live. Everything the office needs to act (the list, the details, the
+ * coordinates, Open in Google Maps) lives outside this component and keeps working.
  */
-export function VectorFleetMap({
-  markers,
-  selectedId,
-  onSelect,
-  className,
-  /** Shown in the legend. The prototype's positions are simulated; real fleet data is not. */
-  simulated = false,
-}: FleetMapProps) {
-  const { t } = useTranslation();
-  const wrap = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 800, h: 560 });
-  const [view, setView] = useState<View | null>(null);
-  const drag = useRef<{ x: number; y: number; view: View; moved: boolean } | null>(null);
+export function FleetMap(props: FleetMapProps) {
+  // Build-time configuration: it cannot change while the page is open.
+  const config = useMemo(() => resolveMapStyle(), []);
 
-  useEffect(() => {
-    const el = wrap.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([e]) => setSize({ w: Math.max(200, e.contentRect.width), h: Math.max(200, e.contentRect.height) }));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const aspect = size.h / size.w;
-  const fit = useCallback(
-    (focus?: MapMarker[]) => {
-      const pts = (focus?.length ? focus : markers).filter((m) => m.tone !== 'none' || focus).map((m) => pt(m.latitude, m.longitude));
-      if (!pts.length) return setView({ x: 150, y: 80, w: 420 });
-      let minX = Math.min(...pts.map((p) => p.x));
-      let maxX = Math.max(...pts.map((p) => p.x));
-      let minY = Math.min(...pts.map((p) => p.y));
-      let maxY = Math.max(...pts.map((p) => p.y));
-      const pad = focus?.length === 1 ? 60 : 36;
-      minX -= pad;
-      maxX += pad;
-      minY -= pad;
-      maxY += pad;
-      const w = Math.max(maxX - minX, (maxY - minY) / aspect, 90);
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-      setView({ x: cx - w / 2, y: cy - (w * aspect) / 2, w });
-    },
-    [markers, aspect],
-  );
-
-  /**
-   * Fit the view once, as soon as there is something to fit it to.
-   *
-   * Both conditions matter. The container has to have been measured, and there has to be at least
-   * one marker — with live data the first render happens while the fleet request is still in
-   * flight, and fitting to an empty list would leave the office looking at a default view with
-   * their vehicles somewhere off the edge. Fitting only once after that keeps a panned or zoomed
-   * view stable across the polling refreshes.
-   */
-  const fitted = useRef(false);
-  const plottable = markers.some((m) => m.tone !== 'none');
-  useEffect(() => {
-    if (!fitted.current && size.w > 200 && plottable) {
-      fitted.current = true;
-      fit();
-    }
-  }, [size.w, plottable, fit]);
-
-  // Centre on a newly selected vehicle if it is off-screen.
-  useEffect(() => {
-    if (!selectedId || !view) return;
-    const marker = markers.find((m) => m.id === selectedId);
-    if (!marker) return;
-    const p = pt(marker.latitude, marker.longitude);
-    const h = view.w * aspect;
-    const inside = p.x > view.x + view.w * 0.1 && p.x < view.x + view.w * 0.6 && p.y > view.y + h * 0.1 && p.y < view.y + h * 0.9;
-    if (!inside) setView((v) => (v ? { ...v, x: p.x - v.w * 0.35, y: p.y - (v.w * aspect) / 2 } : v));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
-
-  const v = view ?? { x: 150, y: 80, w: 420 };
-  const vh = v.w * aspect;
-  const upp = v.w / size.w; // map units per screen pixel
-
-  const zoom = (factor: number, cx = v.x + v.w / 2, cy = v.y + vh / 2) => {
-    const w = Math.min(MAP_BOUNDS.maxX, Math.max(40, v.w * factor));
-    const k = w / v.w;
-    setView({ x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k, w });
-  };
-
-  const onWheel = (e: React.WheelEvent) => {
-    const rect = wrap.current!.getBoundingClientRect();
-    const cx = v.x + ((e.clientX - rect.left) / rect.width) * v.w;
-    const cy = v.y + ((e.clientY - rect.top) / rect.height) * vh;
-    zoom(e.deltaY > 0 ? 1.15 : 1 / 1.15, cx, cy);
-  };
-
-  const static_ = useMemo(() => {
-    const coast = COASTLINE.map(([la, ln]) => pt(la, ln));
-    const sea = `${path(coast)} L${-50} ${coast[coast.length - 1].y} L${-50} ${coast[0].y} Z`;
-    return {
-      sea,
-      coast: path(coast),
-      borders: BORDERS.map((b) => path(b.map(([la, ln]) => pt(la, ln)))),
-      roads: HIGHWAYS.map((h) => {
-        const pts = h.path.map((p) => {
-          const ll = toLatLng(p);
-          return pt(ll.lat, ll.lng);
-        });
-        // Label sits ~40% along the road so it does not cover the cities at the joints.
-        const segs = pts.slice(1).map((q, i) => Math.hypot(q.x - pts[i].x, q.y - pts[i].y));
-        let left = segs.reduce((a, b) => a + b, 0) * 0.4;
-        let mid = pts[0];
-        for (let i = 0; i < segs.length; i++) {
-          if (left <= segs[i]) {
-            const k = segs[i] ? left / segs[i] : 0;
-            mid = { x: pts[i].x + (pts[i + 1].x - pts[i].x) * k, y: pts[i].y + (pts[i + 1].y - pts[i].y) * k };
-            break;
-          }
-          left -= segs[i];
-        }
-        return { id: h.id, label: h.label, major: h.major, d: path(pts), mid };
-      }),
-    };
-  }, []);
-
-  const fs = 12 * upp; // label font size in map units
-  const selected = markers.find((m) => m.id === selectedId);
+  if (config.status !== 'ready') {
+    return <MapConfigUnavailable reason={config.reason} className={props.className} inset={props.focusInsetLeft} />;
+  }
 
   return (
-    <div ref={wrap} className={cn('relative select-none overflow-hidden bg-map-sea', className)} data-testid="fleet-map">
-      <svg
-        viewBox={`${v.x} ${v.y} ${v.w} ${vh}`}
-        className={cn('size-full touch-none', drag.current ? 'cursor-grabbing' : 'cursor-grab')}
-        onWheel={onWheel}
-        onPointerDown={(e) => {
-          (e.target as Element).setPointerCapture?.(e.pointerId);
-          drag.current = { x: e.clientX, y: e.clientY, view: v, moved: false };
-        }}
-        onPointerMove={(e) => {
-          const d = drag.current;
-          if (!d) return;
-          const dx = (e.clientX - d.x) * upp;
-          const dy = (e.clientY - d.y) * upp;
-          if (Math.abs(dx) + Math.abs(dy) > 2 * upp) d.moved = true;
-          setView({ ...d.view, x: d.view.x - dx, y: d.view.y - dy });
-        }}
-        onPointerUp={(e) => {
-          const d = drag.current;
-          drag.current = null;
-          if (d && !d.moved) {
-            const id = (e.target as Element).closest('[data-driver]')?.getAttribute('data-driver');
-            onSelect(id ?? null);
-          }
-        }}
-        role="application"
-        aria-label={t('map.label')}
-      >
-        <rect x={-100} y={-100} width={MAP_BOUNDS.maxX + 200} height={MAP_BOUNDS.maxY + 200} className="fill-map-land" />
-        <path d={static_.sea} className="fill-map-sea" />
-        <path d={static_.coast} fill="none" className="stroke-map-border" strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
-        {static_.borders.map((d, i) => (
-          <path key={i} d={d} fill="none" className="stroke-map-border" strokeWidth={1} strokeDasharray="5 4" vectorEffect="non-scaling-stroke" opacity={0.8} />
-        ))}
-        {REGION_LABELS.map((r) => {
-          const p = pt(r.lat, r.lng);
-          return (
-            <text key={r.key} x={p.x} y={p.y} fontSize={fs * (r.key === 'sea' ? 1.05 : 1.15)} textAnchor="middle" className={cn('fill-muted-foreground/60 font-semibold uppercase', r.key === 'sea' && 'italic')} style={{ letterSpacing: `${0.25 * fs}px` }}>
-              {t(`map.region.${r.key}`)}
-            </text>
-          );
-        })}
-        {static_.roads.map((r) => (
-          <g key={r.id}>
-            <path d={r.d} fill="none" stroke="hsl(var(--card))" strokeWidth={r.major ? 6 : 4} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            <path d={r.d} fill="none" className="stroke-map-road" strokeWidth={r.major ? 3 : 1.8} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={r.major ? 1 : 0.8} />
-          </g>
-        ))}
-        {static_.roads
-          .filter((r) => r.label)
-          .map((r) => (
-            <g key={`l-${r.id}`} transform={`translate(${r.mid.x} ${r.mid.y})`}>
-              <rect x={-2.1 * fs} y={-0.62 * fs} width={4.2 * fs} height={1.24 * fs} rx={0.25 * fs} fill="#1f4a86" />
-              <text fontSize={fs * 0.82} textAnchor="middle" dy={0.3 * fs} fill="#fff" fontWeight={700}>
-                {r.label}
-              </text>
-            </g>
-          ))}
-        {CITY_IDS.map((id) => {
-          const c = CITIES[id];
-          const p = pt(c.lat, c.lng);
-          const major = MAJOR_CITIES.has(id);
-          if (!major && upp > 0.55) return null;
-          return (
-            <g key={id} pointerEvents="none">
-              <circle cx={p.x} cy={p.y} r={(major ? 3.6 : 2.6) * upp} className="fill-card stroke-foreground/60" strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
-              <text x={p.x + 6 * upp} y={p.y - 5 * upp} fontSize={fs * (major ? 1 : 0.88)} className={cn('fill-foreground/75', major ? 'font-semibold' : 'font-medium')} paintOrder="stroke" stroke="hsl(var(--map-land))" strokeWidth={3 * upp}>
-                {t(`city.${id}`)}
-              </text>
-            </g>
-          );
-        })}
-        {markers
-          // A driver with no position has nothing to plot; they still appear in the list beside
-          // the map, with the reason tracking is not working.
-          .filter((m) => m.tone !== 'none')
-          .sort((a, b) => Number(a.id === selectedId) - Number(b.id === selectedId))
-          .map((marker) => {
-            const p = pt(marker.latitude, marker.longitude);
-            const sel = marker.id === selectedId;
-            const r = (sel ? 9 : 7) * upp;
-            const color = MOTION_HEX[marker.tone];
-            const label = marker.label ?? '';
-            return (
-              <g key={marker.id} data-driver={marker.id} className="cursor-pointer" style={{ transform: `translate(${p.x}px, ${p.y}px)`, transition: 'transform 3s linear' }}>
-                {(sel || marker.flagged) && (
-                  <circle
-                    r={r * 2.2}
-                    fill={marker.flagged ? MOTION_HEX.offline : color}
-                    opacity={marker.flagged ? 0.28 : 0.18}
-                    className="origin-center animate-ring-pulse"
-                    style={{ transformBox: 'fill-box' }}
-                  />
-                )}
-                {marker.tone === 'moving' && marker.headingDeg !== null && (
-                  <path d={`M ${r * 1.9} 0 L ${r * 0.9} ${-r * 0.75} L ${r * 0.9} ${r * 0.75} Z`} fill={color} transform={`rotate(${marker.headingDeg})`} />
-                )}
-                <circle r={r} fill={color} stroke="#fff" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-                <circle r={r * 0.36} fill="#fff" />
-                {label && (sel || upp < 0.28) && (
-                  <g transform={`translate(${r + 4 * upp} ${-r - 2 * upp})`}>
-                    <rect x={0} y={-1.05 * fs} width={label.length * 0.62 * fs + 0.8 * fs} height={1.45 * fs} rx={0.2 * fs} fill="hsl(var(--plate))" stroke="#1a1a1a" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-                    <text x={0.4 * fs} y={0} fontSize={fs * 0.95} fontWeight={800} fill="#111">
-                      {label}
-                    </text>
-                  </g>
-                )}
-              </g>
-            );
-          })}
-      </svg>
+    <MapBoundary className={props.className} inset={props.focusInsetLeft}>
+      <LiveMap {...props} styleUrl={config.styleUrl} />
+    </MapBoundary>
+  );
+}
 
-      <div className="absolute right-3 top-3 flex flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
-        <button onClick={() => zoom(1 / 1.4)} className="flex size-9 items-center justify-center hover:bg-accent" aria-label={t('map.zoomIn')}>
-          <Plus className="size-4" />
-        </button>
-        <button onClick={() => zoom(1.4)} className="flex size-9 items-center justify-center border-t hover:bg-accent" aria-label={t('map.zoomOut')}>
-          <Minus className="size-4" />
-        </button>
-        <button onClick={() => fit(selected ? [selected] : undefined)} className="flex size-9 items-center justify-center border-t hover:bg-accent" aria-label={t('map.fit')} title={t('map.fit')}>
-          <Crosshair className="size-4" />
-        </button>
-      </div>
-      <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-x-3 gap-y-1 rounded-md border bg-card/90 px-2.5 py-1.5 text-[11px] font-medium shadow-sm backdrop-blur">
-        {(['moving', 'stopped', 'offline'] as const).map((m) => (
-          <span key={m} className="inline-flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full" style={{ background: MOTION_HEX[m] }} />
-            {t(`enum.motion.${m}`)}
-          </span>
-        ))}
-        {simulated && <span className="text-muted-foreground">· {t('map.simulated')}</span>}
-      </div>
+function LiveMap({ styleUrl, markers, selectedId, onSelect, className, simulated = false, loading = false, focusInsetLeft = 0 }: FleetMapProps & { styleUrl: string }) {
+  const { t } = useTranslation();
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<MapStatus>({ state: 'loading' });
+  const anyPlottable = useMemo(() => markers.some(isPlottable), [markers]);
+
+  // A new key is a new map: the one way to retry that cannot inherit whatever state broke the last.
+  const retry = () => {
+    setStatus({ state: 'loading' });
+    setAttempt((n) => n + 1);
+  };
+
+  return (
+    <MapLibreMap
+      key={attempt}
+      styleUrl={styleUrl}
+      markers={markers}
+      selectedId={selectedId}
+      onSelect={onSelect}
+      onStatusChange={setStatus}
+      focusInsetLeft={focusInsetLeft}
+      className={className}
+    >
+      {status.state !== 'error' && <Legend simulated={simulated} />}
+      {status.state === 'loading' && (
+        <Overlay inset={focusInsetLeft}>
+          <div className="flex items-center gap-2 rounded-lg border bg-card/95 px-4 py-2.5 text-sm shadow-sm" role="status" data-testid="fleet-map-loading">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            {t('map.loading')}
+          </div>
+        </Overlay>
+      )}
+      {status.state === 'ready' && !loading && !anyPlottable && (
+        <Overlay inset={focusInsetLeft}>
+          <div className="flex items-center gap-2 rounded-lg border bg-card/95 px-4 py-2.5 text-sm shadow-sm" role="status" data-testid="fleet-map-empty">
+            <MapPin className="size-4 text-muted-foreground" />
+            {t('map.empty')}
+          </div>
+        </Overlay>
+      )}
+      {status.state === 'error' && (
+        <Overlay inset={focusInsetLeft} solid>
+          <Problem title={t('map.loadFailed')} body={t('map.loadFailedBody')} onRetry={retry} testId="fleet-map-error" />
+        </Overlay>
+      )}
+    </MapLibreMap>
+  );
+}
+
+/** Centres a message in the part of the map the driver panel is not covering. */
+function Overlay({ inset, solid = false, children }: { inset: number; solid?: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={cn('absolute inset-0 flex items-center justify-center p-4', solid ? 'z-[200] bg-card' : 'pointer-events-none z-10')}
+      style={{ paddingLeft: 16 + inset }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Problem({ title, body, onRetry, testId }: { title: string; body: string; onRetry?: () => void; testId: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex max-w-sm flex-col items-center gap-2 text-center" role="alert" data-testid={testId}>
+      <MapPin className="size-6 text-muted-foreground" />
+      <p className="text-sm font-medium">{title}</p>
+      <p className="text-xs text-muted-foreground">{body}</p>
+      {onRetry && (
+        <Button size="sm" variant="outline" className="mt-1" onClick={onRetry} data-testid="fleet-map-retry">
+          <RefreshCw />
+          {t('map.retry')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function Legend({ simulated }: { simulated: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <div
+      // Bottom-left, clear of the attribution at bottom-right. On a narrow map the attribution runs the
+      // width of the bottom edge, so there the legend moves to the top-left instead: details open as a
+      // bottom sheet on narrow screens, so that corner is free (on desktop the panel owns it).
+      className="pointer-events-none absolute bottom-3 left-3 z-[110] flex flex-wrap gap-x-3 gap-y-1 rounded-md border bg-card/90 px-2.5 py-1.5 text-[11px] font-medium shadow-sm backdrop-blur max-md:bottom-auto max-md:top-3 max-md:max-w-[calc(100%-4rem)]"
+      data-testid="fleet-map-legend"
+    >
+      {(['moving', 'stopped', 'offline'] as const).map((tone) => (
+        <span key={tone} className="inline-flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full" style={{ background: MOTION_HEX[tone] }} />
+          {t(`enum.motion.${tone}`)}
+        </span>
+      ))}
+      {simulated && <span className="text-muted-foreground">· {t('map.simulated')}</span>}
+    </div>
+  );
+}
+
+/** The deployment has no usable map style. Nothing is drawn, and the reason is logged for whoever deploys it. */
+function MapConfigUnavailable({ reason, className, inset = 0 }: { reason: 'missing' | 'invalid'; className?: string; inset?: number }) {
+  const { t } = useTranslation();
+  useEffect(() => {
+    // The configured value is deliberately not logged: it can carry a provider key.
+    console.error(
+      reason === 'missing'
+        ? '[fleet-map] VITE_MAP_STYLE_URL is not set, so the Live Fleet map cannot be drawn.'
+        : '[fleet-map] VITE_MAP_STYLE_URL is not a usable MapLibre style URL (expected an absolute https URL or a root-relative path).',
+    );
+  }, [reason]);
+
+  return (
+    <div className={cn('flex items-center justify-center rounded-lg border bg-muted/30 p-4', className)} style={{ paddingLeft: 16 + inset }} data-testid="fleet-map-config-error">
+      <Problem title={t('map.configUnavailable')} body={t('map.configUnavailableBody')} testId="fleet-map-config-message" />
     </div>
   );
 }
 
 /**
- * Embedded map component for Fleet view.
- * Uses Mapbox by default as the primary provider with stable lifecycle and efficient updates,
- * and falls back seamlessly to the vector map if WebGL/network is unavailable.
+ * Keeps a crash inside the map from taking the screen with it.
+ *
+ * MapLibre's own failures arrive as status, not exceptions; this is for the rest — a bug, a
+ * browser quirk — so the list beside the map survives whatever the map does. Error boundaries
+ * must be class components; this is the one place in the app that warrants one.
  */
-export function FleetMap(props: FleetMapProps) {
-  const provider = resolveMapProvider();
-  const [fallbackToVector, setFallbackToVector] = useState(false);
+class MapBoundary extends Component<{ className?: string; inset?: number; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
 
-  if (provider.name === 'mapbox' && !fallbackToVector) {
-    return (
-      <MapboxMap
-        markers={props.markers}
-        selectedId={props.selectedId}
-        onSelect={props.onSelect}
-        className={props.className}
-        onError={() => setFallbackToVector(true)}
-      />
-    );
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
   }
 
-  return <VectorFleetMap {...props} />;
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error('[fleet-map] the map crashed while rendering; the driver list is unaffected', error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (!this.state.failed) return this.props.children;
+    return <MapCrashed className={this.props.className} inset={this.props.inset} onRetry={() => this.setState({ failed: false })} />;
+  }
 }
 
+function MapCrashed({ className, inset = 0, onRetry }: { className?: string; inset?: number; onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className={cn('flex items-center justify-center rounded-lg border bg-muted/30 p-4', className)} style={{ paddingLeft: 16 + inset }} data-testid="fleet-map-crashed">
+      <Problem title={t('map.loadFailed')} body={t('map.loadFailedBody')} onRetry={onRetry} testId="fleet-map-error" />
+    </div>
+  );
+}

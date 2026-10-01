@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "build:demo": "tsc -b && vite build --config vite.demo.config.ts",
     "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "i18n:check": "node scripts/check-i18n.mjs",
     "preview": "vite preview"
   },
@@ -25,7 +27,7 @@
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.47.0",
-    "mapbox-gl": "^3.32.0",
+    "maplibre-gl": "^6.11.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.88.0",
@@ -39,17 +41,20 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@types/mapbox-gl": "^3.4.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^22.20.3",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.6.1",
+    "jsdom": "^30.1.1",
     "postcss": "^8.5.28",
     "tailwindcss": "3.4",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.6",
     "vite": "^6.4.3",
-    "vite-plugin-singlefile": "^2.3.3"
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^5.0.3"
   }
 }

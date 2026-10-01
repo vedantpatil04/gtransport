@@ -8,11 +8,14 @@ const VENDOR_CHUNKS: Record<string, RegExp> = {
   ui: /node_modules\/(@radix-ui|@floating-ui|sonner|lucide-react|class-variance-authority|clsx|tailwind-merge)\//,
   forms: /node_modules\/(react-hook-form|@hookform|zod)\//,
   i18n: /node_modules\/(i18next|react-i18next)\//,
+  map: /node_modules\/maplibre-gl\//,
 };
 
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  // MapLibre's web worker is imported as a URL (features/map/MapLibreMap.tsx) and loaded as an ES module.
+  worker: { format: 'es' },
   build: {
     rollupOptions: {
       output: {

@@ -1,4 +1,4 @@
-import { Component, useCallback, useEffect, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BatteryLow, ExternalLink, Gauge, MapPin, Navigation, Phone, RefreshCw, TriangleAlert, UploadCloud, X } from 'lucide-react';
@@ -36,6 +36,9 @@ import { PageHeader, SearchInput } from '../components/ui';
 type FleetFilter = 'all' | 'active' | 'stale' | 'offline' | 'unavailable' | 'alerting';
 
 const FILTERS: FleetFilter[] = ['all', 'active', 'stale', 'offline', 'unavailable', 'alerting'];
+
+/** How far in from the map's left edge the driver panel reaches (its `left-3` plus its `w-[340px]`). */
+const PANEL_INSET = 352;
 
 /**
  * How a driver's state colours their marker and dot.
@@ -281,16 +284,16 @@ export function FleetConnected() {
         </section>
 
         <div className="relative order-1 lg:order-2">
-          {/* The map is a convenience, not the record. If it cannot draw, the list beside it still
-              answers every question — so a map failure degrades rather than taking the screen down. */}
-          <MapBoundary>
-            <FleetMap
-              markers={markers}
-              selectedId={selectedId}
-              onSelect={select}
-              className="h-[58vh] min-h-[380px] rounded-lg border lg:h-[calc(100dvh-215px)] lg:min-h-[560px]"
-            />
-          </MapBoundary>
+          {/* The map is a convenience, not the record. If it cannot draw it says so, and the list
+              beside it still answers every question. */}
+          <FleetMap
+            markers={markers}
+            selectedId={selectedId}
+            onSelect={select}
+            loading={fleet.loading}
+            focusInsetLeft={selected && isDesktop ? PANEL_INSET : 0}
+            className="h-[58vh] min-h-[380px] rounded-lg border lg:h-[calc(100dvh-215px)] lg:min-h-[560px]"
+          />
           {selected && isDesktop && (
             <div className="absolute left-3 top-3 w-[340px] animate-in fade-in slide-in-from-left-2 duration-200">
               <DriverLocationPanel row={selected} now={now} canManage={canManageFleet(role)} onClose={() => select(null)} onChanged={fleet.reload} />
@@ -538,47 +541,6 @@ function DriverLocationPanel({
           </Button>
         )}
       </div>
-    </div>
-  );
-}
-
-/**
- * Keeps a map failure from taking the screen with it.
- *
- * The list beside the map already answers every operational question, so a provider that will not
- * render must not cost the office its fleet view. React error boundaries need a class component;
- * this is the one place in the app that warrants one.
- */
-class MapBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { failed: false };
-  }
-
-  static getDerivedStateFromError(): { failed: boolean } {
-    return { failed: true };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error('[fleet] the map failed to render; the location list is unaffected', error, info.componentStack);
-  }
-
-  render(): ReactNode {
-    if (this.state.failed) return <MapUnavailable />;
-    return this.props.children;
-  }
-}
-
-function MapUnavailable() {
-  const { t } = useTranslation();
-  return (
-    <div
-      className="flex h-[58vh] min-h-[380px] flex-col items-center justify-center gap-2 rounded-lg border bg-muted/30 px-6 text-center lg:h-[calc(100dvh-215px)] lg:min-h-[560px]"
-      data-testid="fleet-map-unavailable"
-    >
-      <MapPin className="size-6 text-muted-foreground" />
-      <p className="text-sm font-medium">{t('admin.fleet.mapUnavailable')}</p>
-      <p className="max-w-xs text-xs text-muted-foreground">{t('admin.fleet.mapUnavailableBody')}</p>
     </div>
   );
 }

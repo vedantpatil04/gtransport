@@ -526,13 +526,16 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "fit": "Fit to vehicles",
+    "fullscreen": "Enter fullscreen",
+    "exitFullscreen": "Exit fullscreen",
     "simulated": "Simulated positions",
-    "region": {
-      "maharashtra": "Maharashtra",
-      "karnataka": "Karnataka",
-      "goa": "Goa",
-      "sea": "Arabian Sea"
-    }
+    "loading": "Loading fleet map...",
+    "empty": "No drivers are currently reporting location.",
+    "loadFailed": "Map could not be loaded.",
+    "loadFailedBody": "The driver list and each driver's details, including coordinates and Open in Google Maps, are still available.",
+    "configUnavailable": "Map configuration is unavailable.",
+    "configUnavailableBody": "No map style is set up for this deployment. The driver list and each driver's details are still available.",
+    "retry": "Retry"
   },
   "notifAdmin": {
     "fuel_added": {
@@ -771,8 +774,6 @@
       "recentFixes": "Recent positions",
       "noFixes": "No positions recorded yet",
       "noLiveLocation": "No live location reported yet.",
-      "mapUnavailable": "The map could not be displayed",
-      "mapUnavailableBody": "The driver list beside it is unaffected and shows every current location.",
       "filter": {
         "all": "All",
         "active": "Reporting",

@@ -30,7 +30,6 @@ export default {
         danger: { DEFAULT: v('danger'), soft: v('danger-soft') },
         plate: v('plate'),
         sidebar: { DEFAULT: v('sidebar'), foreground: v('sidebar-foreground'), muted: v('sidebar-muted'), active: v('sidebar-active') },
-        map: { land: v('map-land'), sea: v('map-sea'), road: v('map-road'), border: v('map-border') },
       },
       borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
       keyframes: {

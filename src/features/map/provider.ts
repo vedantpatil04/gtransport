@@ -1,27 +1,24 @@
-import { MAP_BOUNDS, project, type CityId } from '@/data/geo';
-
 /**
- * The map provider boundary.
+ * The map boundary.
  *
- * Gangamata already has a map: a vector map of the operating region (Maharashtra–Karnataka–Goa),
- * drawn from real coordinates, with the national highways the fleet runs on labelled. Phase 6
- * reuses it rather than introducing a second one, which is why there is no tile provider and no
- * API key to configure or leak. The built-in map also has two properties a hosted provider does
- * not: it renders with no third-party request, and it cannot start billing or rate-limiting the
- * office mid-shift.
+ * Everything above this line speaks latitude and longitude plus a tone. Only the map component
+ * knows how those become pixels. The renderer is MapLibre GL JS; what it draws is decided by a
+ * *style* — a JSON document naming the tile source, the fonts and the look. The style is
+ * configuration (VITE_MAP_STYLE_URL), not code: pointing a deployment at a self-hosted
+ * OSM-derived tile server, or any other MapLibre-compatible provider, is an environment change
+ * with no edit to the Fleet screens.
  *
- * What this module is for is keeping that a *choice*. Everything above this line speaks latitude
- * and longitude; only the map component knows about SVG coordinates and projection. Introducing a
- * raster or hosted provider later means implementing this contract once, not editing every screen
- * that shows a marker.
+ * There is deliberately no built-in fallback map. If the style is missing or will not load the
+ * map says so (see FleetMap). A drawing of the region that looks live would be worse than an
+ * honest error, because the list beside the map is what the office actually relies on.
  */
 
-/** A thing to show on the map. Positions are real coordinates — never screen or SVG units. */
+/** A thing to show on the map. Positions are real coordinates — never screen units. */
 export interface MapMarker {
   id: string;
   latitude: number;
   longitude: number;
-  /** Compass degrees, or null when the platform did not report a direction. */
+  /** Compass degrees (0 = north, clockwise), or null when the platform did not report a direction. */
   headingDeg: number | null;
   /** Drives the colour, and whether a direction arrow is drawn. */
   tone: MarkerTone;
@@ -39,43 +36,80 @@ export interface MapMarker {
  */
 export type MarkerTone = 'moving' | 'stopped' | 'offline' | 'none';
 
-export interface MapProvider {
-  readonly name: string;
-  /** Turns real coordinates into the map's own coordinate space. */
-  project(latitude: number, longitude: number): { x: number; y: number };
-  /** The extent of the map's coordinate space, for clamping zoom. */
-  readonly bounds: { minX: number; minY: number; maxX: number; maxY: number };
-  /** Roughly how many kilometres one unit of that space covers, for scale decisions. */
-  readonly kmPerUnit: number;
+/**
+ * Whether a marker has a position worth drawing.
+ *
+ * 'none' is how the screens say "no fix yet": they still pass a marker so the driver stays in the
+ * list, with placeholder zeroes for the coordinates. Anything else that is not a real, in-range
+ * coordinate is treated the same way, so one bad row costs one pin rather than the whole map.
+ * (0, 0) is excluded because it is where a device with no fix tends to report itself — open water
+ * in the Gulf of Guinea, never a place on the Gangamata network.
+ */
+export function isPlottable(marker: MapMarker): boolean {
+  const { latitude, longitude } = marker;
+  return (
+    marker.tone !== 'none' &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    Math.abs(latitude) <= 90 &&
+    Math.abs(longitude) <= 180 &&
+    !(latitude === 0 && longitude === 0)
+  );
 }
 
-/** The in-house vector map: no network request, no key, no external dependency. */
-export const vectorProvider: MapProvider = {
-  name: 'vector',
-  project: (latitude, longitude) => project(latitude, longitude),
-  bounds: MAP_BOUNDS,
-  kmPerUnit: 1.11,
-};
+/** What a map implementation tells its host. A failure carries a reason for logs, never for the UI. */
+export type MapStatus =
+  | { state: 'loading' }
+  | { state: 'ready' }
+  | { state: 'error'; reason: 'init' | 'style' | 'timeout' };
 
-/** The production Mapbox provider for embedded fleet view. */
-export const mapboxProvider: MapProvider = {
-  name: 'mapbox',
-  project: (latitude, longitude) => project(latitude, longitude),
-  bounds: MAP_BOUNDS,
-  kmPerUnit: 1.11,
-};
+export type MapStyleConfig =
+  | { status: 'ready'; styleUrl: string }
+  | { status: 'unavailable'; reason: 'missing' | 'invalid' };
 
 /**
- * Which provider is in use.
+ * Reads the map style from VITE_MAP_STYLE_URL.
  *
- * Uses Mapbox by default as the embedded fleet map provider.
- * If VITE_MAP_PROVIDER="vector" is explicitly set, uses the offline vector map.
+ * Accepted: an absolute http(s) URL, or a root-relative path for a style served from the app's own
+ * host (a reverse proxy, say). Rejected as invalid: anything else — a `mapbox://` style, which
+ * MapLibre cannot read, or a scheme that has no business loading a map.
+ *
+ * The value is public by nature: VITE_* variables are embedded in the bundle. If a tile provider
+ * needs a key, it must be that provider's browser-safe, domain-restricted kind, and a private
+ * server key never belongs here.
  */
-export function resolveMapProvider(): MapProvider {
-  const configured = (import.meta.env.VITE_MAP_PROVIDER as string | undefined)?.trim().toLowerCase();
-  if (configured === 'vector') return vectorProvider;
-  return mapboxProvider;
+export function resolveMapStyle(raw: string | undefined = import.meta.env.VITE_MAP_STYLE_URL as string | undefined): MapStyleConfig {
+  const value = raw?.trim();
+  if (!value) return { status: 'unavailable', reason: 'missing' };
+
+  let url: URL;
+  try {
+    const rootRelative = value.startsWith('/') && !value.startsWith('//');
+    url = new URL(value, rootRelative ? window.location.origin : undefined);
+  } catch {
+    return { status: 'unavailable', reason: 'invalid' };
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return { status: 'unavailable', reason: 'invalid' };
+  return { status: 'ready', styleUrl: url.toString() };
 }
 
-/** A city id, for the nearest-place label. Re-exported so screens need not import from data/geo. */
-export type { CityId };
+/**
+ * A URL as it is safe to log: origin and path only. A provider's key may ride in the query string,
+ * and a key belongs in neither the console nor the UI.
+ */
+export function loggableUrl(url: string): string {
+  try {
+    const { origin, pathname } = new URL(url, window.location.origin);
+    return `${origin}${pathname}`;
+  } catch {
+    return '[unparseable url]';
+  }
+}
+
+/**
+ * Free text (an error message) as it is safe to log: any query string in it is cut off. MapLibre
+ * redacts a few well-known key names in its own messages, but not whatever a provider calls theirs.
+ */
+export function scrubQueryStrings(text: string | undefined): string | undefined {
+  return text?.replace(/\?\S*/g, '?…');
+}

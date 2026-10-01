@@ -35,55 +35,15 @@ export const isCity = (id: string): id is CityId => id in CITIES;
 
 type LatLng = { lat: number; lng: number };
 
-export const HIGHWAYS: { id: string; label: string; major: boolean; path: (CityId | [number, number])[] }[] = [
-  { id: 'nh48', label: 'NH 48', major: true, path: ['pune', 'satara', 'karad', 'kolhapur', 'nipani', 'belagavi', 'dharwad', 'hubballi', 'haveri', 'davanagere', 'chitradurga', 'tumakuru', 'bengaluru'] },
-  { id: 'nh748', label: 'NH 748', major: true, path: ['belagavi', 'khanapur', [15.55, 74.2], 'panaji'] },
-  { id: 'nh66', label: 'NH 66', major: true, path: [[16.4, 73.55], 'panaji', [15.05, 74.05], 'karwar', [14.3, 74.45], [13.35, 74.74], [12.87, 74.86]] },
-  { id: 'nh52', label: 'NH 52', major: true, path: ['solapur', 'vijayapura', 'bagalkot', [15.75, 75.45], 'hubballi'] },
-  { id: 'nh67', label: 'NH 67', major: false, path: ['hubballi', 'gadag', 'hosapete', 'ballari'] },
-  { id: 'nh50', label: 'NH 50', major: false, path: ['vijayapura', [15.9, 76.1], 'hosapete', 'chitradurga'] },
-  { id: 'sh1', label: '', major: false, path: ['belagavi', 'gokak', 'bagalkot'] },
-  { id: 'sh2', label: '', major: false, path: ['kolhapur', 'sangli'] },
-  { id: 'sh3', label: '', major: false, path: ['nipani', 'chikkodi', 'gokak'] },
-  { id: 'sh4', label: '', major: false, path: ['karwar', 'sirsi', 'haveri'] },
-];
-
-/** West of this line is the Arabian Sea. */
-export const COASTLINE: [number, number][] = [
-  [19.8, 72.78], [19.0, 72.86], [18.4, 72.96], [17.9, 73.06], [17.3, 73.2], [16.8, 73.31], [16.3, 73.42],
-  [15.85, 73.62], [15.5, 73.79], [15.2, 73.93], [14.85, 74.1], [14.5, 74.35], [14.1, 74.48], [13.7, 74.62],
-  [13.3, 74.72], [12.9, 74.83], [12.5, 74.95], [11.9, 75.2], [11.2, 75.6],
-];
-
-export const BORDERS: [number, number][][] = [
-  // Maharashtra – Karnataka
-  [[15.72, 73.98], [15.9, 74.2], [16.1, 74.3], [16.35, 74.36], [16.55, 74.62], [16.72, 75.0], [17.0, 75.3], [17.25, 75.8], [17.45, 76.2], [17.7, 76.55], [18.0, 77.0], [18.35, 77.45], [18.5, 77.7]],
-  // Goa – Karnataka
-  [[15.72, 73.98], [15.5, 74.26], [15.2, 74.3], [14.95, 74.2], [14.88, 74.09]],
-  // Goa – Maharashtra
-  [[15.72, 73.98], [15.79, 73.67]],
-  // Karnataka – Telangana / Andhra
-  [[18.5, 77.7], [17.6, 77.62], [16.9, 77.45], [16.3, 77.35], [15.8, 77.05], [15.2, 77.1], [14.6, 77.25], [14.0, 77.5], [13.4, 78.1], [12.9, 78.35]],
-  // Karnataka – Kerala / Tamil Nadu
-  [[12.5, 74.95], [12.35, 75.4], [11.95, 75.95], [11.75, 76.5], [11.95, 76.95], [12.3, 77.4], [12.55, 77.75], [12.9, 78.35]],
-];
-
-export const REGION_LABELS: { key: string; lat: number; lng: number }[] = [
-  { key: 'maharashtra', lat: 17.95, lng: 74.9 },
-  { key: 'karnataka', lat: 14.95, lng: 76.45 },
-  { key: 'goa', lat: 15.3, lng: 74.02 },
-  { key: 'sea', lat: 15.6, lng: 72.75 },
-];
-
-// Equirectangular projection tuned for ~15.5°N: 100 map units ≈ 111 km on both axes.
+// Equirectangular projection tuned for ~15.5°N: 100 units ≈ 111 km on both axes. The demo simulation
+// uses it to turn a route segment into a heading, so FleetPosition.heading is a screen-space angle
+// (0° = east, clockwise), not a compass bearing; the demo Fleet screen converts it for the map.
 const LNG0 = 71.5;
 const LAT0 = 19.8;
 const KX = 100 * Math.cos((15.5 * Math.PI) / 180);
 const KY = 100;
-export const KM_PER_UNIT = 1.11;
 
 export const project = (lat: number, lng: number) => ({ x: (lng - LNG0) * KX, y: (LAT0 - lat) * KY });
-export const MAP_BOUNDS = { minX: 0, minY: 0, maxX: (79 - LNG0) * KX, maxY: (LAT0 - 11.2) * KY };
 
 export const toLatLng = (p: CityId | [number, number]): LatLng => (Array.isArray(p) ? { lat: p[0], lng: p[1] } : CITIES[p]);
 

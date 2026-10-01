@@ -24,6 +24,9 @@ import { FleetConnected } from './FleetConnected';
 
 const FILTERS: (MotionState | 'all')[] = ['all', 'moving', 'stopped', 'offline', 'none'];
 
+/** How far in from the map's left edge the driver card reaches (its `left-3` plus its `w-[320px]`). */
+const PANEL_INSET = 332;
+
 function FleetDemo() {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
@@ -62,7 +65,8 @@ function FleetDemo() {
         id: it.driver.id,
         latitude: it.pos.lat,
         longitude: it.pos.lng,
-        headingDeg: it.pos.heading,
+        // The simulation measures heading in screen space (0° = east, clockwise); the map takes compass degrees.
+        headingDeg: (it.pos.heading + 90 + 360) % 360,
         tone: it.pos.motion,
         label: it.vehicle?.reg ?? null,
       })),
@@ -116,7 +120,14 @@ function FleetDemo() {
         </section>
 
         <div className="relative order-1 lg:order-2">
-          <FleetMap markers={markers} simulated selectedId={selectedId} onSelect={select} className="h-[58vh] min-h-[380px] rounded-lg border lg:h-[calc(100dvh-215px)] lg:min-h-[560px]" />
+          <FleetMap
+            markers={markers}
+            simulated
+            selectedId={selectedId}
+            onSelect={select}
+            focusInsetLeft={selected && isDesktop ? PANEL_INSET : 0}
+            className="h-[58vh] min-h-[380px] rounded-lg border lg:h-[calc(100dvh-215px)] lg:min-h-[560px]"
+          />
           {selected && isDesktop && (
             <div className="absolute left-3 top-3 w-[320px] animate-in fade-in slide-in-from-left-2 duration-200">
               <DriverLocationCard item={selected} now={now} onClose={() => select(null)} />

@@ -10,5 +10,8 @@ export default defineConfig({
   mode: 'demo',
   plugins: [react(), viteSingleFile()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  // MapLibre's web worker is imported as a URL (features/map/MapLibreMap.tsx) and loaded as an ES module.
+  // It cannot be inlined into the page: it is emitted as one extra file beside index.html.
+  worker: { format: 'es' },
   build: { outDir: 'dist-demo', chunkSizeWarningLimit: 4000 },
 });

@@ -41,9 +41,9 @@ No new variable is required: every threshold has a working default. See the
 the ones worth tuning — the stationary radius and duration above all, which
 default to 150 m over 4 hours.
 
-The map needs no API key. Live Fleet reuses the project's existing vector map of
-the operating region, so there is no map secret to configure or to leak; see the
-note appended to the root `.env.example`.
+The map is MapLibre GL JS. It needs no vendor account or token, but it does need a
+map style: set `VITE_MAP_STYLE_URL` (see the root `.env.example`). Without it the Fleet
+map reports "Map configuration is unavailable." and the rest of the screen keeps working.
 
 The driver app needs no new variable at all. Reporting intervals, the offline
 buffer size and the batch size are served by the API
