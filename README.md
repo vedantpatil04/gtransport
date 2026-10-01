@@ -8,8 +8,9 @@ A working, client-facing prototype for an Indian transport company: a **driver a
 npm install
 npm run dev          # http://localhost:5173  → opens the driver app
 npm run build        # type-check + production build (dist/)
-npm run build:demo   # one self-contained file: dist-demo/index.html (works from disk / any static host)
+npm run build:demo   # dist-demo/index.html, plus one MapLibre worker file for the Fleet map (serve both over HTTP; set VITE_MAP_STYLE_URL at build time)
 npm run i18n:check   # every t('key') exists; all locales complete
+npm test             # unit and component tests (Vitest)
 ```
 
 Node 18+ (built and verified on Node 22).
@@ -37,10 +38,10 @@ src/
     driver/        driver app pages + components (home, add fuel, updates, payments, documents, profile)
     admin/         admin pages, filters, global search, dashboard data hooks
     fuel/ payments/ expenses/ documents/ drivers/ vehicles/   sheets & dialogs shared across screens
-    map/           SVG fleet map + position hook (no map API)
+    map/           MapLibre fleet map (style from VITE_MAP_STYLE_URL, no built-in fallback) + position hook
     calculator/    fuel · trip · salary · expense calculators
   store/           zustand store (persisted to localStorage) — the single source of truth
-  data/            seed data, constants, geography (real city coordinates, highways)
+  data/            seed data, constants, geography (real city coordinates)
   lib/             formatting (INR, Indian dates), exporters (PDF/XLSX), file store (IndexedDB), selectors
   i18n/            en, hi, kn, mr, ta, te (driver + shared) · admin in en + hi
   types/           domain types
