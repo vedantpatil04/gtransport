@@ -92,10 +92,34 @@ export class LocationConfigService {
   get fleetRefreshSeconds(): number {
     return this.config.location.fleetRefreshSeconds;
   }
+
+  /** Days of raw GPS history to keep before purging. */
+  get rawRetentionDays(): number {
+    return this.config.location.rawRetentionDays;
+  }
+
+  /** Frequency of scheduled retention cleanup in milliseconds. */
+  get cleanupIntervalMs(): number {
+    return this.config.location.cleanupIntervalHours * 3600_000;
+  }
+
+  /** Number of raw ping records deleted per batch. */
+  get cleanupBatchSize(): number {
+    return this.config.location.cleanupBatchSize;
+  }
+
+  /** Whether the in-process scheduled cleanup should run. */
+  get cleanupEnabled(): boolean {
+    return this.config.location.cleanupEnabled;
+  }
 }
 
 /** Defaults, exported so tests and documentation cannot drift from the schema. */
 export const LOCATION_DEFAULTS = {
+  rawRetentionDays: 7,
+  cleanupEnabled: true,
+  cleanupIntervalHours: 6,
+  cleanupBatchSize: 1000,
   staleAfterMinutes: DEFAULT_STALENESS.staleAfterMs / 60_000,
   offlineAfterMinutes: DEFAULT_STALENESS.offlineAfterMs / 60_000,
   stationaryRadiusMeters: 150,

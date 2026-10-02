@@ -134,6 +134,18 @@ export const envSchema = z
     // Operational thresholds, not code constants: the office will tune these once real routes
     // are running. Defaults are the documented Gangamata policy.
 
+    /**
+     * Days of raw GPS history (`driver_location_pings`) kept before scheduled cleanup.
+     * Current location (`driver_location_states`) is kept indefinitely.
+     */
+    GPS_RAW_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(7),
+    /** Whether this process periodically cleans up old raw GPS pings. */
+    GPS_RAW_CLEANUP_ENABLED: booleanFromString.default('true'),
+    /** Hours between cleanup runs. */
+    GPS_RAW_CLEANUP_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(6),
+    /** Number of old GPS pings deleted per database batch. */
+    GPS_RAW_CLEANUP_BATCH_SIZE: z.coerce.number().int().min(10).max(10_000).default(1000),
+
     /** A driver whose newest fix is older than this is shown as stale rather than live. */
     LOCATION_STALE_AFTER_MINUTES: z.coerce.number().int().min(1).max(24 * 60).default(15),
     /**

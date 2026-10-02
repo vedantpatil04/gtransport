@@ -6,14 +6,15 @@ The system is designed to hold **10+ years** of business data. Nothing is design
 
 - Financial, compliance and audit records are retained. Deletion is soft (`deleted_at`) and reversible.
 - `audit_logs` cannot be updated or deleted at all — enforced by a database trigger, not just by convention.
-- No destructive cleanup jobs exist, and none should be added without an explicit, written retention decision.
+- Raw GPS history in `driver_location_pings` is retained for 7 days (`GPS_RAW_RETENTION_DAYS=7`) and purged in production-safe batches. Current driver positions (`driver_location_states`), stationary alerts, and business records are preserved indefinitely.
+- No other destructive cleanup jobs exist, and none should be added without an explicit, written retention decision.
 - Foreign keys use `onDelete: Restrict`, so history cannot be cascaded away by accident.
 
 ## Growth expectations
 
 | Table | Growth driver | Scale over 10 years |
 |---|---|---|
-| `driver_location_pings` | one row per accepted fix per driver | by far the largest; tens of millions |
+| `driver_location_pings` | one row per accepted fix per driver | Bounded: 7-day rolling window (~30k–50k rows total across active fleet) |
 | `driver_location_states` | one row per driver, updated in place | fixed at fleet size; never grows with time |
 | `fleet_location_alerts` | one row per stationary period that crosses the threshold | small; a handful per driver per month |
 | `audit_logs` | one row per significant action | large, steady |

@@ -14,6 +14,18 @@ describe('validateEnv', () => {
     expect(env.OLLAMA_MODEL).toBe('gemma4');
     expect(env.FILE_STORAGE_PROVIDER).toBe('local');
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:5173']);
+    expect(env.GPS_RAW_RETENTION_DAYS).toBe(7);
+    expect(env.GPS_RAW_CLEANUP_ENABLED).toBe(true);
+    expect(env.GPS_RAW_CLEANUP_INTERVAL_HOURS).toBe(6);
+    expect(env.GPS_RAW_CLEANUP_BATCH_SIZE).toBe(1000);
+  });
+
+  it('validates GPS_RAW_RETENTION_DAYS bounds and coercion', () => {
+    const custom = validateEnv({ ...BASE, GPS_RAW_RETENTION_DAYS: '14' });
+    expect(custom.GPS_RAW_RETENTION_DAYS).toBe(14);
+
+    expect(() => validateEnv({ ...BASE, GPS_RAW_RETENTION_DAYS: '0' })).toThrow(EnvValidationError);
+    expect(() => validateEnv({ ...BASE, GPS_RAW_RETENTION_DAYS: '-5' })).toThrow(EnvValidationError);
   });
 
   it('rejects a short JWT secret', () => {

@@ -96,6 +96,10 @@ export class AppConfigService {
   /** Fleet location thresholds and the tracking strategy served to the driver app. */
   get location() {
     return {
+      rawRetentionDays: this.get('GPS_RAW_RETENTION_DAYS'),
+      cleanupEnabled: this.get('GPS_RAW_CLEANUP_ENABLED'),
+      cleanupIntervalHours: this.get('GPS_RAW_CLEANUP_INTERVAL_HOURS'),
+      cleanupBatchSize: this.get('GPS_RAW_CLEANUP_BATCH_SIZE'),
       staleAfterMinutes: this.get('LOCATION_STALE_AFTER_MINUTES'),
       offlineAfterMinutes: this.get('LOCATION_OFFLINE_AFTER_MINUTES'),
       stationaryRadiusMeters: this.get('STATIONARY_RADIUS_METERS'),

@@ -16,6 +16,7 @@ import { isNewerThanCurrent, validateFix, type FixRejection } from './fix-valida
 import { roundCoordinate, type Coordinates } from './geo';
 import { LocationIngestThrottle } from './ingest-throttle';
 import { LocationConfigService } from './location.config';
+import { LocationRetentionService, type CleanupOptions, type CleanupResult } from './location-retention.service';
 import { deriveLocationStatus, reconcileTrackingState } from './location-status.policy';
 import {
   ALERT_VIEW, FLEET_LOCATION_VIEW, PING_VIEW, presentAlert, presentFleetLocation, presentPing,
@@ -86,6 +87,7 @@ export class LocationsService {
     private readonly audit: AuditService,
     private readonly config: LocationConfigService,
     private readonly throttle: LocationIngestThrottle,
+    private readonly retention: LocationRetentionService,
   ) {}
 
   /**
@@ -848,4 +850,13 @@ export class LocationsService {
 
     return this.findAlert(user.companyId, id, user.role);
   }
+
+  /**
+   * Cleans up raw historical GPS pings older than the retention threshold.
+   * Current location states (`driver_location_states`) are hot read models and are preserved indefinitely.
+   */
+  async cleanupOldPings(options?: CleanupOptions): Promise<CleanupResult> {
+    return this.retention.cleanupOldPings(options);
+  }
 }
+
