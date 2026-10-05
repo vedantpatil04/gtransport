@@ -409,7 +409,23 @@
     "toVerifyCount_one": "{{count}} சரிபார்க்க",
     "toVerifyCount_other": "{{count}} சரிபார்க்க",
     "validCount_one": "{{count}} செல்லுபடி",
-    "validCount_other": "{{count}} செல்லுபடி"
+    "validCount_other": "{{count}} செல்லுபடி",
+    "reports": {
+      "subtitle": "நிதி மற்றும் செயல்பாட்டு சுருக்கம்",
+      "fuelTitle": "எரிபொருள் செலவு",
+      "fuelYear": "இந்த நிதியாண்டின் எரிபொருள்",
+      "financeTitle": "நிதி மற்றும் செலவுகள்",
+      "income": "பதிவான வருமானம்",
+      "expenses": "பதிவான செலவுகள்",
+      "salariesAdvances": "சம்பளம் மற்றும் முன்பணம்",
+      "pendingPayments": "நிலுவையிலுள்ள கொடுப்பனவுகள்",
+      "pendingValue": "{{count}} · {{amount}}",
+      "complianceTitle": "வாகன ஆவண நிலை",
+      "validDocuments": "செல்லுபடியான ஆவணங்கள்",
+      "needsAttention": "கவனம் தேவை",
+      "attentionSub": "{{expired}} காலாவதியானவை · {{soon}} 7 நாட்களில்",
+      "exportNote": "PDF, Excel மற்றும் CSV அறிக்கைகள் அலுவலக வலை கன்சோலின் அறிக்கைகள் பகுதியிலிருந்து சர்வரில் தயாரிக்கப்படுகின்றன."
+    }
   },
     "receipts": {
       "title": "நீங்கள் அனுப்பிய சர்வீஸ் பில்கள்",

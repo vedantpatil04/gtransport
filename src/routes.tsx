@@ -105,6 +105,7 @@ export function AppRoutes() {
 
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="reports/:report" element={<ReportsPage />} />
         <Route path="inbox" element={<InboxPage />} />
         <Route path="settings" element={<RequireModule module="settings"><SettingsPage /></RequireModule>} />
 

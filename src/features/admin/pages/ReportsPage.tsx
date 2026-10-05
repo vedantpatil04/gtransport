@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FileDown, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -10,22 +10,23 @@ import { addDays, monthKey, todayISO } from '@/lib/dates';
 import { exportPdf, exportXlsx, rs } from '@/lib/exporters';
 import { fmtDate, fmtDayMonth, fmtMonth, inr, inrCompact, num } from '@/lib/format';
 import { paymentDate } from '@/lib/selectors';
-import { cn, sum } from '@/lib/utils';
+import { sum } from '@/lib/utils';
 import { useApp } from '@/store';
 import type { PaymentStatus } from '@/types';
-import { PageHeader, Panel } from '../components/ui';
+import { PageHeader } from '../components/ui';
 import { useSyncedData } from '../useAdminData';
 import { isApiConfigured } from '@/features/api/mode';
-import { NotLiveState } from '../components/states';
+import { C, ChartPanel, Donut, HBar, axis, tooltipStyle } from '@/features/reports/charts';
+import { PageFallback } from '@/pages/PageFallback';
 
-const C = (i: number) => `hsl(var(--chart-${i}))`;
+// Loaded on first visit: the live reports are not part of the console's first download.
+const ReportsConnected = lazy(() => import('@/features/reports/ReportsConnected').then((m) => ({ default: m.ReportsConnected })));
+
 const SERIES = ['fuel', 'salaries', 'maintenance', 'tolls', 'other'] as const;
 type SeriesKey = (typeof SERIES)[number];
 const SERIES_COLOR: Record<SeriesKey, string> = { fuel: C(1), salaries: C(2), maintenance: C(3), tolls: C(4), other: C(6) };
 const STATUS_COLOR: Record<PaymentStatus, string> = { paid: C(2), processing: C(4), pending: C(3), failed: C(5), cancelled: 'hsl(var(--muted-foreground))' };
 
-const tooltipStyle = { background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12, color: 'hsl(var(--popover-foreground))' };
-const axis = { stroke: 'hsl(var(--muted-foreground))', fontSize: 11, tickLine: false, axisLine: false } as const;
 
 function ReportsDemo() {
   const { t, i18n: inst } = useTranslation();
@@ -261,67 +262,13 @@ function ReportsDemo() {
   );
 }
 
-function ChartPanel({ title, sub, children, className, height = 'h-72' }: { title: string; sub?: string; children: React.ReactNode; className?: string; height?: string }) {
-  return (
-    <Panel className={className} title={<span>{title} {sub && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{sub}</span>}</span>}>
-      <div className={cn('px-3 pb-3 pt-4', height)}>{children}</div>
-    </Panel>
-  );
-}
-
-function HBar({ data, color }: { data: { name: string; value: number }[]; color: string }) {
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
-        <CartesianGrid horizontal={false} stroke="hsl(var(--border))" />
-        <XAxis type="number" tickFormatter={inrCompact} {...axis} />
-        <YAxis type="category" dataKey="name" {...axis} width={128} interval={0} tick={{ fill: 'hsl(var(--foreground))', fontSize: 11, width: 200 }} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'hsl(var(--muted))' }} formatter={(v: number) => [inr(v), '']} separator="" />
-        <Bar dataKey="value" fill={color} radius={[0, 3, 3, 0]} barSize={16} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-function Donut({ data, center, centerLabel }: { data: { key: string; name: string; value: number; color: string; extra?: string }[]; center: string; centerLabel: string }) {
-  const total = sum(data, (d) => d.value);
-  return (
-    <div className="flex h-full items-center gap-4">
-      <div className="relative h-full min-w-0 flex-1">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="90%" paddingAngle={1.5} stroke="none">
-              {data.map((d) => (
-                <Cell key={d.key} fill={d.color} />
-              ))}
-            </Pie>
-            <Tooltip contentStyle={tooltipStyle} formatter={(v: number, n: string) => [inr(v), n]} />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="figure text-base font-bold">{center}</span>
-          <span className="text-[11px] text-muted-foreground">{centerLabel}</span>
-        </div>
-      </div>
-      <ul className="scroll-thin max-h-full w-[46%] space-y-1.5 overflow-y-auto text-sm">
-        {data.map((d) => (
-          <li key={d.key} className="flex items-start gap-2">
-            <span className="mt-1.5 size-2.5 shrink-0 rounded-sm" style={{ background: d.color }} />
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate">{d.name}</span>
-              <span className="figure block text-xs text-muted-foreground">
-                {inr(d.value)} · {total ? num((d.value / total) * 100, 0) : 0}%{d.extra ? ` · ${d.extra}` : ''}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** Real mode shows no sample records: this module's live data arrives in a later phase. */
+/** Demo mode keeps the approved prototype; real mode reports from the live API, never sample data. */
 export function ReportsPage() {
-  const { t } = useTranslation();
-  return isApiConfigured() ? <NotLiveState title={t('admin.nav.reports')} body={t('admin.real.reportsBody')} /> : <ReportsDemo />;
+  return isApiConfigured() ? (
+    <Suspense fallback={<PageFallback />}>
+      <ReportsConnected />
+    </Suspense>
+  ) : (
+    <ReportsDemo />
+  );
 }

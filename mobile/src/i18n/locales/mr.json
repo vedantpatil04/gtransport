@@ -409,7 +409,23 @@
     "toVerifyCount_one": "{{count}} पडताळणीसाठी",
     "toVerifyCount_other": "{{count}} पडताळणीसाठी",
     "validCount_one": "{{count}} वैध",
-    "validCount_other": "{{count}} वैध"
+    "validCount_other": "{{count}} वैध",
+    "reports": {
+      "subtitle": "आर्थिक आणि कामकाज सारांश",
+      "fuelTitle": "इंधन खर्च",
+      "fuelYear": "या आर्थिक वर्षातील इंधन",
+      "financeTitle": "वित्त आणि खर्च",
+      "income": "नोंदवलेले उत्पन्न",
+      "expenses": "नोंदवलेला खर्च",
+      "salariesAdvances": "पगार आणि उचल",
+      "pendingPayments": "प्रलंबित पेमेंट",
+      "pendingValue": "{{count}} · {{amount}}",
+      "complianceTitle": "वाहन कागदपत्रांची स्थिती",
+      "validDocuments": "वैध कागदपत्रे",
+      "needsAttention": "लक्ष देणे आवश्यक",
+      "attentionSub": "{{expired}} मुदत संपली · {{soon}} 7 दिवसांत",
+      "exportNote": "PDF, Excel आणि CSV अहवाल ऑफिस वेब कन्सोलमधील अहवाल विभागातून सर्व्हरवर तयार होतात."
+    }
   },
     "receipts": {
       "title": "तुम्ही पाठवलेली सर्विस बिले",

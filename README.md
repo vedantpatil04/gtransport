@@ -76,5 +76,6 @@ See [`docs/backend/architecture.md`](docs/backend/architecture.md) for the desig
 ## Notes
 
 - Fonts (Archivo, Noto Sans Indic) load from Google Fonts; offline, the system fallback is used.
-- PDF reports print in English with "Rs" — jsPDF's built-in fonts have no ₹ or Indic glyphs. Excel exports follow the admin language.
+- Demo-mode PDF reports print in English with "Rs" — jsPDF's built-in fonts have no ₹ or Indic glyphs. Excel exports follow the admin language.
+- With the API connected, **Reports** is the live management reporting area (fuel, vehicles, drivers, finance, expenses, maintenance, tyres, compliance, fleet location); its PDF/Excel/CSV exports are built and audited by the server, with ₹ and Indian digit grouping. See [`docs/reports.md`](docs/reports.md).
 - Driver app is always light (outdoor readability); admin has light/dark.

@@ -409,7 +409,23 @@
     "toVerifyCount_one": "{{count}} to verify",
     "toVerifyCount_other": "{{count}} to verify",
     "validCount_one": "{{count}} valid",
-    "validCount_other": "{{count}} valid"
+    "validCount_other": "{{count}} valid",
+    "reports": {
+      "subtitle": "Financial & operational summary",
+      "fuelTitle": "Fuel expenditure",
+      "fuelYear": "Fuel this financial year",
+      "financeTitle": "Finance & expenses",
+      "income": "Recorded income",
+      "expenses": "Recorded expenses",
+      "salariesAdvances": "Salaries & advances",
+      "pendingPayments": "Pending payments",
+      "pendingValue": "{{count}} · {{amount}}",
+      "complianceTitle": "Fleet compliance",
+      "validDocuments": "Valid documents",
+      "needsAttention": "Needs attention",
+      "attentionSub": "{{expired}} expired · {{soon}} due within 7 days",
+      "exportNote": "PDF, Excel and CSV reports are prepared on the server from Reports in the office web console."
+    }
   },
     "receipts": {
       "title": "Service bills you sent",

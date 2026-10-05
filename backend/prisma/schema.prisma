@@ -939,6 +939,10 @@ model VehicleExpense {
   @@unique([companyId, clientSubmissionId])
   /// Category totals and admin lists by date.
   @@index([companyId, category, expenseDate(sort: Desc)])
+  /// All-category date-range scans (expense register, reports).
+  @@index([companyId, expenseDate(sort: Desc)])
+  /// Per-driver expense history and the driver report.
+  @@index([companyId, driverId, expenseDate(sort: Desc)])
   /// Vehicle service history and per-vehicle expenditure.
   @@index([companyId, vehicleId, category, expenseDate(sort: Desc)])
   /// The review queue: receipts needing a person, newest first.
@@ -1110,6 +1114,9 @@ model PaymentRecord {
 
   @@index([companyId, status])
   @@index([companyId, employeeId, createdAt(sort: Desc)])
+  /// Reports: payments created in a period, and payments paid in a period.
+  @@index([companyId, createdAt])
+  @@index([companyId, paidAt])
   @@index([salaryRecordId])
   @@index([advanceId])
   @@map("payment_records")
@@ -1479,6 +1486,8 @@ model FleetLocationAlert {
 
   /// The unacknowledged-alerts badge and the alerts list.
   @@index([companyId, status, triggeredAt(sort: Desc)])
+  /// Reports: stationary stops in a period, whatever their status.
+  @@index([companyId, triggeredAt])
   @@index([driverId, triggeredAt(sort: Desc)])
   @@index([companyId, type, status])
   @@map("fleet_location_alerts")

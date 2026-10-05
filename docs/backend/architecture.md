@@ -91,6 +91,7 @@ Boundary modules exist so later phases add behaviour without restructuring. Each
 - `compliance` — document expiry thresholds identical to the admin UI (30/15/7/3 days), so backend and frontend never disagree.
 - `inbox` — `EmailProvider` behind Gmail API / Microsoft Graph (OAuth) or IMAP; sync, classification and reviewable suggestions since Phase 7 (see [`docs/email-inbox.md`](../email-inbox.md)).
 - `fuel` / `expenses` — drafts carry a device-generated `clientEntryId` so an offline entry that syncs twice is stored once. The prototype already queues entries offline; the API must not duplicate them.
+- `reports` — implemented in Phase 8: live management reports aggregated in PostgreSQL from the source records, one role-policy table (`report-access.ts`) shared by every report and export route, and server-built PDF/Excel/CSV exports that are audited (see [`docs/reports.md`](../reports.md)).
 
 ## File storage
 

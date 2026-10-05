@@ -38,7 +38,7 @@ export function StatCard({
   className,
   testId,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: React.ReactNode;
   sub?: React.ReactNode;
   icon?: LucideIcon;

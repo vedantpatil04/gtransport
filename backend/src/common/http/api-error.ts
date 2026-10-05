@@ -14,6 +14,8 @@ export const ApiErrorCode = {
   /** Right password, but the account may not sign in. */
   ACCOUNT_SUSPENDED: 'ACCOUNT_SUSPENDED',
   ACCOUNT_DISABLED: 'ACCOUNT_DISABLED',
+  /** A report export would hold more records than one file is allowed to; narrow the filters. */
+  EXPORT_TOO_LARGE: 'EXPORT_TOO_LARGE',
 } as const;
 
 export type ApiErrorCode = (typeof ApiErrorCode)[keyof typeof ApiErrorCode];

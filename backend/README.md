@@ -6,7 +6,8 @@ Architecture: [`docs/backend/architecture.md`](../docs/backend/architecture.md) 
 Data model: [`docs/backend/data-model.md`](../docs/backend/data-model.md) ·
 Retention: [`docs/backend/data-retention.md`](../docs/backend/data-retention.md) ·
 Receipt AI: [`docs/ai-receipt-processing.md`](../docs/ai-receipt-processing.md) ·
-Inbox: [`docs/email-inbox.md`](../docs/email-inbox.md)
+Inbox: [`docs/email-inbox.md`](../docs/email-inbox.md) ·
+Reports: [`docs/reports.md`](../docs/reports.md)
 
 ## Quick start
 

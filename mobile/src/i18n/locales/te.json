@@ -409,7 +409,23 @@
     "toVerifyCount_one": "{{count}} తనిఖీకి",
     "toVerifyCount_other": "{{count}} తనిఖీకి",
     "validCount_one": "{{count}} చెల్లుబాటు",
-    "validCount_other": "{{count}} చెల్లుబాటు"
+    "validCount_other": "{{count}} చెల్లుబాటు",
+    "reports": {
+      "subtitle": "ఆర్థిక మరియు కార్యకలాపాల సారాంశం",
+      "fuelTitle": "ఇంధన ఖర్చు",
+      "fuelYear": "ఈ ఆర్థిక సంవత్సరం ఇంధనం",
+      "financeTitle": "ఆర్థికం మరియు ఖర్చులు",
+      "income": "నమోదైన ఆదాయం",
+      "expenses": "నమోదైన ఖర్చులు",
+      "salariesAdvances": "జీతాలు మరియు అడ్వాన్సులు",
+      "pendingPayments": "పెండింగ్ చెల్లింపులు",
+      "pendingValue": "{{count}} · {{amount}}",
+      "complianceTitle": "వాహన పత్రాల స్థితి",
+      "validDocuments": "చెల్లుబాటు అయ్యే పత్రాలు",
+      "needsAttention": "శ్రద్ధ అవసరం",
+      "attentionSub": "{{expired}} గడువు ముగిసినవి · {{soon}} 7 రోజుల్లో",
+      "exportNote": "PDF, Excel మరియు CSV నివేదికలు ఆఫీస్ వెబ్ కన్సోల్‌లోని నివేదికల విభాగం నుండి సర్వర్‌లో తయారవుతాయి."
+    }
   },
     "receipts": {
       "title": "మీరు పంపిన సర్వీస్ బిల్లులు",

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import { initI18n } from '../../i18n';
+import i18n, { initI18n } from '../../i18n';
 import { officeApi } from '../../lib/api/office';
 import { useSession } from '../../lib/auth/session-store';
 import type { SessionUser, UserRole } from '../../types/domain';
@@ -66,19 +66,32 @@ describe('OfficeReports screen', () => {
     expect(api.compliance).toHaveBeenCalledWith('mock-token');
   });
 
-  it('triggers export alert when export PDF is clicked', async () => {
-    jest.useFakeTimers();
+  it('does not pretend to generate files: exports are made by the server from the web console', async () => {
     signInAs('ADMIN');
     await render(<OfficeReports />);
 
-    const pdfBtn = await screen.findByTestId('reports-export-pdf');
-    fireEvent.press(pdfBtn);
+    expect(await screen.findByTestId('reports-export-note')).toBeTruthy();
+    expect(screen.getByText(/prepared on the server/)).toBeTruthy();
+    expect(screen.queryByTestId('reports-export-pdf')).toBeNull();
+    expect(screen.queryByTestId('reports-export-excel')).toBeNull();
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
 
-    jest.advanceTimersByTime(700);
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'PDF Report',
-      expect.stringContaining('PDF'),
-    );
-    jest.useRealTimers();
+  it('does not ask for payroll figures for a manager, so no refusal is shown', async () => {
+    signInAs('MANAGER');
+    await render(<OfficeReports />);
+
+    expect(await screen.findByTestId('reports-fuel-year')).toBeTruthy();
+    expect(await screen.findByTestId('reports-compliance-summary')).toBeTruthy();
+    expect(screen.queryByTestId('reports-finance-summary')).toBeNull();
+    expect(api.financeSummary).not.toHaveBeenCalled();
+  });
+
+  it('labels figures in the chosen language', async () => {
+    signInAs('ADMIN');
+    await i18n.changeLanguage('kn');
+    await render(<OfficeReports />);
+    expect(await screen.findByText('ಈ ಆರ್ಥಿಕ ವರ್ಷದ ಇಂಧನ')).toBeTruthy();
+    await i18n.changeLanguage('en');
   });
 });

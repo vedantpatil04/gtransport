@@ -409,7 +409,23 @@
     "toVerifyCount_one": "{{count}} सत्यापन हेतु",
     "toVerifyCount_other": "{{count}} सत्यापन हेतु",
     "validCount_one": "{{count}} मान्य",
-    "validCount_other": "{{count}} मान्य"
+    "validCount_other": "{{count}} मान्य",
+    "reports": {
+      "subtitle": "वित्तीय और परिचालन सारांश",
+      "fuelTitle": "ईंधन खर्च",
+      "fuelYear": "इस वित्त वर्ष का ईंधन",
+      "financeTitle": "वित्त और खर्च",
+      "income": "दर्ज आय",
+      "expenses": "दर्ज खर्च",
+      "salariesAdvances": "वेतन और अग्रिम",
+      "pendingPayments": "बाकी भुगतान",
+      "pendingValue": "{{count}} · {{amount}}",
+      "complianceTitle": "फ़्लीट अनुपालन",
+      "validDocuments": "मान्य दस्तावेज़",
+      "needsAttention": "ध्यान देना ज़रूरी",
+      "attentionSub": "{{expired}} समाप्त · {{soon}} 7 दिनों में",
+      "exportNote": "PDF, Excel और CSV रिपोर्ट ऑफ़िस वेब कंसोल के रिपोर्ट सेक्शन से सर्वर पर तैयार होती हैं।"
+    }
   },
     "receipts": {
       "title": "आपने भेजे सर्विस बिल",

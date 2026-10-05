@@ -409,7 +409,23 @@
     "toVerifyCount_one": "{{count}} ಪರಿಶೀಲನೆಗೆ",
     "toVerifyCount_other": "{{count}} ಪರಿಶೀಲನೆಗೆ",
     "validCount_one": "{{count}} ಮಾನ್ಯ",
-    "validCount_other": "{{count}} ಮಾನ್ಯ"
+    "validCount_other": "{{count}} ಮಾನ್ಯ",
+    "reports": {
+      "subtitle": "ಹಣಕಾಸು ಮತ್ತು ಕಾರ್ಯಾಚರಣೆ ಸಾರಾಂಶ",
+      "fuelTitle": "ಇಂಧನ ವೆಚ್ಚ",
+      "fuelYear": "ಈ ಆರ್ಥಿಕ ವರ್ಷದ ಇಂಧನ",
+      "financeTitle": "ಹಣಕಾಸು ಮತ್ತು ವೆಚ್ಚಗಳು",
+      "income": "ದಾಖಲಾದ ಆದಾಯ",
+      "expenses": "ದಾಖಲಾದ ವೆಚ್ಚಗಳು",
+      "salariesAdvances": "ಸಂಬಳ ಮತ್ತು ಮುಂಗಡ",
+      "pendingPayments": "ಬಾಕಿ ಪಾವತಿಗಳು",
+      "pendingValue": "{{count}} · {{amount}}",
+      "complianceTitle": "ವಾಹನ ದಾಖಲೆಗಳ ಸ್ಥಿತಿ",
+      "validDocuments": "ಮಾನ್ಯ ದಾಖಲೆಗಳು",
+      "needsAttention": "ಗಮನ ಬೇಕು",
+      "attentionSub": "{{expired}} ಅವಧಿ ಮುಗಿದಿದೆ · {{soon}} 7 ದಿನಗಳಲ್ಲಿ",
+      "exportNote": "PDF, Excel ಮತ್ತು CSV ವರದಿಗಳನ್ನು ಆಫೀಸ್ ವೆಬ್ ಕನ್ಸೋಲ್‌ನ ವರದಿಗಳ ವಿಭಾಗದಿಂದ ಸರ್ವರ್‌ನಲ್ಲಿ ತಯಾರಿಸಲಾಗುತ್ತದೆ."
+    }
   },
     "receipts": {
       "title": "ನೀವು ಕಳುಹಿಸಿದ ಸರ್ವಿಸ್ ಬಿಲ್‌ಗಳು",
