@@ -18,6 +18,7 @@ import { ErrorState, TableLoading } from '../components/states';
 import { AssignDriverToVehicleDialog, FinancingDialog, VehicleFormDialog } from '../../vehicles/VehicleApiDialogs';
 import { InstalmentsPanel } from '../../vehicles/InstalmentsPanel';
 import { VEHICLE_STATUS_TONE } from './VehiclesConnected';
+import { VehicleMaintenancePanel } from '../components/MaintenanceIntelligence';
 
 const rupees = (value: string | number | null | undefined): string =>
   value === null || value === undefined || value === '' ? '—' : `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
@@ -226,6 +227,9 @@ export function VehicleDetailConnected() {
             </ul>
           )}
         </Panel>
+
+        {/* What the verified service history says: due service, repeated issues, frequency. */}
+        <VehicleMaintenancePanel vehicleId={record.id} />
 
         {/* The central document module: RC, insurance, PUC, tyre insurance, fitness, permit. */}
         <Panel

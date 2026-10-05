@@ -42,44 +42,68 @@ export const documentsApi = {
 };
 
 /**
- * Uploads a document file exactly as chosen, reporting progress (0–1). XMLHttpRequest is used
- * because fetch cannot report upload progress, and a PDF on a slow connection needs a visible bar.
+ * Uploads a document file (high-resolution photo or PDF) to the backend files API.
+ * Uses standard fetch with multipart FormData, matching uploadReceipt for rock-solid
+ * reliability on Android and iOS development builds.
  */
-export function uploadDocumentFile(
+export async function uploadDocumentFile(
   token: string,
   file: { uri: string; mimeType: string; name: string },
   onProgress: (fraction: number) => void,
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open('POST', `${API_URL}/api/v1/files/documents`);
-    request.setRequestHeader('Authorization', `Bearer ${token}`);
-    request.setRequestHeader('Accept', 'application/json');
-    request.timeout = 120_000;
+  onProgress(0.1);
 
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total);
-    };
-    request.onload = () => {
-      let body: { fileId?: string; error?: { message?: string } } = {};
-      try {
-        body = JSON.parse(request.responseText || '{}');
-      } catch {
-        /* non-JSON error page */
-      }
-      if (request.status >= 200 && request.status < 300 && body.fileId) {
-        onProgress(1);
-        resolve(body.fileId);
-        return;
-      }
-      const kind = request.status === 401 ? 'unauthorized' : request.status >= 500 ? 'server' : 'validation';
-      reject(new ApiError(kind, request.status, body.error?.message ?? 'Could not upload the document.'));
-    };
-    request.onerror = () => reject(new ApiError('network', 0, 'Could not upload right now.'));
-    request.ontimeout = () => reject(new ApiError('timeout', 0, 'The upload took too long.'));
+  const rawMime = file.mimeType?.toLowerCase().split(';')[0].trim() || 'image/jpeg';
+  const cleanMime = rawMime === 'image/jpg' || rawMime === 'image/pjpeg' ? 'image/jpeg' : rawMime;
 
-    const form = new FormData();
-    form.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
-    request.send(form);
-  });
+  const form = new FormData();
+  form.append('file', {
+    uri: file.uri,
+    name: file.name || 'document',
+    type: cleanMime,
+  } as unknown as Blob);
+
+  onProgress(0.3);
+  const controller = new AbortController();
+  // High-resolution photos and multi-page PDFs need adequate timeout on mobile networks
+  const timer = setTimeout(() => controller.abort(), 120_000);
+
+  try {
+    const response = await fetch(`${API_URL}/api/v1/files/documents`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+      body: form,
+      signal: controller.signal,
+    });
+
+    onProgress(0.85);
+    const text = await response.text();
+    let body: { fileId?: string; error?: { message?: string } } = {};
+    try {
+      body = text ? (JSON.parse(text) as { fileId?: string; error?: { message?: string } }) : {};
+    } catch {
+      /* non-JSON response */
+    }
+
+    if (!response.ok) {
+      const kind = response.status === 401 ? 'unauthorized' : response.status >= 500 ? 'server' : 'validation';
+      throw new ApiError(kind, response.status, body.error?.message ?? 'Could not upload the document.');
+    }
+
+    if (!body.fileId) {
+      throw new ApiError('server', response.status, 'Upload did not return a file.');
+    }
+
+    onProgress(1);
+    return body.fileId;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    const aborted = (error as { name?: string })?.name === 'AbortError';
+    throw new ApiError(aborted ? 'timeout' : 'network', 0, aborted ? 'The upload took too long.' : 'Could not upload right now.');
+  } finally {
+    clearTimeout(timer);
+  }
 }

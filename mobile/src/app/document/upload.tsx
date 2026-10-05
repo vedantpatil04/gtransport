@@ -65,7 +65,13 @@ export default function UploadDocumentScreen() {
     } catch (error) {
       // Everything entered stays on screen, so "Try again" repeats the same upload.
       setState('failed');
-      setMessage(error instanceof ApiError && error.kind === 'validation' ? error.message : t('docs.uploadFailed'));
+      const userMessage =
+        error instanceof ApiError && error.message
+          ? error.message
+          : error instanceof Error && error.message
+            ? error.message
+            : t('docs.uploadFailed');
+      setMessage(userMessage);
     } finally {
       setProgress(null);
     }

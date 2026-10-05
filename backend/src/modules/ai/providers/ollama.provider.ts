@@ -46,11 +46,12 @@ export class OllamaProvider implements AIProvider {
       ? [input.receipt.bytes]
       : (input.receipt.renderedImages ?? []);
     const sourceText = input.sourceText?.trim() ?? '';
+    const ocrText = input.ocrText?.trim() ?? '';
 
     // A digital PDF carries its own text, which is a better reading than any model would get off
     // a rendered page. When preparation found some, the request can proceed on text alone — so a
     // text-only model, or a server without a rasterizer, still handles e-invoices correctly.
-    if (images.length === 0 && !sourceText) {
+    if (images.length === 0 && !sourceText && !ocrText) {
       throw new AIProviderError(
         'The receipt could not be supplied to the model as either page images or text.',
         'UNSUPPORTED_DOCUMENT',
@@ -85,6 +86,14 @@ export class OllamaProvider implements AIProvider {
                       '--- BEGIN DOCUMENT TEXT ---',
                       sourceText.slice(0, MAX_SOURCE_TEXT_CHARS),
                       '--- END DOCUMENT TEXT ---',
+                    ]
+                  : []),
+                ...(ocrText
+                  ? [
+                      'Local OCR read the following text from the receipt image. It may contain recognition errors; where it disagrees with the image, trust the image and add a warning:',
+                      '--- BEGIN OCR TEXT ---',
+                      ocrText.slice(0, MAX_SOURCE_TEXT_CHARS),
+                      '--- END OCR TEXT ---',
                     ]
                   : []),
               ].join('\n'),

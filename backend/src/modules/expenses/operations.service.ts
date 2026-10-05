@@ -62,8 +62,8 @@ const money = (value: Prisma.Decimal | null | undefined) => (value ?? new Prisma
  * insurance policies. Like fuel, a driver's entries are tied to their current vehicle by the
  * server, and every create is idempotent on the device's submission id.
  *
- * Service receipts are stored as originals only. Nothing here calls the AI service — that
- * belongs to the receipt-processing phase, which will read these same stored files.
+ * A service receipt is stored as an untouched original and queued for Service AI reading; the
+ * reading never changes the record by itself (see ai/receipts). Nothing here calls a model.
  */
 @Injectable()
 export class OperationsService {
@@ -234,6 +234,11 @@ export class OperationsService {
       select: OPERATION_VIEW,
     }));
 
+    // A receipt newly attached to a service record is read like one a driver uploaded.
+    if (dto.receiptFileId && dto.receiptFileId !== before.receiptFileId) {
+      await this.queueReceiptAI(user, record.id, { category: record.category, receiptFileId: dto.receiptFileId });
+    }
+
     await this.audit.record({
       action: 'operation.updated',
       entityType: 'VehicleExpense',
@@ -309,11 +314,20 @@ export class OperationsService {
     if (input.category !== OperationCategory.MAINTENANCE || !input.receiptFileId) return;
 
     try {
-      await this.receiptJobs.enqueue({
+      const queued = await this.receiptJobs.enqueue({
         companyId: user.companyId,
         vehicleExpenseId,
         receiptFileId: input.receiptFileId,
         requestedById: user.id,
+      });
+      await this.audit.record({
+        action: 'service_receipt.uploaded',
+        entityType: 'VehicleExpense',
+        entityId: vehicleExpenseId,
+        companyId: user.companyId,
+        actorUserId: user.id,
+        actorRole: user.role,
+        changes: { receiptFileId: input.receiptFileId, jobId: queued.jobId || null, queued: queued.queued, reason: queued.reason ?? null },
       });
     } catch (error) {
       this.logger.warn(

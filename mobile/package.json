@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "dependencies": {
     "@expo/config-plugins": "^57.0.9",
+    "@maplibre/maplibre-react-native": "^11.4.1",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-community/netinfo": "^12.0.1",
@@ -27,6 +28,7 @@
     "expo-system-ui": "~57.0.4",
     "expo-task-manager": "~57.0.20",
     "i18next": "^26.4.2",
+    "maplibre-gl": "^6.11.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-i18next": "^17.0.15",
@@ -56,7 +58,10 @@
     "test": "jest",
     "doctor": "npx expo-doctor",
     "android:dev": "expo run:android --device",
-    "start:dev": "expo start --dev-client --host lan"
+    "start:dev": "expo start --dev-client --host lan",
+    "copy:maplibre": "node scripts/copy-maplibre-assets.mjs",
+    "postinstall": "node scripts/copy-maplibre-assets.mjs",
+    "prestart": "node scripts/copy-maplibre-assets.mjs"
   },
   "private": true,
   "jest": {

@@ -129,18 +129,5 @@ export const seesPayroll = (role: UserRole | null | undefined): boolean => role 
  * depend on that having run.
  */
 export function officePath(module: OfficeModule | 'more'): Href {
-  switch (module) {
-    case 'dashboard':
-      return '/office' as Href;
-    case 'fleet':
-      return '/admin/fleet' as Href;
-    case 'reports':
-      return '/admin/reports' as Href;
-    case 'inbox':
-      return '/admin/inbox' as Href;
-    case 'settings':
-      return '/admin/settings' as Href;
-    default:
-      return `/office/${module}` as Href;
-  }
+  return (module === 'dashboard' ? '/office' : `/office/${module}`) as Href;
 }

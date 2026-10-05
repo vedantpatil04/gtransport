@@ -53,3 +53,18 @@ Prisma does not track CHECK constraints or triggers, so these never appear as sc
 ## Not yet modelled
 
 Finance ledger, salary/advance transactions, fuel entries, expenses, payments, notifications, inbox messages and trips have **no tables yet** — their business rules are not settled, and guessing at them now would mean migrating real data later. Their vocabulary is fixed in the corresponding modules so the eventual tables have no surprises.
+
+## Phase 7 — service AI and email intelligence
+
+- `vehicle_expenses` carries the receipt AI state (`ai_status`: NOT_PROCESSED, QUEUED, PROCESSING,
+  SUCCEEDED, NEEDS_REVIEW, FAILED, RETRYING, VERIFIED, REJECTED) and the verified service details
+  (invoice number, service type, odometer, next service date/km, labour/parts/tax, line items) —
+  written only by a person verifying the record.
+- `service_receipt_ai_jobs` (durable queue, one row per attempt) and `service_receipt_ai_results`
+  (versioned, schema-validated extractions; never the record).
+- `mailbox_connections` — per company per provider OAuth connection; tokens encrypted at rest.
+- `email_sync_cursors`, `inbox_messages`, `inbox_attachments` (bytes in object storage),
+  `inbox_ai_results` (versioned classifications) and `inbox_suggestions` (AI-proposed follow-ups
+  awaiting a person's decision).
+
+See [`docs/ai-receipt-processing.md`](../ai-receipt-processing.md) and [`docs/email-inbox.md`](../email-inbox.md).

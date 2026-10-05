@@ -6,3 +6,9 @@ export const AI_PROVIDER = Symbol('AI_PROVIDER');
  * can actually do (see ai.module.ts), so the pipeline never claims a capability it lacks.
  */
 export const DOCUMENT_PREPARER = Symbol('DOCUMENT_PREPARER');
+
+/**
+ * DI token for the local OCR engine, or null when OCR is switched off or not installed (and not
+ * required). Bound in ai.module.ts according to OCR_ENGINE and what the host can actually run.
+ */
+export const OCR_ENGINE = Symbol('OCR_ENGINE');

@@ -25,7 +25,7 @@ export function presentInboxRow(row: {
   aiStatus: string;
   hasHtml: boolean;
   provider: string;
-  _count: { attachments: number };
+  _count: { attachments: number; suggestions: number };
   aiResults: { summary: string | null; confidence: Prisma.Decimal | null; classification: string }[];
 }) {
   const latest = row.aiResults[0] ?? null;
@@ -40,6 +40,8 @@ export function presentInboxRow(row: {
     classificationConfirmed: row.classifiedById !== null,
     aiStatus: row.aiStatus,
     attachmentCount: row._count.attachments,
+    /** Undecided AI suggestions on this message. */
+    pendingSuggestions: row._count.suggestions,
     hasHtml: row.hasHtml,
     provider: row.provider,
     /** A line the office can scan without opening the mail. Always a suggestion. */
@@ -72,15 +74,17 @@ export function presentInboxDetail(message: {
   aiAttempts: number;
   aiFailureCode: string | null;
   aiFailureMessage: string | null;
+  aiNextAttemptAt: Date | null;
   authenticationResults: string | null;
   sizeBytes: number | null;
   createdAt: Date;
-  attachments: { id: string; filename: string; mimeType: string; sizeBytes: number; fileId: string | null; skipReason: string | null }[];
+  attachments: { id: string; filename: string; mimeType: string; sizeBytes: number; fileId: string | null; skipReason: string | null; downloadAttempts: number }[];
   aiResults: {
     id: string; version: number; provider: string; model: string; classification: string;
     confidence: Prisma.Decimal | null; summary: string | null; extraction: Prisma.JsonValue;
     warnings: string[]; durationMs: number | null; createdAt: Date;
   }[];
+  suggestions: SuggestionRow[];
 }) {
   return {
     id: message.id,
@@ -113,6 +117,8 @@ export function presentInboxDetail(message: {
       attempts: message.aiAttempts,
       failureCode: message.aiFailureCode,
       failureMessage: message.aiFailureMessage,
+      /** When a failed classification will be tried again automatically, if it will. */
+      nextAttemptAt: iso(message.aiNextAttemptAt),
     },
     attachments: message.attachments.map((attachment) => ({
       id: attachment.id,
@@ -122,6 +128,7 @@ export function presentInboxDetail(message: {
       /** False when the file was refused; `skipReason` says why, and it stays in the mailbox. */
       stored: attachment.fileId !== null,
       skipReason: attachment.skipReason,
+      downloadAttempts: attachment.downloadAttempts,
     })),
     /** Every reading, newest first. A rerun adds a version; it never replaces one (§29). */
     aiResults: message.aiResults.map((result) => ({
@@ -138,6 +145,64 @@ export function presentInboxDetail(message: {
       durationMs: result.durationMs,
       createdAt: result.createdAt.toISOString(),
     })),
+    /** What AI proposed doing about this mail, and what the office decided. Never acted on alone. */
+    suggestions: message.suggestions.map(presentSuggestion),
+  };
+}
+
+export interface SuggestionRow {
+  id: string;
+  messageId: string;
+  aiResultId: string;
+  type: string;
+  status: string;
+  reason: string | null;
+  details: Prisma.JsonValue;
+  attachmentId: string | null;
+  decidedAt: Date | null;
+  decidedById: string | null;
+  decisionNote: string | null;
+  resultEntityType: string | null;
+  resultEntityId: string | null;
+  createdAt: Date;
+  attachment: { id: string; filename: string; mimeType: string; fileId: string | null } | null;
+  message?: { id: string; subject: string | null; fromAddress: string; fromName: string | null; receivedAt: Date };
+}
+
+export function presentSuggestion(row: SuggestionRow) {
+  const details = row.details && typeof row.details === 'object' && !Array.isArray(row.details) ? (row.details as Record<string, unknown>) : {};
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : null);
+  return {
+    id: row.id,
+    messageId: row.messageId,
+    resultId: row.aiResultId,
+    type: row.type,
+    status: row.status,
+    reason: row.reason,
+    /** What the model read from the mail — prefill for a person to check, never applied. */
+    details: {
+      vehicleRegistration: text(details.vehicleRegistration),
+      amount: typeof details.amount === 'number' ? details.amount : null,
+      date: text(details.date),
+      reference: text(details.reference),
+    },
+    attachment: row.attachment
+      ? { id: row.attachment.id, filename: row.attachment.filename, mimeType: row.attachment.mimeType, stored: row.attachment.fileId !== null }
+      : null,
+    decidedAt: iso(row.decidedAt),
+    decidedById: row.decidedById,
+    decisionNote: row.decisionNote,
+    /** The record acceptance created, when it created one. */
+    result: row.resultEntityType && row.resultEntityId ? { entityType: row.resultEntityType, entityId: row.resultEntityId } : null,
+    createdAt: row.createdAt.toISOString(),
+    message: row.message
+      ? {
+          id: row.message.id,
+          subject: row.message.subject,
+          from: { address: row.message.fromAddress, name: row.message.fromName },
+          receivedAt: row.message.receivedAt.toISOString(),
+        }
+      : undefined,
   };
 }
 

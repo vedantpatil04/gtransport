@@ -4,7 +4,7 @@ import { ServiceReceiptAIStatus } from '@prisma/client';
  * What may follow what, for a service receipt.
  *
  * The table below is the whole of the rule, and the two entries that matter most are the empty
- * ones. `CONFIRMED` and `REJECTED` are terminal for the *machine*: no worker, no retry and no
+ * ones. `VERIFIED` and `REJECTED` are terminal for the *machine*: no worker, no retry and no
  * later model run can move a record out of a state a person put it in. Only another human action
  * can (see `ADMIN_TRANSITIONS`), and that is a deliberate, audited re-opening rather than an AI
  * rerun quietly changing its mind (§14, §29).
@@ -14,40 +14,35 @@ import { ServiceReceiptAIStatus } from '@prisma/client';
  */
 const TRANSITIONS: Record<ServiceReceiptAIStatus, ServiceReceiptAIStatus[]> = {
   // Nothing has been attempted. A receipt arriving queues a job.
-  NOT_PROCESSED: [ServiceReceiptAIStatus.PENDING],
+  NOT_PROCESSED: [ServiceReceiptAIStatus.QUEUED],
   // Queued, waiting for a worker.
-  PENDING: [ServiceReceiptAIStatus.PROCESSING, ServiceReceiptAIStatus.FAILED],
+  QUEUED: [ServiceReceiptAIStatus.PROCESSING, ServiceReceiptAIStatus.FAILED],
   // A worker holds it. Either it produces an extraction or it does not.
   PROCESSING: [
-    ServiceReceiptAIStatus.COMPLETED,
-    ServiceReceiptAIStatus.REVIEW_REQUIRED,
+    ServiceReceiptAIStatus.SUCCEEDED,
+    ServiceReceiptAIStatus.NEEDS_REVIEW,
     ServiceReceiptAIStatus.FAILED,
     ServiceReceiptAIStatus.RETRYING,
   ],
-  // Extraction succeeded. A person confirms, rejects, or asks for another run.
-  COMPLETED: [ServiceReceiptAIStatus.CONFIRMED, ServiceReceiptAIStatus.REJECTED, ServiceReceiptAIStatus.PENDING],
-  REVIEW_REQUIRED: [ServiceReceiptAIStatus.CONFIRMED, ServiceReceiptAIStatus.REJECTED, ServiceReceiptAIStatus.PENDING],
-  // Failed. A retry re-queues it; a person may also give up and confirm the record by hand.
-  FAILED: [ServiceReceiptAIStatus.PENDING, ServiceReceiptAIStatus.CONFIRMED, ServiceReceiptAIStatus.REJECTED],
+  // Extraction succeeded. Automation may only run it again; verifying or rejecting is a person's
+  // act, and lives in ADMIN_TRANSITIONS below.
+  SUCCEEDED: [ServiceReceiptAIStatus.QUEUED],
+  NEEDS_REVIEW: [ServiceReceiptAIStatus.QUEUED],
+  // Failed. A retry re-queues it.
+  FAILED: [ServiceReceiptAIStatus.QUEUED],
   // Waiting for an automatic retry.
-  RETRYING: [ServiceReceiptAIStatus.PENDING, ServiceReceiptAIStatus.PROCESSING, ServiceReceiptAIStatus.FAILED],
-  // A person confirmed this record. Nothing automatic may touch it again.
-  CONFIRMED: [],
+  RETRYING: [ServiceReceiptAIStatus.QUEUED, ServiceReceiptAIStatus.PROCESSING, ServiceReceiptAIStatus.FAILED],
+  // A person verified this record. Nothing automatic may touch it again.
+  VERIFIED: [],
   // A person judged the extraction unusable. Likewise.
   REJECTED: [],
 };
 
 /**
- * What an administrator may do that the machine may not.
- *
- * Re-opening a confirmed record is allowed — people do make mistakes, and refusing to ever
- * re-examine one would be worse than allowing it — but it is an explicit, audited act by a named
- * person, not a side effect of a model running again.
- */
-/**
  * What a person may additionally do.
  *
- * Two things are true here that are not true of automatic processing. An administrator may
+ * Verifying and rejecting are only ever a person's acts — no automatic transition reaches either.
+ * Beyond that, two things are true here that are not true of automatic processing. An administrator may
  * re-open a settled record — deliberately, with a reason, on the record — and an administrator may
  * settle a record while a run is queued or in flight. The second matters on an ordinary working
  * day: the office is holding the paper original, and a model job sitting in the queue is no reason
@@ -55,13 +50,16 @@ const TRANSITIONS: Record<ServiceReceiptAIStatus, ServiceReceiptAIStatus[]> = {
  * `isHumanSettled` before it writes anything, so a job that lands afterwards is abandoned.
  */
 const ADMIN_TRANSITIONS: Record<ServiceReceiptAIStatus, ServiceReceiptAIStatus[]> = {
-  ...TRANSITIONS,
-  NOT_PROCESSED: [...TRANSITIONS.NOT_PROCESSED, ServiceReceiptAIStatus.CONFIRMED, ServiceReceiptAIStatus.REJECTED],
-  PENDING: [...TRANSITIONS.PENDING, ServiceReceiptAIStatus.CONFIRMED, ServiceReceiptAIStatus.REJECTED],
-  PROCESSING: [...TRANSITIONS.PROCESSING, ServiceReceiptAIStatus.CONFIRMED, ServiceReceiptAIStatus.REJECTED],
-  RETRYING: [...TRANSITIONS.RETRYING, ServiceReceiptAIStatus.CONFIRMED, ServiceReceiptAIStatus.REJECTED],
-  CONFIRMED: [ServiceReceiptAIStatus.REVIEW_REQUIRED, ServiceReceiptAIStatus.REJECTED],
-  REJECTED: [ServiceReceiptAIStatus.REVIEW_REQUIRED, ServiceReceiptAIStatus.CONFIRMED],
+  NOT_PROCESSED: [...TRANSITIONS.NOT_PROCESSED, ServiceReceiptAIStatus.VERIFIED, ServiceReceiptAIStatus.REJECTED],
+  QUEUED: [...TRANSITIONS.QUEUED, ServiceReceiptAIStatus.VERIFIED, ServiceReceiptAIStatus.REJECTED],
+  PROCESSING: [...TRANSITIONS.PROCESSING, ServiceReceiptAIStatus.VERIFIED, ServiceReceiptAIStatus.REJECTED],
+  SUCCEEDED: [...TRANSITIONS.SUCCEEDED, ServiceReceiptAIStatus.VERIFIED, ServiceReceiptAIStatus.REJECTED],
+  NEEDS_REVIEW: [...TRANSITIONS.NEEDS_REVIEW, ServiceReceiptAIStatus.VERIFIED, ServiceReceiptAIStatus.REJECTED],
+  // Reading failed, but the office can still type the figures off the original and verify it.
+  FAILED: [...TRANSITIONS.FAILED, ServiceReceiptAIStatus.VERIFIED, ServiceReceiptAIStatus.REJECTED],
+  RETRYING: [...TRANSITIONS.RETRYING, ServiceReceiptAIStatus.VERIFIED, ServiceReceiptAIStatus.REJECTED],
+  VERIFIED: [ServiceReceiptAIStatus.NEEDS_REVIEW, ServiceReceiptAIStatus.REJECTED],
+  REJECTED: [ServiceReceiptAIStatus.NEEDS_REVIEW, ServiceReceiptAIStatus.VERIFIED],
 };
 
 export type TransitionActor = 'system' | 'admin';
@@ -77,18 +75,18 @@ export function canTransition(from: ServiceReceiptAIStatus, to: ServiceReceiptAI
  * This is the single predicate the worker and the queue both consult before touching anything.
  */
 export function isHumanSettled(status: ServiceReceiptAIStatus): boolean {
-  return status === ServiceReceiptAIStatus.CONFIRMED || status === ServiceReceiptAIStatus.REJECTED;
+  return status === ServiceReceiptAIStatus.VERIFIED || status === ServiceReceiptAIStatus.REJECTED;
 }
 
 /** States from which queueing a new AI run is meaningful. */
 export function canQueueProcessing(status: ServiceReceiptAIStatus): boolean {
-  return !isHumanSettled(status) && status !== ServiceReceiptAIStatus.PENDING && status !== ServiceReceiptAIStatus.PROCESSING;
+  return !isHumanSettled(status) && status !== ServiceReceiptAIStatus.QUEUED && status !== ServiceReceiptAIStatus.PROCESSING;
 }
 
 /** States the office should be shown as needing attention. */
 export const NEEDS_ATTENTION: ServiceReceiptAIStatus[] = [
-  ServiceReceiptAIStatus.COMPLETED,
-  ServiceReceiptAIStatus.REVIEW_REQUIRED,
+  ServiceReceiptAIStatus.SUCCEEDED,
+  ServiceReceiptAIStatus.NEEDS_REVIEW,
   ServiceReceiptAIStatus.FAILED,
 ];
 
@@ -104,15 +102,15 @@ export function toDriverFacingState(status: ServiceReceiptAIStatus): DriverFacin
   switch (status) {
     case ServiceReceiptAIStatus.NOT_PROCESSED:
       return 'uploaded';
-    case ServiceReceiptAIStatus.PENDING:
+    case ServiceReceiptAIStatus.QUEUED:
     case ServiceReceiptAIStatus.PROCESSING:
     case ServiceReceiptAIStatus.RETRYING:
       return 'processing';
-    case ServiceReceiptAIStatus.COMPLETED:
-    case ServiceReceiptAIStatus.REVIEW_REQUIRED:
+    case ServiceReceiptAIStatus.SUCCEEDED:
+    case ServiceReceiptAIStatus.NEEDS_REVIEW:
       // Both mean "with the office". A driver has nothing to do either way.
       return 'needsReview';
-    case ServiceReceiptAIStatus.CONFIRMED:
+    case ServiceReceiptAIStatus.VERIFIED:
       return 'verified';
     case ServiceReceiptAIStatus.FAILED:
     case ServiceReceiptAIStatus.REJECTED:

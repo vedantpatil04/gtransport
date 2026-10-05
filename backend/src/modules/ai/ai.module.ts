@@ -2,10 +2,12 @@ import { Logger, Module } from '@nestjs/common';
 import { AppConfigService } from '../../config/app-config.service';
 import { AuditModule } from '../../common/audit/audit.module';
 import { FilesModule } from '../files/files.module';
-import { AI_PROVIDER, DOCUMENT_PREPARER } from './ai.tokens';
+import { FinanceModule } from '../finance/finance.module';
+import { AI_PROVIDER, DOCUMENT_PREPARER, OCR_ENGINE } from './ai.tokens';
 import { createAIProvider } from './factory';
 import type { AIProvider } from './provider';
-import { ReceiptAIService } from './receipt-ai.service';
+import { ReceiptAIService, type OcrBinding } from './receipt-ai.service';
+import { TesseractOcrEngine } from './ocr/tesseract.ocr';
 import { ImageOnlyDocumentPreparer, PopplerDocumentPreparer } from './preprocessing/poppler.preparer';
 import type { DocumentPreparer } from './preprocessing/document-preparation';
 import { MaintenanceIntelligenceService } from './receipts/maintenance-intelligence.service';
@@ -23,7 +25,7 @@ import { ServiceReceiptsController } from './receipts/receipts.controller';
  * concrete provider, which is what keeps `AI_PROVIDER=dify` a configuration change (§9).
  */
 @Module({
-  imports: [FilesModule, AuditModule],
+  imports: [FilesModule, AuditModule, FinanceModule],
   controllers: [ServiceReceiptsController],
   providers: [
     {
@@ -50,6 +52,34 @@ import { ServiceReceiptsController } from './receipts/receipts.controller';
         }
         new Logger('AiModule').warn('Receipt preparation: photographs only — install poppler-utils to process PDF receipts.');
         return new ImageOnlyDocumentPreparer();
+      },
+    },
+    {
+      provide: OCR_ENGINE,
+      inject: [AppConfigService],
+      useFactory: async (config: AppConfigService): Promise<OcrBinding | null> => {
+        // Bound to what the deployment asked for and what the host can do, and said so at boot.
+        const { ocr } = config.ai;
+        const logger = new Logger('AiModule');
+        if (ocr.mode === 'none') {
+          logger.log('Receipt OCR: switched off (OCR_ENGINE=none); the vision model reads photographs directly.');
+          return null;
+        }
+        const engine = new TesseractOcrEngine({ binary: ocr.binary, languages: ocr.languages, timeoutMs: ocr.timeoutMs });
+        const available = await engine.isAvailable();
+        if (ocr.mode === 'tesseract') {
+          if (available) logger.log(`Receipt OCR: tesseract (${ocr.languages}), required.`);
+          // Not refused at boot — the API serves far more than receipts — but every receipt that
+          // needs OCR fails with this reason until the engine is installed.
+          else logger.error('Receipt OCR: OCR_ENGINE=tesseract but tesseract is not installed. Receipts needing OCR will fail until it is.');
+          return { engine, required: true };
+        }
+        if (!available) {
+          logger.warn('Receipt OCR: tesseract not found; photographs are read by the vision model without OCR. Install tesseract-ocr to enable it.');
+          return null;
+        }
+        logger.log(`Receipt OCR: tesseract (${ocr.languages}).`);
+        return { engine, required: false };
       },
     },
     ReceiptAIService,

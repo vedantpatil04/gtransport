@@ -134,9 +134,105 @@ export interface OfficeFleetResponse {
   refreshSeconds: number;
 }
 
+export interface OfficeLocationPing {
+  id: string;
+  latitude: number;
+  longitude: number;
+  capturedAt: string;
+  speedKmh: number | null;
+  accuracyMeters: number | null;
+}
+
+export interface OfficeInboxMessage {
+  id: string;
+  subject: string | null;
+  from: { name: string | null; address: string };
+  receivedAt: string;
+  status: 'UNREAD' | 'READ' | 'ARCHIVED';
+  classification: string;
+  classificationConfirmed: boolean;
+  aiStatus: string;
+  attachmentCount: number;
+  /** Undecided AI suggestions on this message (decided in the office console). */
+  pendingSuggestions?: number;
+  hasHtml: boolean;
+  provider: string;
+  aiSummary: string | null;
+  aiConfidence: number | null;
+}
+
+export interface OfficeInboxDetail {
+  id: string;
+  provider: string;
+  mailbox: string;
+  threadId: string | null;
+  from: { address: string; name: string | null };
+  to: string[];
+  cc: string[];
+  subject: string | null;
+  receivedAt: string;
+  filedAt: string;
+  bodyText: string | null;
+  bodyTruncated: boolean;
+  hasHtml: boolean;
+  labels: string[];
+  status: string;
+  classification: string;
+  classificationConfirmed: boolean;
+  classifiedAt: string | null;
+  ai: {
+    status: string;
+    attempts: number;
+    failureCode: string | null;
+    failureMessage: string | null;
+    nextAttemptAt?: string | null;
+  };
+  attachments: {
+    id: string;
+    filename: string;
+    mimeType: string;
+    sizeBytes: number;
+    stored: boolean;
+    skipReason: string | null;
+  }[];
+  aiResults?: {
+    summary: string | null;
+    confidence: number | null;
+  }[];
+}
+
+export interface OfficeInboxStatus {
+  /** True only when a mailbox can actually be read right now — not the same as "has mail". */
+  configured: boolean;
+  mailbox: string | null;
+  provider?: string | null;
+  /** Why nothing can be read, in the server's words, when `configured` is false. */
+  unavailableReason?: string | null;
+  lastSyncFinishedAt: string | null;
+  lastError: string | null;
+  consecutiveFailures: number;
+  nextAttemptAt?: string | null;
+}
+
+/** What a sync actually did. `ok: false` carries the reason; it is never shown as success. */
+export interface OfficeInboxSyncOutcome {
+  ok: boolean;
+  reason?: string;
+  created: number;
+  fetched: number;
+  failed?: number;
+}
+
 export const officeApi = {
   fleet: (token: string, query: { q?: string; status?: string } = {}) =>
     apiRequest<OfficeFleetResponse>(`/locations/fleet${qs(query)}`, { token }),
+  driverHistory: (token: string, driverId: string, query: { limit?: number; cursor?: string } = {}) =>
+    apiRequest<{ data: OfficeLocationPing[]; page: { limit: number; nextCursor: string | null } }>(
+      `/locations/drivers/${driverId}/history${qs(query)}`,
+      { token },
+    ),
+  acknowledgeAlert: (token: string, alertId: string, note?: string) =>
+    apiRequest<void>(`/locations/alerts/${alertId}/acknowledge`, { method: 'POST', body: note ? { note } : {}, token }),
   employees: (token: string, query: { q?: string; cursor?: string; limit?: number } = {}) =>
     apiRequest<Page<OfficeEmployee>>(`/employees${qs(query)}`, { token }),
   vehicles: (token: string, query: { q?: string; cursor?: string; limit?: number } = {}) =>
@@ -148,5 +244,13 @@ export const officeApi = {
   paymentsSummary: (token: string) => apiRequest<PaymentsSummary>('/payments/summary', { token }),
   payments: (token: string, query: { status?: string; cursor?: string; limit?: number } = {}) =>
     apiRequest<Page<OfficePayment>>(`/payments${qs(query)}`, { token }),
+  inboxStatus: (token: string) => apiRequest<OfficeInboxStatus>('/inbox/status', { token }),
+  inboxMessages: (token: string, query: { q?: string; status?: string; classification?: string; limit?: number; cursor?: string } = {}) =>
+    apiRequest<Page<OfficeInboxMessage>>(`/inbox/messages${qs(query)}`, { token }),
+  inboxMessage: (token: string, id: string) => apiRequest<OfficeInboxDetail>(`/inbox/messages/${id}`, { token }),
+  inboxSync: (token: string) => apiRequest<OfficeInboxSyncOutcome>('/inbox/sync', { method: 'POST', body: {}, token }),
+  inboxSetStatus: (token: string, id: string, status: 'UNREAD' | 'READ' | 'ARCHIVED') =>
+    apiRequest<void>(`/inbox/messages/${id}/status`, { method: 'PATCH', body: { status }, token }),
 };
+
 

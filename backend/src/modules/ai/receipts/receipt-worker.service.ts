@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AIFailureCode, Prisma, ServiceReceiptAIStatus } from '@prisma/client';
+import { AIFailureCode, OperationCategory, Prisma, RecordStatus, ServiceReceiptAIStatus } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { AuditService } from '../../../common/audit/audit.service';
+import { AppConfigService } from '../../../config/app-config.service';
 import { FileStorage } from '../../files/file-storage';
 import { ReceiptAIService } from '../receipt-ai.service';
 import { classifyDocumentKind } from '../preprocessing/document-preparation';
@@ -33,6 +34,7 @@ export class ReceiptWorkerService {
     private readonly ai: ReceiptAIService,
     private readonly storage: FileStorage,
     private readonly audit: AuditService,
+    private readonly config: AppConfigService,
   ) {}
 
   /**
@@ -54,6 +56,13 @@ export class ReceiptWorkerService {
   async runClaimed(job: ClaimedJob): Promise<void> {
     const { provider, model } = this.ai.describeProvider();
     this.logger.log(`Receipt AI job ${job.id} started (attempt ${job.attempt}/${job.maxAttempts}, provider ${provider})`);
+    await this.audit.record({
+      action: 'service_receipt.ai_processing',
+      entityType: 'VehicleExpense',
+      entityId: job.vehicleExpenseId,
+      companyId: job.companyId,
+      changes: { jobId: job.id, attempt: job.attempt, maxAttempts: job.maxAttempts, provider, model },
+    });
 
     try {
       // ── The original must still be there. If it is not, that is the finding. ──
@@ -111,8 +120,10 @@ export class ReceiptWorkerService {
         vehicleNumber: job.vehicleExpense.vehicle.registrationNumber,
         expenseDate: job.vehicleExpense.expenseDate,
         recordedAmount: job.vehicleExpense.amount.toNumber(),
+        lastVerifiedOdometerKm: await this.lastVerifiedOdometer(job),
       });
-      const outcome = decideReviewOutcome(result.extraction, validationIssues);
+      // Low confidence routes to NEEDS_REVIEW (AI_LOW_CONFIDENCE_THRESHOLD); it never decides truth.
+      const outcome = decideReviewOutcome(result.extraction, validationIssues, this.config.ai.lowConfidenceThreshold);
 
       await this.prisma.$transaction(async (tx) => {
         const version = await this.jobs.nextResultVersion(tx, job.vehicleExpenseId);
@@ -138,7 +149,7 @@ export class ReceiptWorkerService {
       await this.jobs.completeSuccess({
         jobId: job.id,
         vehicleExpenseId: job.vehicleExpenseId,
-        outcome: outcome === 'COMPLETED' ? ServiceReceiptAIStatus.COMPLETED : ServiceReceiptAIStatus.REVIEW_REQUIRED,
+        outcome: outcome === 'SUCCEEDED' ? ServiceReceiptAIStatus.SUCCEEDED : ServiceReceiptAIStatus.NEEDS_REVIEW,
         provider: result.provider,
         model: result.model,
       });
@@ -174,6 +185,27 @@ export class ReceiptWorkerService {
         () => undefined,
       );
     }
+  }
+
+  /**
+   * The highest odometer reading on this vehicle's verified service history, so a reading that went
+   * backwards is flagged. Verified records only — an unchecked extraction is not a reference point.
+   */
+  private async lastVerifiedOdometer(job: ClaimedJob): Promise<number | null> {
+    const latest = await this.prisma.vehicleExpense.findFirst({
+      where: {
+        companyId: job.companyId,
+        vehicleId: job.vehicleExpense.vehicle.id,
+        category: OperationCategory.MAINTENANCE,
+        status: RecordStatus.ACTIVE,
+        aiStatus: ServiceReceiptAIStatus.VERIFIED,
+        odometerKm: { not: null },
+        id: { not: job.vehicleExpenseId },
+      },
+      orderBy: { odometerKm: 'desc' },
+      select: { odometerKm: true },
+    });
+    return latest?.odometerKm ?? null;
   }
 
   private async fail(

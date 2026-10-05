@@ -15,7 +15,17 @@ export interface StoreFileInput {
 }
 
 /** Photos from any phone camera or gallery, plus PDFs for e-receipts. */
-export const RECEIPT_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf']);
+/** Photos from any phone camera or gallery, plus PDFs for e-receipts. */
+export const RECEIPT_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+]);
 export const RECEIPT_MAX_BYTES = 15 * 1024 * 1024;
 
 /**
@@ -37,7 +47,12 @@ export class FilesService {
     const record = await this.prisma.storedFile.create({
       data: {
         companyId: input.companyId,
-        provider: this.storage.provider === 'R2' ? StorageProvider.R2 : StorageProvider.LOCAL,
+        provider:
+          this.storage.provider === 'CLOUDINARY'
+            ? StorageProvider.CLOUDINARY
+            : this.storage.provider === 'R2'
+              ? StorageProvider.R2
+              : StorageProvider.LOCAL,
         bucket: stored.bucket,
         objectKey: stored.key,
         originalFilename: input.filename,
@@ -57,11 +72,14 @@ export class FilesService {
    * (a retried upload on a weak network) returns the file already stored instead of a copy.
    */
   async storeReceipt(input: StoreFileInput): Promise<{ id: string; deduplicated: boolean }> {
-    if (!RECEIPT_MIME_TYPES.has(input.mimeType)) {
+    const rawMime = input.mimeType?.toLowerCase().split(';')[0].trim() || '';
+    if (!RECEIPT_MIME_TYPES.has(rawMime)) {
       throw new BadRequestException('Receipts must be a photo (JPEG, PNG, WebP, HEIC) or a PDF.');
     }
     if (input.bytes.byteLength === 0) throw new BadRequestException('The receipt file is empty.');
     if (input.bytes.byteLength > RECEIPT_MAX_BYTES) throw new BadRequestException('The receipt is larger than 15 MB.');
+
+    const cleanMimeType = rawMime === 'image/jpg' || rawMime === 'image/pjpeg' ? 'image/jpeg' : rawMime;
 
     const checksumSha256 = createHash('sha256').update(input.bytes).digest('hex');
     const existing = await this.prisma.storedFile.findFirst({
@@ -70,7 +88,7 @@ export class FilesService {
     });
     if (existing) return { id: existing.id, deduplicated: true };
 
-    const stored = await this.store(input);
+    const stored = await this.store({ ...input, mimeType: cleanMimeType });
     return { id: stored.id, deduplicated: false };
   }
 

@@ -1,12 +1,22 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { EmailProviderName, InboxAIStatus, Prisma } from '@prisma/client';
+import { Injectable, Logger } from '@nestjs/common';
+import { InboxAIStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AppConfigService } from '../../config/app-config.service';
 import { FilesService } from '../files/files.service';
-import { EMAIL_PROVIDER } from './inbox.tokens';
 import { EmailProviderError, type EmailProvider, type InboundAttachmentDescriptor, type InboundEmail } from './email-provider';
 import { decideAttachment, normaliseMimeType, sanitiseFilename } from './attachment-policy';
+import { MailboxConnectionService } from './mailbox-connection.service';
+
+/** Download attempts for one attachment before it is left in the mailbox with its reason. */
+export const MAX_ATTACHMENT_ATTEMPTS = 3;
+/** Consecutive runs a page may fail to file before the cursor moves past it anyway. */
+const MAX_PAGE_RETRIES = 3;
+
+/** Backoff before the scheduler tries a failing mailbox again: 1, 2, 4 … minutes, capped. */
+export function syncBackoffMs(consecutiveFailures: number, capMs = 60 * 60_000): number {
+  return Math.min(capMs, 60_000 * 2 ** Math.max(0, consecutiveFailures - 1));
+}
 
 /**
  * Bringing a company mailbox into the application.
@@ -15,6 +25,10 @@ import { decideAttachment, normaliseMimeType, sanitiseFilename } from './attachm
  * already did.** Synchronisation is keyed on the provider's own message id, enforced by a unique
  * constraint rather than by a lookup, so an overlapping window after a failure, a scheduler that
  * fires twice, or two instances syncing at once all converge on the same rows (§19).
+ *
+ * And a failure is never reported as success. A provider that could not be reached, a mailbox
+ * that needs re-authorising, a page that could not be filed — each is recorded on the cursor,
+ * returned to the caller, written to the audit trail, and retried with backoff.
  *
  * What it will not do is equally deliberate. Nothing here replies, forwards, deletes or moves
  * money, and nothing it stores modifies a financial or vehicle record. It files what arrived and
@@ -29,114 +43,184 @@ export class InboxSyncService {
     private readonly files: FilesService,
     private readonly audit: AuditService,
     private readonly config: AppConfigService,
-    @Optional() @Inject(EMAIL_PROVIDER) private readonly provider: EmailProvider | null,
+    private readonly connections: MailboxConnectionService,
   ) {}
 
-  /** Whether a mailbox is configured at all. The Inbox screen says so plainly when it is not. */
-  isConfigured(): boolean {
-    return Boolean(this.provider?.isConfigured());
-  }
-
-  providerName(): EmailProviderName | null {
-    return this.provider?.name ?? null;
-  }
-
   /** Contacts the mailbox and reports what happened. Used by the admin's connection check. */
-  async verifyConnection() {
-    if (!this.provider?.isConfigured()) {
-      return { ok: false as const, reason: 'No mailbox is configured on this server.' };
-    }
-    return this.provider.verifyConnection();
+  async verifyConnection(companyId: string) {
+    const resolved = await this.connections.resolve(companyId);
+    if (!resolved.provider) return { ok: false as const, reason: resolved.reason };
+    return resolved.provider.verifyConnection();
   }
 
   /**
-   * Fetches new mail and files it.
+   * Fetches new mail and files it, page by page, up to EMAIL_SYNC_MAX_PAGES pages.
    *
-   * Every message is handled on its own: one that cannot be parsed or whose attachment cannot be
-   * downloaded does not stop the rest, because a single malformed mail should not stall a
-   * mailbox indefinitely. The cursor still advances past it, and the failure is counted.
+   * Every message is handled on its own, so one that cannot be filed does not stop the rest. But
+   * the cursor only moves past a page once every message on it is filed: a page with a failure is
+   * read again next run (the ones already filed are recognised and skipped). A page that keeps
+   * failing is moved past after MAX_PAGE_RETRIES runs, with the count recorded, so one malformed
+   * mail cannot stall a mailbox for ever.
    */
-  async sync(companyId: string, options: { limit?: number; actorUserId?: string | null } = {}): Promise<SyncOutcome> {
-    if (!this.provider?.isConfigured()) {
+  async sync(
+    companyId: string,
+    options: { limit?: number; actorUserId?: string | null; trigger?: 'manual' | 'scheduled' } = {},
+  ): Promise<SyncOutcome> {
+    const trigger = options.trigger ?? 'manual';
+    const empty = { fetched: 0, created: 0, duplicates: 0, failed: 0, pages: 0, hasMore: false, attachmentsRecovered: 0, notices: [] as string[] };
+
+    const resolved = await this.connections.resolve(companyId);
+    if (!resolved.provider) {
       // Reporting success here would be the "Email synced when the provider was never contacted"
       // that Phase 7 explicitly forbids (§39).
-      return { ok: false, reason: 'No mailbox is configured on this server.', fetched: 0, created: 0, duplicates: 0, failed: 0 };
+      return { ok: false, reason: resolved.reason, retryable: false, ...empty };
     }
-
-    const mailbox = this.config.email.imap.mailbox;
+    const provider = resolved.provider;
     const limit = options.limit ?? this.config.email.syncBatchSize;
     const startedAt = new Date();
 
     const cursorRow = await this.prisma.emailSyncCursor.upsert({
-      where: { companyId_provider_mailbox: { companyId, provider: this.provider.name, mailbox } },
-      create: { companyId, provider: this.provider.name, mailbox, lastSyncStartedAt: startedAt },
-      update: { lastSyncStartedAt: startedAt },
-      select: { id: true, cursor: true, messagesSynced: true },
+      where: { companyId_provider_mailbox: { companyId, provider: provider.name, mailbox: provider.mailbox } },
+      create: { companyId, provider: provider.name, mailbox: provider.mailbox },
+      update: {},
+      select: { id: true, cursor: true, messagesSynced: true, consecutiveFailures: true, nextAttemptAt: true },
     });
 
-    this.logger.log(`Mailbox sync started for company ${companyId} (${this.provider.name}/${mailbox}).`);
-
-    let page;
-    try {
-      page = await this.provider.fetchSince(cursorRow.cursor, limit);
-    } catch (error) {
-      const reason = error instanceof EmailProviderError ? error.message : 'The mailbox could not be read.';
-      await this.prisma.emailSyncCursor.update({
-        where: { id: cursorRow.id },
-        data: {
-          lastSyncFinishedAt: new Date(),
-          lastError: reason,
-          consecutiveFailures: { increment: 1 },
-        },
-      });
-      this.logger.warn(`Mailbox sync failed for company ${companyId}: ${reason}`);
-      return { ok: false, reason, fetched: 0, created: 0, duplicates: 0, failed: 0 };
+    // The scheduler respects backoff; a person pressing "check now" does not.
+    if (trigger === 'scheduled' && cursorRow.nextAttemptAt && cursorRow.nextAttemptAt > startedAt) {
+      return { ok: false, skipped: true, reason: `Waiting until ${cursorRow.nextAttemptAt.toISOString()} after earlier failures.`, retryable: true, ...empty };
     }
 
-    let created = 0;
-    let duplicates = 0;
-    let failed = 0;
+    await this.prisma.emailSyncCursor.update({ where: { id: cursorRow.id }, data: { lastSyncStartedAt: startedAt } });
+    this.logger.log(`Mailbox sync started for company ${companyId} (${provider.name}, ${trigger}).`);
 
-    for (const message of page.messages) {
-      try {
-        const outcome = await this.ingest(companyId, message);
-        if (outcome === 'created') created += 1;
-        else duplicates += 1;
-      } catch (error) {
-        failed += 1;
-        // Subject and sender are not logged: a failure line should not carry the office's mail.
-        this.logger.warn(
-          `A message could not be filed during sync for company ${companyId}: ${error instanceof Error ? error.name : 'unknown error'}`,
-        );
+    const totals = { ...empty };
+    let cursor = cursorRow.cursor;
+    let pageFailure: string | null = null;
+
+    try {
+      for (let page = 0; page < this.config.email.maxPagesPerSync; page += 1) {
+        const result = await provider.fetchSince(cursor, limit);
+        totals.pages += 1;
+        totals.fetched += result.messages.length;
+        totals.notices.push(...(result.notices ?? []));
+
+        let pageFailed = 0;
+        for (const message of result.messages) {
+          try {
+            const outcome = await this.ingest(companyId, provider, message);
+            if (outcome === 'created') totals.created += 1;
+            else totals.duplicates += 1;
+          } catch (error) {
+            pageFailed += 1;
+            // Subject and sender are not logged: a failure line should not carry the office's mail.
+            this.logger.warn(`A message could not be filed for company ${companyId}: ${error instanceof Error ? error.name : 'unknown error'}`);
+          }
+        }
+        totals.failed += pageFailed;
+
+        if (pageFailed > 0 && cursorRow.consecutiveFailures + 1 < MAX_PAGE_RETRIES) {
+          // Hold the cursor: this page is read again next run.
+          pageFailure = `${pageFailed} message(s) could not be filed and will be retried.`;
+          break;
+        }
+        if (pageFailed > 0) {
+          totals.notices.push(`${pageFailed} message(s) could not be filed after ${MAX_PAGE_RETRIES} attempts and were skipped.`);
+        }
+        cursor = result.nextCursor;
+        totals.hasMore = Boolean(result.hasMore);
+        if (!result.hasMore) break;
       }
+    } catch (error) {
+      const reason = error instanceof EmailProviderError ? error.message : 'The mailbox could not be read.';
+      const retryable = error instanceof EmailProviderError ? error.retryable : true;
+      if (!(error instanceof EmailProviderError)) {
+        this.logger.error('Mailbox sync failed unexpectedly', error instanceof Error ? error.stack : String(error));
+      }
+      return this.recordFailure(companyId, cursorRow, cursor, provider, totals, reason, retryable, options.actorUserId ?? null, trigger);
+    }
+
+    totals.attachmentsRecovered = await this.retryAttachmentDownloads(companyId, provider, startedAt);
+
+    if (pageFailure) {
+      return this.recordFailure(companyId, cursorRow, cursor, provider, totals, pageFailure, true, options.actorUserId ?? null, trigger);
     }
 
     await this.prisma.emailSyncCursor.update({
       where: { id: cursorRow.id },
       data: {
-        cursor: page.nextCursor,
+        cursor,
         lastSyncFinishedAt: new Date(),
         lastError: null,
         consecutiveFailures: 0,
-        messagesSynced: cursorRow.messagesSynced + created,
+        nextAttemptAt: null,
+        messagesSynced: cursorRow.messagesSynced + totals.created,
       },
     });
 
-    if (created > 0 || failed > 0) {
+    // Every manual sync is on the record; a scheduled one when it actually filed or failed something.
+    if (trigger === 'manual' || totals.created > 0 || totals.failed > 0 || totals.attachmentsRecovered > 0) {
       await this.audit.record({
         action: 'inbox.synced',
         entityType: 'EmailSyncCursor',
         entityId: cursorRow.id,
         companyId,
         actorUserId: options.actorUserId ?? null,
-        changes: { provider: this.provider.name, mailbox, fetched: page.messages.length, created, duplicates, failed },
+        changes: {
+          provider: provider.name,
+          trigger,
+          pages: totals.pages,
+          fetched: totals.fetched,
+          created: totals.created,
+          duplicates: totals.duplicates,
+          failed: totals.failed,
+          attachmentsRecovered: totals.attachmentsRecovered,
+        },
       });
     }
 
     this.logger.log(
-      `Mailbox sync finished for company ${companyId}: ${page.messages.length} fetched, ${created} new, ${duplicates} already filed, ${failed} failed.`,
+      `Mailbox sync finished for company ${companyId}: ${totals.fetched} fetched over ${totals.pages} page(s), ` +
+        `${totals.created} new, ${totals.duplicates} already filed, ${totals.failed} failed.`,
     );
-    return { ok: true, fetched: page.messages.length, created, duplicates, failed };
+    return { ok: true, retryable: false, ...totals };
+  }
+
+  private async recordFailure(
+    companyId: string,
+    cursorRow: { id: string; consecutiveFailures: number; messagesSynced: number },
+    cursor: string | null,
+    provider: EmailProvider,
+    totals: Omit<SyncOutcome, 'ok' | 'reason' | 'retryable' | 'skipped'>,
+    reason: string,
+    retryable: boolean,
+    actorUserId: string | null,
+    trigger: 'manual' | 'scheduled',
+  ): Promise<SyncOutcome> {
+    const failures = cursorRow.consecutiveFailures + 1;
+    await this.prisma.emailSyncCursor.update({
+      where: { id: cursorRow.id },
+      data: {
+        // Pages fully filed before the failure are kept; the rest is read again next time.
+        cursor,
+        lastSyncFinishedAt: new Date(),
+        lastError: reason,
+        consecutiveFailures: failures,
+        // A non-retryable failure (credentials refused) waits for a person, not a timer.
+        nextAttemptAt: retryable ? new Date(Date.now() + syncBackoffMs(failures)) : null,
+        messagesSynced: cursorRow.messagesSynced + totals.created,
+      },
+    });
+    await this.audit.record({
+      action: 'inbox.sync_failed',
+      entityType: 'EmailSyncCursor',
+      entityId: cursorRow.id,
+      companyId,
+      actorUserId,
+      changes: { provider: provider.name, trigger, reason, retryable, consecutiveFailures: failures, created: totals.created },
+    });
+    this.logger.warn(`Mailbox sync failed for company ${companyId}: ${reason}`);
+    return { ok: false, reason, retryable, ...totals };
   }
 
   /**
@@ -146,8 +230,7 @@ export class InboxSyncService {
    * filed". That is deliberate: a check-then-insert would still race two concurrent syncs, and
    * the constraint cannot.
    */
-  private async ingest(companyId: string, message: InboundEmail): Promise<'created' | 'duplicate'> {
-    const provider = this.provider!.name;
+  private async ingest(companyId: string, provider: EmailProvider, message: InboundEmail): Promise<'created' | 'duplicate'> {
     const maxBodyChars = this.config.email.maxBodyChars;
     const bodyText = message.bodyText ?? null;
 
@@ -156,8 +239,8 @@ export class InboxSyncService {
       created = await this.prisma.inboxMessage.create({
         data: {
           companyId,
-          provider,
-          mailbox: this.config.email.imap.mailbox,
+          provider: provider.name,
+          mailbox: provider.mailbox,
           providerMessageId: message.providerMessageId,
           providerThreadId: message.providerThreadId ?? null,
           rfcMessageId: message.rfcMessageId ?? null,
@@ -187,7 +270,7 @@ export class InboxSyncService {
       throw error;
     }
 
-    await this.storeAttachments(companyId, created.id, message);
+    await this.storeAttachments(companyId, provider, created.id, message);
     return 'created';
   }
 
@@ -198,7 +281,7 @@ export class InboxSyncService {
    * arrived and was not kept — silently dropping it would leave them wondering where the invoice
    * went (§20).
    */
-  private async storeAttachments(companyId: string, messageId: string, message: InboundEmail): Promise<void> {
+  private async storeAttachments(companyId: string, provider: EmailProvider, messageId: string, message: InboundEmail): Promise<void> {
     const maxBytes = this.config.email.maxAttachmentBytes;
 
     for (const [index, attachment] of message.attachments.entries()) {
@@ -207,27 +290,76 @@ export class InboxSyncService {
       const decision = decideAttachment({ filename, mimeType, sizeBytes: attachment.sizeBytes }, maxBytes);
 
       if (!decision.keep) {
-        await this.recordAttachment(companyId, messageId, attachment, filename, mimeType, null, decision.reason);
+        await this.recordAttachment(companyId, messageId, attachment, filename, mimeType, null, decision.reason, 0);
         continue;
       }
 
       try {
-        const bytes = attachment.content ?? (await this.provider!.fetchAttachment(message.providerMessageId, attachment.providerAttachmentId));
-        // Stored through the same abstraction as every other file in the system: bytes go to
-        // object storage, the database keeps the reference (§17).
-        const stored = await this.files.store({
-          companyId,
-          category: 'inbox',
-          filename,
-          mimeType,
-          bytes,
-        });
-        await this.recordAttachment(companyId, messageId, attachment, filename, mimeType, stored.id, null);
+        const stored = await this.download(companyId, provider, message.providerMessageId, attachment, filename, mimeType);
+        await this.recordAttachment(companyId, messageId, attachment, filename, mimeType, stored.id, null, 1);
       } catch (error) {
         this.logger.warn(`An attachment could not be stored: ${error instanceof Error ? error.name : 'unknown error'}`);
-        await this.recordAttachment(companyId, messageId, attachment, filename, mimeType, null, 'download_failed');
+        await this.recordAttachment(companyId, messageId, attachment, filename, mimeType, null, 'download_failed', 1);
       }
     }
+  }
+
+  /**
+   * Fetches the bytes (unless the provider already handed them over) and stores them through the
+   * same abstraction as every other file in the system: object storage holds the bytes, the
+   * database the reference (§17).
+   */
+  private async download(
+    companyId: string,
+    provider: EmailProvider,
+    providerMessageId: string,
+    attachment: Pick<InboundAttachmentDescriptor, 'providerAttachmentId' | 'content' | 'fetchHandle'>,
+    filename: string,
+    mimeType: string,
+  ) {
+    const bytes = attachment.content ?? (await provider.fetchAttachment(providerMessageId, attachment.providerAttachmentId, attachment.fetchHandle));
+    if (bytes.byteLength === 0) throw new EmailProviderError('The attachment was empty.', 'PROTOCOL_ERROR', false);
+    if (bytes.byteLength > this.config.email.maxAttachmentBytes) {
+      throw new EmailProviderError('The attachment was larger than it was declared to be.', 'PROTOCOL_ERROR', false);
+    }
+    return this.files.store({ companyId, category: 'inbox', filename, mimeType, bytes });
+  }
+
+  /**
+   * Tries again for attachments whose download failed on an earlier run — a timeout or a provider
+   * hiccup should not lose an invoice. Bounded per run and per attachment, and never in the same
+   * run that failed, so a struggling provider is not asked twice in a row.
+   */
+  private async retryAttachmentDownloads(companyId: string, provider: EmailProvider, runStartedAt: Date): Promise<number> {
+    const pending = await this.prisma.inboxAttachment.findMany({
+      where: {
+        companyId,
+        fileId: null,
+        skipReason: 'download_failed',
+        downloadAttempts: { lt: MAX_ATTACHMENT_ATTEMPTS },
+        // Failures from earlier runs only: one that failed a moment ago is not retried straight away.
+        createdAt: { lt: runStartedAt },
+        message: { provider: provider.name, mailbox: provider.mailbox },
+      },
+      select: { id: true, providerAttachmentId: true, filename: true, mimeType: true, message: { select: { providerMessageId: true } } },
+      orderBy: { createdAt: 'asc' },
+      take: 20,
+    });
+
+    let recovered = 0;
+    for (const attachment of pending) {
+      try {
+        const stored = await this.download(companyId, provider, attachment.message.providerMessageId, attachment, attachment.filename, attachment.mimeType);
+        await this.prisma.inboxAttachment.update({
+          where: { id: attachment.id },
+          data: { fileId: stored.id, skipReason: null, downloadAttempts: { increment: 1 } },
+        });
+        recovered += 1;
+      } catch {
+        await this.prisma.inboxAttachment.update({ where: { id: attachment.id }, data: { downloadAttempts: { increment: 1 } } });
+      }
+    }
+    return recovered;
   }
 
   private async recordAttachment(
@@ -238,6 +370,7 @@ export class InboxSyncService {
     mimeType: string,
     fileId: string | null,
     skipReason: string | null,
+    downloadAttempts: number,
   ): Promise<void> {
     await this.prisma.inboxAttachment
       .create({
@@ -247,9 +380,10 @@ export class InboxSyncService {
           providerAttachmentId: attachment.providerAttachmentId,
           filename,
           mimeType,
-          sizeBytes: Math.max(0, attachment.sizeBytes),
+          sizeBytes: Math.max(0, Math.round(attachment.sizeBytes)),
           fileId,
           skipReason,
+          downloadAttempts,
         },
       })
       // A re-synced message finding its attachment already recorded is not an error.
@@ -259,30 +393,35 @@ export class InboxSyncService {
       });
   }
 
-  /** Where synchronisation stands, for the Inbox header. */
+  /** Where synchronisation stands, for the Inbox header: the connection and the last run. */
   async status(companyId: string) {
-    const provider = this.provider?.name ?? null;
-    const cursor = provider
-      ? await this.prisma.emailSyncCursor.findFirst({
-          where: { companyId, provider },
+    const connection = await this.connections.status(companyId);
+    const resolved = await this.connections.resolve(companyId);
+    const cursor = resolved.provider
+      ? await this.prisma.emailSyncCursor.findUnique({
+          where: { companyId_provider_mailbox: { companyId, provider: resolved.provider.name, mailbox: resolved.provider.mailbox } },
           select: {
-            provider: true, mailbox: true, lastSyncStartedAt: true, lastSyncFinishedAt: true,
-            lastError: true, consecutiveFailures: true, messagesSynced: true,
+            lastSyncStartedAt: true, lastSyncFinishedAt: true, lastError: true, consecutiveFailures: true,
+            messagesSynced: true, nextAttemptAt: true,
           },
         })
       : null;
 
     return {
-      configured: this.isConfigured(),
-      provider,
+      /** True only when a mailbox can actually be read right now. */
+      configured: Boolean(resolved.provider),
+      provider: resolved.provider?.name ?? connection.provider,
       /** So the screen can say "no mailbox is connected" rather than "no mail". */
-      mailbox: this.isConfigured() ? this.config.email.imap.mailbox : null,
+      mailbox: resolved.provider?.mailbox ?? null,
+      unavailableReason: resolved.provider ? null : resolved.reason,
+      connection,
       syncEnabled: this.config.email.syncEnabled,
       aiEnabled: this.config.email.aiEnabled,
       lastSyncStartedAt: cursor?.lastSyncStartedAt?.toISOString() ?? null,
       lastSyncFinishedAt: cursor?.lastSyncFinishedAt?.toISOString() ?? null,
       lastError: cursor?.lastError ?? null,
       consecutiveFailures: cursor?.consecutiveFailures ?? 0,
+      nextAttemptAt: cursor?.nextAttemptAt?.toISOString() ?? null,
       messagesSynced: cursor?.messagesSynced ?? 0,
     };
   }
@@ -290,9 +429,17 @@ export class InboxSyncService {
 
 export interface SyncOutcome {
   ok: boolean;
+  /** True when the scheduler left this mailbox alone because it is backing off. */
+  skipped?: boolean;
   reason?: string;
+  /** Whether trying again later could succeed (false: needs a person, e.g. re-authorisation). */
+  retryable: boolean;
   fetched: number;
   created: number;
   duplicates: number;
   failed: number;
+  pages: number;
+  hasMore: boolean;
+  attachmentsRecovered: number;
+  notices: string[];
 }

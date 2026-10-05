@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Check, FileWarning, ImageIcon, RefreshCw, RotateCcw, Sparkles, Undo2, X } from 'lucide-react';
+import type { TFunction } from 'i18next';
+import { AlertTriangle, Check, FileWarning, ImageIcon, Plus, RefreshCw, RotateCcw, Sparkles, Trash2, Undo2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Plate } from '@/components/Plate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input, Label, Textarea } from '@/components/ui/input';
+import { Input, Label, NativeSelect, Textarea } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { serviceReceiptsApi } from '@/features/api/resources';
 import { canManageFinance, canManageFleet, useSession } from '@/features/api/session';
-import type { ApiReceiptAIStatus, ApiSuggestedValue } from '@/features/api/types';
+import type {
+  ApiLineItemKind, ApiReceiptAIStatus, ApiReceiptReview, ApiReceiptSuggestions, ApiSuggestedValue, ApiVerifiedLineItem,
+} from '@/features/api/types';
 import { useApiResource } from '@/features/api/useApiResource';
 import { ApiError } from '@/lib/api/client';
 import { fmtDate, fmtDateTime, inr } from '@/lib/format';
@@ -22,36 +25,79 @@ import { ReceiptViewer } from './ReceiptViewer';
  *
  * The screen is built around one idea: the extraction is a suggestion and the record is the
  * record. So the form starts from what is on the record, an extracted value has to be taken
- * across by a deliberate click, and the button that saves is labelled for what it does — confirm
+ * across by a deliberate click, and the button that saves is labelled for what it does — verify
  * the record — not "accept the AI". A field the receipt did not give stays blank; nothing is
- * filled in with a zero or with today's date to make the form look complete.
+ * filled in with a zero or with today's date to make the form look complete. Which values matched
+ * the reading and which were corrected is worked out by the server, not claimed by this screen.
  *
  * Whichever way the office decides, the original stays: it is one click away throughout, and it
  * is the thing they are actually checking against.
  */
 
-const STATUS_TONE: Record<ApiReceiptAIStatus, 'neutral' | 'info' | 'success' | 'warning' | 'danger'> = {
+export const RECEIPT_STATUS_TONE: Record<ApiReceiptAIStatus, 'neutral' | 'info' | 'success' | 'warning' | 'danger'> = {
   NOT_PROCESSED: 'neutral',
-  PENDING: 'info',
+  QUEUED: 'info',
   PROCESSING: 'info',
   RETRYING: 'warning',
-  COMPLETED: 'info',
-  REVIEW_REQUIRED: 'warning',
+  SUCCEEDED: 'info',
+  NEEDS_REVIEW: 'warning',
   FAILED: 'danger',
-  CONFIRMED: 'success',
+  VERIFIED: 'success',
   REJECTED: 'neutral',
 };
 
-/** The fields an extraction may offer, in the order the office reads a bill. */
-const FIELDS = ['totalAmount', 'invoiceDate', 'vendorName'] as const;
-type FieldKey = (typeof FIELDS)[number];
+const LINE_KINDS: ApiLineItemKind[] = ['PART', 'LABOUR', 'OTHER'];
 
 interface FormState {
   amount: string;
   expenseDate: string;
   vendorName: string;
   description: string;
+  invoiceNumber: string;
+  serviceType: string;
+  odometerKm: string;
+  nextServiceDate: string;
+  nextServiceKm: string;
+  labourAmount: string;
+  partsAmount: string;
+  taxAmount: string;
+  lineItems: ApiVerifiedLineItem[];
 }
+
+/** Which suggestion fills which form field. */
+const FIELD_FOR: Record<keyof ApiReceiptSuggestions, keyof Omit<FormState, 'description' | 'lineItems'>> = {
+  totalAmount: 'amount',
+  invoiceDate: 'expenseDate',
+  vendorName: 'vendorName',
+  invoiceNumber: 'invoiceNumber',
+  serviceType: 'serviceType',
+  odometerKm: 'odometerKm',
+  nextServiceDate: 'nextServiceDate',
+  nextServiceKm: 'nextServiceKm',
+  labourAmount: 'labourAmount',
+  partsAmount: 'partsAmount',
+  taxAmount: 'taxAmount',
+};
+const MONEY_FIELDS = new Set<keyof ApiReceiptSuggestions>(['totalAmount', 'labourAmount', 'partsAmount', 'taxAmount']);
+
+const fromRecord = (data: ApiReceiptReview): FormState => ({
+  amount: data.record.amount,
+  expenseDate: data.record.expenseDate ?? '',
+  vendorName: data.record.vendorName ?? '',
+  description: data.record.description ?? '',
+  invoiceNumber: data.record.service.invoiceNumber ?? '',
+  serviceType: data.record.service.serviceType ?? '',
+  odometerKm: data.record.service.odometerKm?.toString() ?? '',
+  nextServiceDate: data.record.service.nextServiceDate ?? '',
+  nextServiceKm: data.record.service.nextServiceKm?.toString() ?? '',
+  labourAmount: data.record.service.labourAmount ?? '',
+  partsAmount: data.record.service.partsAmount ?? '',
+  taxAmount: data.record.service.taxAmount ?? '',
+  lineItems: data.record.service.lineItems,
+});
+
+const orNull = (value: string) => (value.trim() ? value.trim() : null);
+const intOrNull = (value: string) => (value.trim() ? Number(value.trim().replace(/[,\s]/g, '')) : null);
 
 export function ReceiptReviewDrawer({
   expenseId,
@@ -72,8 +118,8 @@ export function ReceiptReviewDrawer({
   const data = review.data;
 
   const [form, setForm] = useState<FormState | null>(null);
-  /** Which values the office took from the extraction rather than typing. Recorded on confirm. */
-  const [accepted, setAccepted] = useState<FieldKey[]>([]);
+  /** Values taken across from the reading, shown as "taken" until the office types over them. */
+  const [taken, setTaken] = useState<(keyof ApiReceiptSuggestions)[]>([]);
   const [busy, setBusy] = useState<'verify' | 'reject' | 'retry' | 'reopen' | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -84,13 +130,8 @@ export function ReceiptReviewDrawer({
   // is something the office does on purpose, one field at a time.
   useEffect(() => {
     if (!data) return;
-    setForm({
-      amount: data.record.amount,
-      expenseDate: data.record.expenseDate ?? '',
-      vendorName: data.record.vendorName ?? '',
-      description: data.record.description ?? '',
-    });
-    setAccepted([]);
+    setForm(fromRecord(data));
+    setTaken([]);
     setMode('review');
     setRejectReason('');
     setReopenReason('');
@@ -99,29 +140,41 @@ export function ReceiptReviewDrawer({
   const latest = data?.results[0] ?? null;
   const issues = latest?.validationIssues ?? [];
   const warnings = latest?.warnings ?? [];
+  const editable = mayDecide && Boolean(data?.ai.canVerify);
 
-  const suggestionFor = (field: FieldKey): ApiSuggestedValue<string | number> | null => {
-    if (!data?.suggestions) return null;
-    return data.suggestions[field] ?? null;
-  };
+  const suggestionFor = (key: keyof ApiReceiptSuggestions): ApiSuggestedValue<string | number> | null =>
+    data?.suggestions ? (data.suggestions[key] ?? null) : null;
 
-  const take = (field: FieldKey) => {
-    const suggestion = suggestionFor(field);
+  const take = (key: keyof ApiReceiptSuggestions) => {
+    const suggestion = suggestionFor(key);
     if (!suggestion || suggestion.state === 'missing' || suggestion.value === null) return;
-    setForm((current) => {
-      if (!current) return current;
-      if (field === 'totalAmount') return { ...current, amount: Number(suggestion.value).toFixed(2) };
-      if (field === 'invoiceDate') return { ...current, expenseDate: String(suggestion.value) };
-      return { ...current, vendorName: String(suggestion.value) };
-    });
-    setAccepted((all) => (all.includes(field) ? all : [...all, field]));
+    const value = MONEY_FIELDS.has(key) ? Number(suggestion.value).toFixed(2) : String(suggestion.value);
+    setForm((current) => (current ? { ...current, [FIELD_FOR[key]]: value } : current));
+    setTaken((all) => (all.includes(key) ? all : [...all, key]));
   };
 
-  /** Typing over a value the office took from the extraction means it is theirs again. */
-  const edit = (patch: Partial<FormState>, field?: FieldKey) => {
+  /** Typing over a value taken from the extraction means it is the office's own again. */
+  const edit = (patch: Partial<FormState>, key?: keyof ApiReceiptSuggestions) => {
     setForm((current) => (current ? { ...current, ...patch } : current));
-    if (field) setAccepted((all) => all.filter((entry) => entry !== field));
+    if (key) setTaken((all) => all.filter((entry) => entry !== key));
   };
+
+  const takeLines = () => {
+    if (!data?.extraction) return;
+    edit({
+      lineItems: data.extraction.lineItems.map((line) => ({
+        description: line.description ?? '',
+        kind: line.kind,
+        // The API takes at most three decimals; a reading of 0.3333… is not worth a refused save.
+        quantity: line.quantity === null ? null : String(Number(line.quantity.toFixed(3))),
+        unitPrice: line.unitPrice === null ? null : line.unitPrice.toFixed(2),
+        amount: line.amount === null ? null : line.amount.toFixed(2),
+      })),
+    });
+  };
+
+  const editLine = (index: number, patch: Partial<ApiVerifiedLineItem>) =>
+    setForm((current) => (current ? { ...current, lineItems: current.lineItems.map((line, i) => (i === index ? { ...line, ...patch } : line)) } : current));
 
   const after = (message: string) => {
     toast.success(message);
@@ -131,19 +184,39 @@ export function ReceiptReviewDrawer({
 
   const fail = (error: unknown) => toast.error(error instanceof ApiError ? error.message : t('common.somethingWrong'));
 
-  const confirm = async () => {
+  const verify = async () => {
     if (!data || !form) return;
     setBusy('verify');
     try {
-      await serviceReceiptsApi.verify(data.record.id, {
+      const outcome = await serviceReceiptsApi.verify(data.record.id, {
         amount: form.amount,
         expenseDate: form.expenseDate || undefined,
         vendorName: form.vendorName,
         description: form.description,
-        acceptedFields: accepted,
+        invoiceNumber: orNull(form.invoiceNumber),
+        serviceType: orNull(form.serviceType),
+        odometerKm: intOrNull(form.odometerKm),
+        nextServiceDate: orNull(form.nextServiceDate),
+        nextServiceKm: intOrNull(form.nextServiceKm),
+        labourAmount: orNull(form.labourAmount),
+        partsAmount: orNull(form.partsAmount),
+        taxAmount: orNull(form.taxAmount),
+        lineItems: form.lineItems
+          .filter((line) => line.description.trim())
+          .map((line) => ({
+            description: line.description.trim(),
+            kind: line.kind,
+            quantity: line.quantity?.trim() || null,
+            unitPrice: line.unitPrice?.trim() || null,
+            amount: line.amount?.trim() || null,
+          })),
         resultId: latest?.id,
       });
-      after(t('admin.receiptAi.confirmed'));
+      after(
+        outcome.correctedFields.length
+          ? `${t('admin.receiptAi.confirmed')} ${t('admin.receiptAi.correctedNote', { count: outcome.correctedFields.length })}`
+          : t('admin.receiptAi.confirmed'),
+      );
     } catch (error) {
       fail(error);
     } finally {
@@ -190,6 +263,17 @@ export function ReceiptReviewDrawer({
     }
   };
 
+  /** One record field with what the receipt said beside it. */
+  const field = (key: keyof ApiReceiptSuggestions, label: string, input: React.ReactNode, format: (value: string | number) => string) => (
+    <Field label={label} suggestion={suggestionFor(key)} taken={taken.includes(key)} onTake={() => take(key)} disabled={!editable} format={format}>
+      {input}
+    </Field>
+  );
+  const money = (value: string | number) => inr(Number(value));
+  const plain = (value: string | number) => String(value);
+  const km = (value: string | number) => `${Number(value).toLocaleString('en-IN')} km`;
+  const date = (value: string | number) => fmtDate(String(value), i18n.language);
+
   return (
     <Sheet open={Boolean(expenseId)} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="w-full max-w-xl p-0 sm:max-w-xl">
@@ -203,7 +287,7 @@ export function ReceiptReviewDrawer({
                   {data.record.expenseDate ? fmtDate(data.record.expenseDate, i18n.language) : '—'}
                   {data.record.driver ? ` · ${data.record.driver.fullName}` : ''}
                 </span>
-                <Badge tone={STATUS_TONE[data.ai.status]}>{t(`admin.receiptAi.status.${data.ai.status}`)}</Badge>
+                <Badge tone={RECEIPT_STATUS_TONE[data.ai.status]}>{t(`admin.receiptAi.status.${data.ai.status}`)}</Badge>
               </div>
             )}
           </div>
@@ -243,7 +327,7 @@ export function ReceiptReviewDrawer({
                 )}
               </section>
 
-              {/* What was read, and how much of it can be relied on. */}
+              {/* What was read, how, and how much of it can be relied on. */}
               <section>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('admin.receiptAi.reading')}</p>
@@ -260,7 +344,7 @@ export function ReceiptReviewDrawer({
 
                 {!latest ? (
                   <p className="mt-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-                    {data.ai.status === 'PENDING' || data.ai.status === 'PROCESSING' || data.ai.status === 'RETRYING'
+                    {data.ai.status === 'QUEUED' || data.ai.status === 'PROCESSING' || data.ai.status === 'RETRYING'
                       ? t('admin.receiptAi.stillReading')
                       : t('admin.receiptAi.noReading')}
                   </p>
@@ -271,6 +355,11 @@ export function ReceiptReviewDrawer({
                       {/* Said once, plainly, on the screen where it matters. */}
                       {t('admin.receiptAi.suggestionOnly')}
                     </p>
+                    {latest.preparation && (
+                      <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">
+                        {t('admin.receiptAi.readFrom', { how: preparationLabel(latest.preparation, t) })}
+                      </p>
+                    )}
 
                     {issues.length > 0 && (
                       <ul className="mt-2 space-y-1.5 rounded-lg border border-warning/40 bg-warning-soft/60 p-2.5">
@@ -312,95 +401,126 @@ export function ReceiptReviewDrawer({
               <section>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('admin.receiptAi.theRecord')}</p>
                 <div className="mt-2 space-y-3">
-                  <Field
-                    label={t('admin.common.amount')}
-                    suggestion={suggestionFor('totalAmount')}
-                    taken={accepted.includes('totalAmount')}
-                    onTake={() => take('totalAmount')}
-                    disabled={!mayDecide || !data.ai.canVerify}
-                    format={(value) => inr(Number(value))}
-                  >
-                    <Input
-                      value={form.amount}
-                      inputMode="decimal"
-                      onChange={(event) => edit({ amount: event.target.value }, 'totalAmount')}
-                      disabled={!mayDecide || !data.ai.canVerify}
-                    />
-                  </Field>
-
-                  <Field
-                    label={t('admin.receiptAi.serviceDate')}
-                    suggestion={suggestionFor('invoiceDate')}
-                    taken={accepted.includes('invoiceDate')}
-                    onTake={() => take('invoiceDate')}
-                    disabled={!mayDecide || !data.ai.canVerify}
-                    format={(value) => fmtDate(String(value), i18n.language)}
-                  >
-                    <Input
-                      type="date"
-                      value={form.expenseDate}
-                      onChange={(event) => edit({ expenseDate: event.target.value }, 'invoiceDate')}
-                      disabled={!mayDecide || !data.ai.canVerify}
-                    />
-                  </Field>
-
-                  <Field
-                    label={t('admin.opsApi.vendor')}
-                    suggestion={suggestionFor('vendorName')}
-                    taken={accepted.includes('vendorName')}
-                    onTake={() => take('vendorName')}
-                    disabled={!mayDecide || !data.ai.canVerify}
-                    format={(value) => String(value)}
-                  >
-                    <Input
-                      value={form.vendorName}
-                      onChange={(event) => edit({ vendorName: event.target.value }, 'vendorName')}
-                      disabled={!mayDecide || !data.ai.canVerify}
-                    />
-                  </Field>
-
+                  {field(
+                    'totalAmount',
+                    t('admin.common.amount'),
+                    <Input value={form.amount} inputMode="decimal" onChange={(e) => edit({ amount: e.target.value }, 'totalAmount')} disabled={!editable} />,
+                    money,
+                  )}
+                  {field(
+                    'invoiceDate',
+                    t('admin.receiptAi.serviceDate'),
+                    <Input type="date" value={form.expenseDate} onChange={(e) => edit({ expenseDate: e.target.value }, 'invoiceDate')} disabled={!editable} />,
+                    date,
+                  )}
+                  {field(
+                    'vendorName',
+                    t('admin.receiptAi.workshop'),
+                    <Input value={form.vendorName} onChange={(e) => edit({ vendorName: e.target.value }, 'vendorName')} disabled={!editable} />,
+                    plain,
+                  )}
                   <div>
                     <Label htmlFor="receipt-note">{t('common.note')}</Label>
-                    <Textarea
-                      id="receipt-note"
-                      rows={2}
-                      value={form.description}
-                      onChange={(event) => edit({ description: event.target.value })}
-                      disabled={!mayDecide || !data.ai.canVerify}
-                    />
+                    <Textarea id="receipt-note" rows={2} value={form.description} onChange={(e) => edit({ description: e.target.value })} disabled={!editable} />
                   </div>
                 </div>
               </section>
 
-              {/* Parts and labour, read-only: interesting to check against, never written anywhere. */}
-              {data.extraction && (data.extraction.parts.length > 0 || data.extraction.labourAmount !== null) && (
-                <section>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('admin.receiptAi.breakdown')}</p>
-                  <ul className="mt-2 divide-y rounded-lg border text-sm">
-                    {data.extraction.parts.map((part, index) => (
-                      <li key={`${part.name}-${index}`} className="flex items-center justify-between gap-3 px-3 py-2">
-                        <span className="min-w-0 truncate">
-                          {part.name}
-                          {part.quantity ? <span className="text-muted-foreground"> × {part.quantity}</span> : null}
-                        </span>
-                        <span className="figure shrink-0 text-muted-foreground">{part.amount === null ? '—' : inr(part.amount)}</span>
+              {/* Structured service details: what maintenance intelligence reads once verified. */}
+              <section>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('admin.receiptAi.serviceDetails')}</p>
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  {field('invoiceNumber', t('admin.receiptAi.invoiceNumber'),
+                    <Input value={form.invoiceNumber} onChange={(e) => edit({ invoiceNumber: e.target.value }, 'invoiceNumber')} disabled={!editable} />, plain)}
+                  {field('serviceType', t('admin.receiptAi.serviceType'),
+                    <Input value={form.serviceType} onChange={(e) => edit({ serviceType: e.target.value }, 'serviceType')} disabled={!editable} />, plain)}
+                  {field('odometerKm', t('admin.receiptAi.odometer'),
+                    <Input value={form.odometerKm} inputMode="numeric" onChange={(e) => edit({ odometerKm: e.target.value }, 'odometerKm')} disabled={!editable} />, km)}
+                  {field('nextServiceKm', t('admin.receiptAi.nextServiceKm'),
+                    <Input value={form.nextServiceKm} inputMode="numeric" onChange={(e) => edit({ nextServiceKm: e.target.value }, 'nextServiceKm')} disabled={!editable} />, km)}
+                  {field('nextServiceDate', t('admin.receiptAi.nextServiceDate'),
+                    <Input type="date" value={form.nextServiceDate} onChange={(e) => edit({ nextServiceDate: e.target.value }, 'nextServiceDate')} disabled={!editable} />, date)}
+                  {field('partsAmount', t('admin.receiptAi.partsAmount'),
+                    <Input value={form.partsAmount} inputMode="decimal" onChange={(e) => edit({ partsAmount: e.target.value }, 'partsAmount')} disabled={!editable} />, money)}
+                  {field('labourAmount', t('admin.receiptAi.labour'),
+                    <Input value={form.labourAmount} inputMode="decimal" onChange={(e) => edit({ labourAmount: e.target.value }, 'labourAmount')} disabled={!editable} />, money)}
+                  {field('taxAmount', t('admin.receiptAi.gst'),
+                    <Input value={form.taxAmount} inputMode="decimal" onChange={(e) => edit({ taxAmount: e.target.value }, 'taxAmount')} disabled={!editable} />, money)}
+                </div>
+              </section>
+
+              {/* Line items: taken across as a whole, then corrected line by line if needed. */}
+              <section>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('admin.receiptAi.lineItems')}</p>
+                  {editable && data.extraction && data.extraction.lineItems.length > 0 && (
+                    <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={takeLines}>
+                      {t('admin.receiptAi.useExtractedLines', { count: data.extraction.lineItems.length })}
+                    </button>
+                  )}
+                </div>
+                {form.lineItems.length === 0 ? (
+                  <p className="mt-2 rounded-lg border border-dashed p-3 text-xs text-muted-foreground">{t('admin.receiptAi.noLines')}</p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {form.lineItems.map((line, index) => (
+                      <li key={index} className="grid grid-cols-[1fr_96px_92px_auto] items-center gap-1.5">
+                        <Input
+                          value={line.description}
+                          aria-label={t('admin.receiptAi.lineDescription')}
+                          onChange={(e) => editLine(index, { description: e.target.value })}
+                          disabled={!editable}
+                        />
+                        <NativeSelect
+                          value={line.kind ?? ''}
+                          aria-label={t('admin.receiptAi.lineKind')}
+                          onChange={(e) => editLine(index, { kind: (e.target.value || null) as ApiLineItemKind | null })}
+                          disabled={!editable}
+                        >
+                          <option value="">—</option>
+                          {LINE_KINDS.map((kind) => (
+                            <option key={kind} value={kind}>
+                              {t(`admin.receiptAi.kind.${kind}`)}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                        <Input
+                          value={line.amount ?? ''}
+                          inputMode="decimal"
+                          aria-label={t('admin.common.amount')}
+                          onChange={(e) => editLine(index, { amount: e.target.value })}
+                          disabled={!editable}
+                        />
+                        {editable && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={t('admin.receiptAi.removeLine')}
+                            onClick={() => setForm((current) => (current ? { ...current, lineItems: current.lineItems.filter((_, i) => i !== index) } : current))}
+                          >
+                            <Trash2 />
+                          </Button>
+                        )}
                       </li>
                     ))}
-                    {data.extraction.labourAmount !== null && (
-                      <li className="flex items-center justify-between gap-3 px-3 py-2">
-                        <span>{t('admin.receiptAi.labour')}</span>
-                        <span className="figure text-muted-foreground">{inr(data.extraction.labourAmount)}</span>
-                      </li>
-                    )}
-                    {data.extraction.gstAmount !== null && (
-                      <li className="flex items-center justify-between gap-3 px-3 py-2">
-                        <span>{t('admin.receiptAi.gst')}</span>
-                        <span className="figure text-muted-foreground">{inr(data.extraction.gstAmount)}</span>
-                      </li>
-                    )}
                   </ul>
-                </section>
-              )}
+                )}
+                {editable && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1.5"
+                    onClick={() =>
+                      setForm((current) =>
+                        current ? { ...current, lineItems: [...current.lineItems, { description: '', kind: null, quantity: null, unitPrice: null, amount: null }] } : current,
+                      )
+                    }
+                  >
+                    <Plus className="size-3.5" />
+                    {t('admin.receiptAi.addLine')}
+                  </Button>
+                )}
+              </section>
 
               {/* Every reading kept, so a later run never quietly replaces an earlier one. */}
               {data.results.length > 1 && (
@@ -420,7 +540,7 @@ export function ReceiptReviewDrawer({
                 </section>
               )}
 
-              {data.ai.status === 'CONFIRMED' && (
+              {data.ai.status === 'VERIFIED' && (
                 <p className="rounded-lg bg-success-soft/60 p-3 text-xs text-foreground/80">
                   {t('admin.receiptAi.confirmedNote', { when: data.ai.verifiedAt ? fmtDateTime(data.ai.verifiedAt, i18n.language) : '—' })}
                   {data.ai.acceptedFields.length > 0
@@ -468,7 +588,7 @@ export function ReceiptReviewDrawer({
                     {t('admin.receiptAi.readAgain')}
                   </Button>
                 )}
-                {data.ai.status === 'CONFIRMED' || data.ai.status === 'REJECTED' ? (
+                {data.ai.status === 'VERIFIED' || data.ai.status === 'REJECTED' ? (
                   mayReopen && (
                     <Button variant="outline" onClick={() => setMode('reopen')}>
                       <Undo2 />
@@ -483,7 +603,7 @@ export function ReceiptReviewDrawer({
                         {t('admin.receiptAi.reject')}
                       </Button>
                     )}
-                    <Button disabled={busy !== null || !data.ai.canVerify} onClick={() => void confirm()}>
+                    <Button disabled={busy !== null || !data.ai.canVerify} onClick={() => void verify()}>
                       <Check />
                       {t('admin.receiptAi.confirmRecord')}
                     </Button>
@@ -502,6 +622,14 @@ export function ReceiptReviewDrawer({
       />
     </Sheet>
   );
+}
+
+/** "image+ocr" → "photo, with OCR"; "pdf:text" → "the PDF's own text". */
+function preparationLabel(preparation: string, t: TFunction): string {
+  const ocr = preparation.endsWith('+ocr');
+  const base = preparation.replace(/\+ocr$/, '').replace(/[:+]/g, '_');
+  const label = t(`admin.receiptAi.prep.${base}`);
+  return ocr ? `${label} ${t('admin.receiptAi.prep.withOcr')}` : label;
 }
 
 /**

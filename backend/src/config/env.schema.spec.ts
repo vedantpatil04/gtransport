@@ -13,6 +13,7 @@ describe('validateEnv', () => {
     expect(env.AI_PROVIDER).toBe('ollama');
     expect(env.OLLAMA_MODEL).toBe('gemma4');
     expect(env.FILE_STORAGE_PROVIDER).toBe('local');
+    expect(env.CLOUDINARY_FOLDER).toBe('gangamata');
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:5173']);
     expect(env.GPS_RAW_RETENTION_DAYS).toBe(7);
     expect(env.GPS_RAW_CLEANUP_ENABLED).toBe(true);
@@ -44,6 +45,27 @@ describe('validateEnv', () => {
     expect(validateEnv({ ...BASE }).DIFY_API_KEY).toBe('');
   });
 
+  it('validates Cloudinary credentials in production when Cloudinary is the active provider', () => {
+    expect(() =>
+      validateEnv({
+        ...BASE,
+        NODE_ENV: 'production',
+        FILE_STORAGE_PROVIDER: 'cloudinary',
+      }),
+    ).toThrow(/CLOUDINARY_CLOUD_NAME/);
+
+    const valid = validateEnv({
+      ...BASE,
+      NODE_ENV: 'production',
+      FILE_STORAGE_PROVIDER: 'cloudinary',
+      CLOUDINARY_CLOUD_NAME: 'gangamata-prod',
+      CLOUDINARY_API_KEY: '123456789012345',
+      CLOUDINARY_API_SECRET: 'abcdefghijklmnopqrstuvwxyz01',
+    });
+    expect(valid.FILE_STORAGE_PROVIDER).toBe('cloudinary');
+    expect(valid.CLOUDINARY_CLOUD_NAME).toBe('gangamata-prod');
+  });
+
   it('rejects placeholder secrets and wildcard CORS in production only', () => {
     expect(() => validateEnv({ ...BASE, NODE_ENV: 'production', JWT_SECRET: 'change-me' })).toThrow(EnvValidationError);
     expect(() => validateEnv({ ...BASE, NODE_ENV: 'production', CORS_ORIGINS: '*' })).toThrow(/Wildcard/);
@@ -68,5 +90,51 @@ describe('validateEnv', () => {
     } catch (error) {
       expect((error as EnvValidationError).issues).toHaveLength(2);
     }
+  });
+});
+
+describe('validateEnv — Phase 7 OCR and mailbox settings', () => {
+  const KEY = Buffer.alloc(32, 7).toString('base64');
+  const GMAIL = {
+    ...BASE,
+    EMAIL_PROVIDER: 'gmail',
+    GMAIL_CLIENT_ID: 'id.apps.googleusercontent.com',
+    GMAIL_CLIENT_SECRET: 'secret',
+    EMAIL_OAUTH_REDIRECT_URI: 'http://localhost:3000/api/v1/inbox/oauth/callback',
+    EMAIL_TOKEN_ENCRYPTION_KEY: KEY,
+  };
+
+  it('defaults OCR to auto and email AI to sensible thresholds', () => {
+    const env = validateEnv({ ...BASE });
+    expect(env.OCR_ENGINE).toBe('auto');
+    expect(env.OCR_LANGUAGES).toBe('eng');
+    expect(env.EMAIL_AI_MIN_CONFIDENCE).toBe(0.5);
+    expect(env.EMAIL_AI_MAX_ATTEMPTS).toBe(3);
+  });
+
+  it('accepts a complete Gmail configuration', () => {
+    expect(validateEnv(GMAIL).EMAIL_PROVIDER).toBe('gmail');
+  });
+
+  it('refuses an OAuth mailbox without its client, callback or encryption key', () => {
+    expect(() => validateEnv({ ...GMAIL, GMAIL_CLIENT_SECRET: '' })).toThrow(/GMAIL_CLIENT_SECRET/);
+    expect(() => validateEnv({ ...GMAIL, EMAIL_OAUTH_REDIRECT_URI: '' })).toThrow(/EMAIL_OAUTH_REDIRECT_URI/);
+    expect(() => validateEnv({ ...GMAIL, EMAIL_TOKEN_ENCRYPTION_KEY: '' })).toThrow(/EMAIL_TOKEN_ENCRYPTION_KEY/);
+    expect(() => validateEnv({ ...BASE, EMAIL_PROVIDER: 'microsoft_graph' })).toThrow(/MS_GRAPH_CLIENT_ID/);
+  });
+
+  it('refuses an encryption key that is not 32 bytes', () => {
+    expect(() => validateEnv({ ...GMAIL, EMAIL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(16).toString('base64') })).toThrow(/32 random bytes/);
+  });
+
+  it('requires HTTPS for the OAuth callback in production', () => {
+    const production = { ...GMAIL, NODE_ENV: 'production', JWT_SECRET: 'x9'.repeat(24), CORS_ORIGINS: 'https://admin.example.com' };
+    expect(() => validateEnv(production)).toThrow(/HTTPS in production/);
+    expect(validateEnv({ ...production, EMAIL_OAUTH_REDIRECT_URI: 'https://api.example.com/api/v1/inbox/oauth/callback' }).EMAIL_PROVIDER).toBe('gmail');
+  });
+
+  it('refuses a malformed OCR language list', () => {
+    expect(() => validateEnv({ ...BASE, OCR_LANGUAGES: 'eng; rm -rf' })).toThrow(/OCR_LANGUAGES/);
+    expect(validateEnv({ ...BASE, OCR_LANGUAGES: 'eng+hin' }).OCR_LANGUAGES).toBe('eng+hin');
   });
 });

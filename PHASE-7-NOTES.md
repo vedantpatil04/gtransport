@@ -1,84 +1,67 @@
 # Phase 7 — Service AI & Email Intelligence
 
-Every file in this archive sits at its final path, so the tree can be copied straight over the
-project root. It is exactly the file set of the commit `feat: add service ai and email intelligence`
-on branch `phase-7-service-ai-email` — 73 files, nothing else touched.
+Architecture: [`docs/ai-receipt-processing.md`](docs/ai-receipt-processing.md) (service receipts,
+OCR, verification, maintenance intelligence) and [`docs/email-inbox.md`](docs/email-inbox.md)
+(mailbox connection, sync, classification, suggestions).
 
-## After copying
+## After pulling
 
 ```bash
 cd backend
-npm install                 # imapflow, mailparser and html-to-text are new
-npm run db:deploy           # applies 20260929000000_phase7_service_ai_email
-npm run db:generate         # the Prisma client changes with the schema
+npm install
+npm run db:deploy      # applies 20261004000000_phase7_service_ai_email_intelligence
+npm run db:generate
 ```
 
-Then add the new settings to `backend/.env` — all of them have working defaults, so the API boots
-without any of them. See `backend/.env.example`, which documents each one.
+The migration renames the receipt states in place (PENDING→QUEUED, COMPLETED→SUCCEEDED,
+REVIEW_REQUIRED→NEEDS_REVIEW, CONFIRMED→VERIFIED), maps existing email categories onto the new
+ones, and adds nullable columns and new tables only. No existing row is rewritten otherwise.
 
-## The one deployment prerequisite
+Everything has working defaults, so the API boots without any new setting. Without the external
+pieces below, receipts fail with a stated reason (the office can still type the figures off the
+stored original and verify the record), and the Inbox says no mailbox is connected.
 
-PDF receipts need Poppler on the host: `pdftotext` and `pdftoppm`, from `poppler-utils` on
-Debian/Ubuntu, `poppler` on Alpine and macOS. A digital e-invoice is read from its own text layer,
-which is exact; a scan is rasterised first. Without Poppler a PDF receipt **fails with a stated
-reason that reaches the review screen** — it is never read approximately and never silently skipped.
-Photographs of bills, which is most of what drivers send, need nothing extra.
+## Host prerequisites
 
-## What still needs real credentials
+| Tool | Needed for | Without it |
+|---|---|---|
+| Poppler (`poppler-utils`) | PDF receipts (text layer + page images) | PDF receipts fail with a stated reason |
+| Tesseract (`tesseract-ocr`, plus e.g. `tesseract-ocr-hin`) | Local OCR of photos and scanned PDFs | `OCR_ENGINE=auto`: the vision model reads images without OCR; `OCR_ENGINE=tesseract`: receipts needing OCR fail visibly |
 
-Two external services are configured, not bundled. Both are implemented as production integrations —
-there is no fake provider anywhere in the runtime path, and no code path that invents an extraction
-or a message.
+## External services (credentials are configuration, never committed)
 
-**1. An AI provider.** `AI_PROVIDER=ollama` (default) expects a reachable Ollama server with a
-vision-capable model pulled:
+**AI provider** — `AI_PROVIDER=ollama` (default): a reachable Ollama server with a vision-capable
+model (`OLLAMA_BASE_URL`, `OLLAMA_MODEL`). Or `AI_PROVIDER=dify` with `DIFY_BASE_URL`,
+`DIFY_API_KEY`, `DIFY_APP_ID` and a published workflow (inputs listed in the AI doc). The same
+provider classifies email.
+
+**Company mailbox** — pick one:
+
+- **Gmail / Google Workspace**: `EMAIL_PROVIDER=gmail`. In Google Cloud: enable the Gmail API,
+  configure the OAuth consent screen, create an OAuth client of type *Web application* with the
+  redirect URI below, and set `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET`. Scope used:
+  `https://www.googleapis.com/auth/gmail.readonly`.
+- **Microsoft 365**: `EMAIL_PROVIDER=microsoft_graph`. In Microsoft Entra: register an app, add
+  the redirect URI below (platform *Web*), grant delegated `Mail.Read`, `offline_access` and
+  `User.Read`, create a client secret, and set `MS_GRAPH_CLIENT_ID`, `MS_GRAPH_CLIENT_SECRET`,
+  `MS_GRAPH_TENANT_ID` (the company tenant id).
+- **Other hosts**: `EMAIL_PROVIDER=imap` with `IMAP_HOST`, `IMAP_USER`, `IMAP_PASSWORD` (an app
+  password). Sync of an IMAP mailbox is automatic only on a single-company deployment.
+
+For Gmail and Microsoft 365 also set:
 
 ```bash
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=<a vision model you have pulled>
+EMAIL_OAUTH_REDIRECT_URI=https://<api-host>/api/v1/inbox/oauth/callback   # exactly as registered
+EMAIL_OAUTH_RETURN_URL=https://<admin-host>/admin/inbox
+EMAIL_TOKEN_ENCRYPTION_KEY=<node -e "console.log(require('crypto').randomBytes(32).toString('base64'))">
 ```
 
-`AI_PROVIDER=dify` uses `DIFY_BASE_URL`, `DIFY_API_KEY` and `DIFY_APP_ID` instead. Until one of them
-answers, a queued receipt fails with `PROVIDER_UNAVAILABLE`, says so on the review screen, and the
-office can still type the figures off the original and confirm the record. Nothing is fabricated to
-fill the gap.
+Then an administrator opens **Admin → Inbox → Connect**, signs in to the *company* mailbox (never
+a personal one) and grants read-only access. Use a dedicated mailbox account.
 
-**2. A company mailbox.** `EMAIL_PROVIDER=none` is the default and contacts nothing; the Inbox then
-states that no mailbox is connected, which is deliberately not the same as showing no mail. To
-connect one:
+## Background processing
 
-```bash
-EMAIL_PROVIDER=imap
-EMAIL_SYNC_ENABLED=true
-IMAP_HOST=…   IMAP_PORT=993   IMAP_USER=…   IMAP_PASSWORD=<app password>
-```
-
-Use a dedicated company mailbox and an app password, never a personal account and never the
-account's own password. `POST /api/v1/inbox/verify-connection` contacts it and reports what actually
-happened, so a wrong host or a rejected password is visible immediately rather than looking like an
-empty mailbox.
-
-The adapter was verified against a real IMAP server (Dovecot, three real MIME messages): multipart
-parsing, attachment bytes, HTML flattening, cursor resume, a UIDVALIDITY change, both failure paths,
-and an `invoice.pdf.exe` correctly refused despite declaring `application/pdf`.
-
-## Running the queue elsewhere
-
-By default this process drains the receipt queue itself. To run it on a schedule or another machine
-instead, set `AI_WORKER_ENABLED=false` and `EMAIL_SYNC_ENABLED=false`, and use:
-
-```bash
-npm run ai:worker      # drains the receipt queue once
-npm run inbox:sync     # fetches the mailbox once
-```
-
-Jobs are rows in PostgreSQL, so nothing is lost between runs, and two workers never read the same
-receipt. The office's queue panel says which arrangement is in force, so a queue nobody is draining
-is visible rather than mysterious.
-
-## The rule the whole phase is built around
-
-AI output is a suggestion. A service record becomes authoritative only when a person submits the
-figures and confirms it — and once they have, no rerun, retry or stale job can change it. Re-opening
-a settled record is an explicit act that requires a reason and is written to the audit trail. Every
-reading is kept as a version; none is ever replaced.
+By default the API process drains the receipt queue (`AI_WORKER_ENABLED=true`) and, when
+`EMAIL_SYNC_ENABLED=true`, syncs and classifies mail every `EMAIL_SYNC_INTERVAL_MINUTES`. To run
+these elsewhere, turn them off and schedule `npm run ai:worker` and `npm run inbox:sync`. State
+lives in PostgreSQL, so nothing is lost between runs and concurrent workers never duplicate work.

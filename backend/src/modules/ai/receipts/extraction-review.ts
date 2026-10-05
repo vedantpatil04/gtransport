@@ -1,4 +1,4 @@
-import type { ServiceReceiptExtraction } from '../schema';
+import type { ServiceReceiptExtraction, ServiceReceiptLineItem } from '../schema';
 
 /**
  * Deciding whether a person has to look at an extraction.
@@ -24,6 +24,8 @@ export interface ExtractionContext {
   expenseDate?: Date | null;
   /** The amount already on the record, if someone typed one. */
   recordedAmount?: number | null;
+  /** The highest odometer reading on this vehicle's verified service history. */
+  lastVerifiedOdometerKm?: number | null;
   /** Now, injected so the rules are testable. */
   now?: Date;
 }
@@ -44,13 +46,14 @@ export function validateExtraction(extraction: ServiceReceiptExtraction, context
     issues.push('The total amount read from the receipt is not a positive figure.');
   }
 
+  let serviceDate: Date | null = null;
   if (extraction.invoiceDate === null) {
     issues.push('No invoice date could be read from the receipt.');
   } else {
-    const parsed = parseIsoDate(extraction.invoiceDate);
-    if (!parsed) {
+    serviceDate = parseIsoDate(extraction.invoiceDate);
+    if (!serviceDate) {
       issues.push(`The invoice date "${extraction.invoiceDate}" is not a date the system can read.`);
-    } else if (parsed.getTime() > now.getTime() + 86_400_000) {
+    } else if (serviceDate.getTime() > now.getTime() + 86_400_000) {
       issues.push('The invoice date read from the receipt is in the future.');
     }
   }
@@ -81,10 +84,39 @@ export function validateExtraction(extraction: ServiceReceiptExtraction, context
     }
   }
 
-  // The line items should not exceed the parts subtotal they belong to.
-  const lineTotal = extraction.parts.reduce((total, part) => total + (part.amount ?? 0), 0);
-  if (extraction.partsAmount !== null && lineTotal > 0 && lineTotal - extraction.partsAmount > TOTAL_TOLERANCE_RUPEES) {
-    issues.push(`The listed parts add up to more than the parts subtotal on the receipt.`);
+  // The itemised lines should not exceed the subtotal they belong to.
+  const partLines = sumLines(extraction.lineItems, 'PART');
+  if (extraction.partsAmount !== null && partLines > 0 && partLines - extraction.partsAmount > TOTAL_TOLERANCE_RUPEES) {
+    issues.push('The listed parts add up to more than the parts subtotal on the receipt.');
+  }
+  const labourLines = sumLines(extraction.lineItems, 'LABOUR');
+  if (extraction.labourAmount !== null && labourLines > 0 && labourLines - extraction.labourAmount > TOTAL_TOLERANCE_RUPEES) {
+    issues.push('The listed labour lines add up to more than the labour subtotal on the receipt.');
+  }
+
+  // Next service: printed values only, and they have to make sense against this service.
+  if (extraction.nextServiceDate !== null) {
+    const next = parseIsoDate(extraction.nextServiceDate);
+    if (!next) {
+      issues.push(`The next service date "${extraction.nextServiceDate}" is not a date the system can read.`);
+    } else if (serviceDate && next.getTime() <= serviceDate.getTime()) {
+      issues.push('The next service date read from the receipt is not after the service date.');
+    }
+  }
+  if (extraction.odometerKm !== null && extraction.nextServiceKm !== null && extraction.nextServiceKm <= extraction.odometerKm) {
+    issues.push(
+      `The next service reading (${extraction.nextServiceKm} km) is not above the odometer reading (${extraction.odometerKm} km).`,
+    );
+  }
+  // An odometer that went backwards is a misread digit or the wrong vehicle's bill.
+  if (
+    extraction.odometerKm !== null &&
+    typeof context.lastVerifiedOdometerKm === 'number' &&
+    extraction.odometerKm < context.lastVerifiedOdometerKm
+  ) {
+    issues.push(
+      `The odometer reads ${extraction.odometerKm} km, lower than the ${context.lastVerifiedOdometerKm} km on this vehicle's last verified service.`,
+    );
   }
 
   // Disagreeing with a figure a person already typed is worth flagging in both directions.
@@ -99,26 +131,31 @@ export function validateExtraction(extraction: ServiceReceiptExtraction, context
   return issues;
 }
 
-export type ReviewOutcome = 'COMPLETED' | 'REVIEW_REQUIRED';
+function sumLines(lines: ServiceReceiptLineItem[], kind: ServiceReceiptLineItem['kind']): number {
+  return lines.filter((line) => line.kind === kind).reduce((total, line) => total + (line.amount ?? 0), 0);
+}
+
+export type ReviewOutcome = 'SUCCEEDED' | 'NEEDS_REVIEW';
 
 /**
  * Where an extraction lands once it has been validated.
  *
- * `COMPLETED` does not mean accepted — it means the suggestions are coherent enough to present
- * as pre-filled values for a quick confirmation. `REVIEW_REQUIRED` means the office should not be
- * offered a one-click confirmation, because something needs a human eye. Neither is authoritative;
- * only a person setting CONFIRMED is.
+ * `SUCCEEDED` does not mean accepted — it means the suggestions are coherent enough to present
+ * as pre-filled values for a quick verification. `NEEDS_REVIEW` means the office should not be
+ * offered a one-click verification, because something needs a human eye: low confidence, a
+ * validation issue, or the model's own warning. Neither is authoritative; only a person setting
+ * VERIFIED is.
  */
 export function decideReviewOutcome(
   extraction: ServiceReceiptExtraction,
   validationIssues: string[],
   lowConfidenceThreshold = LOW_CONFIDENCE_THRESHOLD,
 ): ReviewOutcome {
-  if (validationIssues.length > 0) return 'REVIEW_REQUIRED';
-  if (extraction.confidence < lowConfidenceThreshold) return 'REVIEW_REQUIRED';
+  if (validationIssues.length > 0) return 'NEEDS_REVIEW';
+  if (extraction.confidence < lowConfidenceThreshold) return 'NEEDS_REVIEW';
   // The model flagging its own uncertainty counts, even when it reports high confidence.
-  if (extraction.warnings.length > 0) return 'REVIEW_REQUIRED';
-  return 'COMPLETED';
+  if (extraction.warnings.length > 0) return 'NEEDS_REVIEW';
+  return 'SUCCEEDED';
 }
 
 /**
@@ -136,14 +173,22 @@ export interface SuggestedField<T> {
 
 const field = <T>(value: T | null): SuggestedField<T> => ({ value, state: value === null ? 'missing' : 'found' });
 
-/** The subset of an extraction that can be promoted onto the maintenance record. */
+/** Every value an extraction can offer for promotion onto the maintenance record. */
 export interface SuggestedRecordValues {
   totalAmount: SuggestedField<number>;
   invoiceDate: SuggestedField<string>;
   vendorName: SuggestedField<string>;
   invoiceNumber: SuggestedField<string>;
   serviceType: SuggestedField<string>;
+  odometerKm: SuggestedField<number>;
+  nextServiceDate: SuggestedField<string>;
+  nextServiceKm: SuggestedField<number>;
+  labourAmount: SuggestedField<number>;
+  partsAmount: SuggestedField<number>;
+  taxAmount: SuggestedField<number>;
 }
+
+export type SuggestedFieldKey = keyof SuggestedRecordValues;
 
 export function toSuggestedValues(extraction: ServiceReceiptExtraction): SuggestedRecordValues {
   return {
@@ -152,6 +197,12 @@ export function toSuggestedValues(extraction: ServiceReceiptExtraction): Suggest
     vendorName: field(extraction.vendorName),
     invoiceNumber: field(extraction.invoiceNumber),
     serviceType: field(extraction.serviceType),
+    odometerKm: field(extraction.odometerKm),
+    nextServiceDate: field(extraction.nextServiceDate),
+    nextServiceKm: field(extraction.nextServiceKm),
+    labourAmount: field(extraction.labourAmount),
+    partsAmount: field(extraction.partsAmount),
+    taxAmount: field(extraction.gstAmount),
   };
 }
 
@@ -167,4 +218,90 @@ export function parseIsoDate(value: string): Date | null {
 /** Indian registrations are written with varying spacing and case; compare them without it. */
 export function normaliseRegistration(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/** A verified line item as submitted by a person: money as strings, never through a float. */
+export interface SubmittedLineItem {
+  description: string;
+  kind?: ServiceReceiptLineItem['kind'] | null;
+  quantity?: string | null;
+  unitPrice?: string | null;
+  amount?: string | null;
+}
+
+/** The values a person submitted when verifying, keyed like the suggestions they may come from. */
+export type SubmittedValues = Partial<{
+  totalAmount: string;
+  invoiceDate: string;
+  vendorName: string | null;
+  invoiceNumber: string | null;
+  serviceType: string | null;
+  odometerKm: number | null;
+  nextServiceDate: string | null;
+  nextServiceKm: number | null;
+  labourAmount: string | null;
+  partsAmount: string | null;
+  taxAmount: string | null;
+  lineItems: SubmittedLineItem[] | null;
+}>;
+
+/**
+ * Which submitted values agree with the extraction (accepted) and which a person changed
+ * (corrected).
+ *
+ * Worked out on the server rather than taken from the client, so the audit trail's "the office
+ * corrected the total" is a fact about the two values, not a claim the screen made. A field the
+ * extraction did not find is neither: the person typed it, and there was nothing to accept or
+ * correct. Text is compared without case or spacing differences — re-casing a workshop name is
+ * not a correction of what was read.
+ */
+export function compareWithExtraction(
+  extraction: ServiceReceiptExtraction | null,
+  submitted: SubmittedValues,
+): { accepted: string[]; corrected: string[] } {
+  const accepted: string[] = [];
+  const corrected: string[] = [];
+  if (!extraction) return { accepted, corrected };
+
+  const suggestions = toSuggestedValues(extraction);
+  for (const key of Object.keys(suggestions) as SuggestedFieldKey[]) {
+    if (!(key in submitted)) continue;
+    const read = suggestions[key].value;
+    if (read === null) continue;
+    const given = submitted[key as keyof SubmittedValues];
+    (sameValue(read, given) ? accepted : corrected).push(key);
+  }
+
+  if ('lineItems' in submitted && extraction.lineItems.length > 0) {
+    const read = extraction.lineItems.map((line) => lineKey(line.description, line.kind, line.quantity, line.unitPrice, line.amount));
+    const given = (submitted.lineItems ?? []).map((line) =>
+      lineKey(line.description, line.kind ?? null, numberOrNull(line.quantity), numberOrNull(line.unitPrice), numberOrNull(line.amount)),
+    );
+    (JSON.stringify(read) === JSON.stringify(given) ? accepted : corrected).push('lineItems');
+  }
+
+  return { accepted, corrected };
+}
+
+function sameValue(read: string | number, given: unknown): boolean {
+  if (given === null || given === undefined || given === '') return false;
+  if (typeof read === 'number') {
+    const value = typeof given === 'number' ? given : Number(given);
+    return Number.isFinite(value) && Math.abs(value - read) < 0.005;
+  }
+  return normaliseText(String(given)) === normaliseText(read);
+}
+
+function lineKey(description: string | null, kind: string | null, quantity: number | null, unitPrice: number | null, amount: number | null) {
+  return [normaliseText(description ?? ''), kind ?? null, quantity, unitPrice === null ? null : unitPrice.toFixed(2), amount === null ? null : amount.toFixed(2)];
+}
+
+function numberOrNull(value: string | null | undefined): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normaliseText(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }

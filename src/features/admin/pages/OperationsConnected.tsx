@@ -9,31 +9,20 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { NativeSelect } from '@/components/ui/input';
 import { operationsApi, serviceReceiptsApi, vehiclesApi } from '@/features/api/resources';
 import { canManageFinance, canManageFleet, useSession } from '@/features/api/session';
-import type { ApiOperation, ApiReceiptAIStatus, OperationCategory } from '@/features/api/types';
+import type { ApiOperation, OperationCategory } from '@/features/api/types';
 import { useApiResource } from '@/features/api/useApiResource';
 import { ApiError } from '@/lib/api/client';
 import { fmtDate, inr } from '@/lib/format';
 import { FilterBar, PageHeader, Panel, StatCard, Table, TD, TH, TR } from '../components/ui';
 import { ErrorState, TableLoading } from '../components/states';
 import { ReceiptViewer } from '../components/ReceiptViewer';
-import { ReceiptReviewDrawer } from '../components/ReceiptReviewDrawer';
+import { RECEIPT_STATUS_TONE, ReceiptReviewDrawer } from '../components/ReceiptReviewDrawer';
+import { FleetMaintenancePanel } from '../components/MaintenanceIntelligence';
 import { ArchiveDialog } from '../components/ArchiveDialog';
 
 const CATEGORY_ICON = { RTO: Landmark, TYRE: Disc3, MAINTENANCE: Wrench } as const;
 const CATEGORIES: OperationCategory[] = ['RTO', 'TYRE', 'MAINTENANCE'];
 
-/** How a receipt's processing state reads at a glance. Confirmed is the only settled green. */
-const RECEIPT_TONE: Record<ApiReceiptAIStatus, 'neutral' | 'info' | 'success' | 'warning' | 'danger'> = {
-  NOT_PROCESSED: 'neutral',
-  PENDING: 'info',
-  PROCESSING: 'info',
-  RETRYING: 'warning',
-  COMPLETED: 'info',
-  REVIEW_REQUIRED: 'warning',
-  FAILED: 'danger',
-  CONFIRMED: 'success',
-  REJECTED: 'neutral',
-};
 const PAGE_SIZE = 50;
 
 function currentFy(): string {
@@ -303,7 +292,7 @@ export function OperationsConnected() {
               queue.data && (
                 <span className="text-xs text-muted-foreground">
                   {queue.data.workerEnabled
-                    ? t('admin.receiptAi.queueMeta', { pending: queue.data.pending + queue.data.retrying, model: queue.data.model })
+                    ? t('admin.receiptAi.queueMeta', { pending: queue.data.queued + queue.data.retrying, model: queue.data.model })
                     : t('admin.receiptAi.workerOff')}
                 </span>
               )
@@ -335,7 +324,7 @@ export function OperationsConnected() {
                           {row.expenseDate ? ` · ${fmtDate(row.expenseDate, i18n.language)}` : ''}
                         </span>
                       </span>
-                      <Badge tone={RECEIPT_TONE[row.aiStatus]} className="shrink-0">
+                      <Badge tone={RECEIPT_STATUS_TONE[row.aiStatus]} className="shrink-0">
                         {t(`admin.receiptAi.status.${row.aiStatus}`)}
                       </Badge>
                     </button>
@@ -348,6 +337,8 @@ export function OperationsConnected() {
               {t('admin.receiptAi.queueNote')}
             </p>
           </Panel>
+
+          <FleetMaintenancePanel />
 
           <Panel title={t('admin.opsApi.byVehicle')}>
             {byVehicle.loading ? (

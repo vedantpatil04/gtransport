@@ -84,7 +84,7 @@ describe('office modules by role', () => {
     expect(seesPayroll('DRIVER')).toBe(false);
   });
 
-  it('maps modules to correct /office or /admin paths', () => {
+  it('maps modules to correct /office paths', () => {
     expect(officePath('dashboard')).toBe('/office');
     expect(officePath('finance')).toBe('/office/finance');
     expect(officePath('vehicles')).toBe('/office/vehicles');
@@ -92,9 +92,9 @@ describe('office modules by role', () => {
     expect(officePath('employees')).toBe('/office/employees');
     expect(officePath('documents')).toBe('/office/documents');
     expect(officePath('profile')).toBe('/office/profile');
-    expect(officePath('fleet')).toBe('/admin/fleet');
-    expect(officePath('reports')).toBe('/admin/reports');
-    expect(officePath('inbox')).toBe('/admin/inbox');
-    expect(officePath('settings')).toBe('/admin/settings');
+    expect(officePath('fleet')).toBe('/office/fleet');
+    expect(officePath('reports')).toBe('/office/reports');
+    expect(officePath('inbox')).toBe('/office/inbox');
+    expect(officePath('settings')).toBe('/office/settings');
   });
 });

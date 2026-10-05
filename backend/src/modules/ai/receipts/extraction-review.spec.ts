@@ -1,4 +1,6 @@
-import { decideReviewOutcome, normaliseRegistration, parseIsoDate, toSuggestedValues, validateExtraction } from './extraction-review';
+import {
+  compareWithExtraction, decideReviewOutcome, normaliseRegistration, parseIsoDate, toSuggestedValues, validateExtraction,
+} from './extraction-review';
 import type { ServiceReceiptExtraction } from '../schema';
 
 /**
@@ -13,7 +15,13 @@ const GOOD: ServiceReceiptExtraction = {
   invoiceDate: '2026-03-04',
   vehicleNumber: 'KA 22 AB 1234',
   serviceType: 'Brake service',
-  parts: [{ name: 'Brake pad set', quantity: 1, unitPrice: 1700, amount: 1700 }],
+  odometerKm: 48_200,
+  nextServiceDate: '2026-06-04',
+  nextServiceKm: 58_200,
+  lineItems: [
+    { description: 'Brake pad set', kind: 'PART', quantity: 1, unitPrice: 1700, amount: 1700 },
+    { description: 'Brake overhaul labour', kind: 'LABOUR', quantity: 1, unitPrice: 500, amount: 500 },
+  ],
   partsAmount: 1700,
   labourAmount: 500,
   gstAmount: 396,
@@ -89,10 +97,49 @@ describe('validateExtraction — the bill must make sense', () => {
 
   it('flags line items that exceed the subtotal they belong to', () => {
     const issues = validateExtraction(
-      { ...GOOD, parts: [{ name: 'Gearbox', quantity: 1, unitPrice: 40_000, amount: 40_000 }] },
+      { ...GOOD, lineItems: [{ description: 'Gearbox', kind: 'PART', quantity: 1, unitPrice: 40_000, amount: 40_000 }] },
       { now: NOW },
     );
     expect(issues.some((issue) => issue.includes('more than the parts subtotal'))).toBe(true);
+  });
+
+  it('flags labour lines that exceed the labour subtotal', () => {
+    const issues = validateExtraction(
+      { ...GOOD, lineItems: [{ description: 'Engine rebuild', kind: 'LABOUR', quantity: 1, unitPrice: 9_000, amount: 9_000 }] },
+      { now: NOW },
+    );
+    expect(issues.some((issue) => issue.includes('more than the labour subtotal'))).toBe(true);
+  });
+
+  it('does not hold unclassified lines against either subtotal', () => {
+    // A line the receipt does not label as part or labour is not evidence of a misread subtotal.
+    const issues = validateExtraction(
+      { ...GOOD, lineItems: [{ description: 'Sundries', kind: null, quantity: null, unitPrice: null, amount: 40_000 }] },
+      { now: NOW },
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it('flags a next service date that is not after the service', () => {
+    const issues = validateExtraction({ ...GOOD, nextServiceDate: '2026-03-01' }, { now: NOW });
+    expect(issues.some((issue) => issue.includes('not after the service date'))).toBe(true);
+  });
+
+  it('flags a next service reading that is not above the odometer', () => {
+    const issues = validateExtraction({ ...GOOD, nextServiceKm: 48_000 }, { now: NOW });
+    expect(issues.some((issue) => issue.includes('not above the odometer'))).toBe(true);
+  });
+
+  it('flags an odometer lower than the last verified reading for the vehicle', () => {
+    // A misread digit, or the wrong truck's bill — either way a person should look.
+    const issues = validateExtraction(GOOD, { now: NOW, lastVerifiedOdometerKm: 51_000 });
+    expect(issues.some((issue) => issue.includes('lower than the 51000 km'))).toBe(true);
+    expect(validateExtraction(GOOD, { now: NOW, lastVerifiedOdometerKm: 40_000 })).toEqual([]);
+  });
+
+  it('does not complain about next-service values the receipt simply does not have', () => {
+    const issues = validateExtraction({ ...GOOD, odometerKm: null, nextServiceDate: null, nextServiceKm: null }, { now: NOW });
+    expect(issues).toEqual([]);
   });
 
   it('does not invent a contradiction from a single component', () => {
@@ -104,32 +151,32 @@ describe('validateExtraction — the bill must make sense', () => {
 
 describe('decideReviewOutcome — who has to look, and how hard', () => {
   it('offers a clean high-confidence extraction as ready to confirm', () => {
-    expect(decideReviewOutcome(GOOD, [])).toBe('COMPLETED');
+    expect(decideReviewOutcome(GOOD, [])).toBe('SUCCEEDED');
   });
 
   it('routes any validation issue to review, however confident the model was', () => {
     // Confidence is the model's opinion of itself. A contradiction is a fact.
-    expect(decideReviewOutcome({ ...GOOD, confidence: 0.99 }, ['The total does not add up.'])).toBe('REVIEW_REQUIRED');
+    expect(decideReviewOutcome({ ...GOOD, confidence: 0.99 }, ['The total does not add up.'])).toBe('NEEDS_REVIEW');
   });
 
   it('routes a low-confidence extraction to review', () => {
-    expect(decideReviewOutcome({ ...GOOD, confidence: 0.4 }, [])).toBe('REVIEW_REQUIRED');
+    expect(decideReviewOutcome({ ...GOOD, confidence: 0.4 }, [])).toBe('NEEDS_REVIEW');
   });
 
   it('routes to review when the model flagged its own uncertainty', () => {
-    expect(decideReviewOutcome({ ...GOOD, warnings: ['The total was partly obscured.'] }, [])).toBe('REVIEW_REQUIRED');
+    expect(decideReviewOutcome({ ...GOOD, warnings: ['The total was partly obscured.'] }, [])).toBe('NEEDS_REVIEW');
   });
 
   it('never returns a state that means "accepted"', () => {
     // Neither outcome is authoritative. Both still require a person to confirm the record.
     for (const confidence of [0, 0.5, 0.95, 1]) {
-      expect(['COMPLETED', 'REVIEW_REQUIRED']).toContain(decideReviewOutcome({ ...GOOD, confidence }, []));
+      expect(['SUCCEEDED', 'NEEDS_REVIEW']).toContain(decideReviewOutcome({ ...GOOD, confidence }, []));
     }
   });
 
   it('honours a configured threshold', () => {
-    expect(decideReviewOutcome({ ...GOOD, confidence: 0.8 }, [], 0.9)).toBe('REVIEW_REQUIRED');
-    expect(decideReviewOutcome({ ...GOOD, confidence: 0.8 }, [], 0.7)).toBe('COMPLETED');
+    expect(decideReviewOutcome({ ...GOOD, confidence: 0.8 }, [], 0.9)).toBe('NEEDS_REVIEW');
+    expect(decideReviewOutcome({ ...GOOD, confidence: 0.8 }, [], 0.7)).toBe('SUCCEEDED');
   });
 });
 
@@ -138,6 +185,13 @@ describe('toSuggestedValues — missing stays missing', () => {
     const suggestions = toSuggestedValues(GOOD);
     expect(suggestions.totalAmount).toEqual({ value: 2596, state: 'found' });
     expect(suggestions.vendorName).toEqual({ value: 'Sharma Auto Works', state: 'found' });
+  });
+
+  it('offers the structured service details too', () => {
+    const suggestions = toSuggestedValues(GOOD);
+    expect(suggestions.odometerKm).toEqual({ value: 48_200, state: 'found' });
+    expect(suggestions.nextServiceDate).toEqual({ value: '2026-06-04', state: 'found' });
+    expect(suggestions.taxAmount).toEqual({ value: 396, state: 'found' });
   });
 
   it('marks what was not found, rather than filling in a default', () => {
@@ -173,5 +227,38 @@ describe('normaliseRegistration', () => {
 
   it('keeps genuinely different registrations different', () => {
     expect(normaliseRegistration('KA 22 AB 1234')).not.toBe(normaliseRegistration('KA 22 AB 1235'));
+  });
+});
+
+describe('compareWithExtraction — accepted or corrected, decided on the server', () => {
+  it('counts a value that matches the reading as accepted', () => {
+    const { accepted, corrected } = compareWithExtraction(GOOD, { totalAmount: '2596.00', vendorName: 'sharma  auto works' });
+    // Re-casing and spacing are not corrections of what was read.
+    expect(accepted).toEqual(expect.arrayContaining(['totalAmount', 'vendorName']));
+    expect(corrected).toEqual([]);
+  });
+
+  it('counts a changed value as corrected', () => {
+    const { accepted, corrected } = compareWithExtraction(GOOD, { totalAmount: '2600.00', odometerKm: 48_300, invoiceNumber: 'INV-2291' });
+    expect(corrected).toEqual(expect.arrayContaining(['totalAmount', 'odometerKm']));
+    expect(accepted).toEqual(['invoiceNumber']);
+  });
+
+  it('treats a value the receipt did not give as typed, neither accepted nor corrected', () => {
+    const { accepted, corrected } = compareWithExtraction({ ...GOOD, odometerKm: null }, { odometerKm: 48_000 });
+    expect(accepted).toEqual([]);
+    expect(corrected).toEqual([]);
+  });
+
+  it('compares line items as a whole', () => {
+    const same = GOOD.lineItems.map((line) => ({
+      description: line.description!, kind: line.kind, quantity: String(line.quantity), unitPrice: String(line.unitPrice), amount: String(line.amount),
+    }));
+    expect(compareWithExtraction(GOOD, { lineItems: same }).accepted).toContain('lineItems');
+    expect(compareWithExtraction(GOOD, { lineItems: same.slice(0, 1) }).corrected).toContain('lineItems');
+  });
+
+  it('has nothing to compare when there was no reading', () => {
+    expect(compareWithExtraction(null, { totalAmount: '100.00' })).toEqual({ accepted: [], corrected: [] });
   });
 });

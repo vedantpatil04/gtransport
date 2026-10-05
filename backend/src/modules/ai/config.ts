@@ -1,3 +1,4 @@
+import type { OcrConfig } from './ocr/ocr-engine';
 import type { AIProviderName } from './types';
 
 /**
@@ -24,4 +25,6 @@ export interface AIConfig {
   maxAttempts: number;
   /** Below this, an extraction is routed for review rather than offered as ready suggestions. */
   lowConfidenceThreshold: number;
+  /** Local OCR run before the model on photographs and scanned PDFs. */
+  ocr: OcrConfig;
 }

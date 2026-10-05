@@ -332,34 +332,36 @@ enum InstallmentStatus {
 enum StorageProvider {
   LOCAL
   R2
+  CLOUDINARY
 
   @@map("storage_provider")
 }
 
 // ───────────────────────── Receipt AI (Phase 7) ─────────────────────────
 
-/// Where a service receipt stands between "a photo arrived" and "the office confirmed it".
+/// Where a service receipt stands between "a photo arrived" and "the office verified it".
 ///
-/// AI never advances a record past REVIEW_REQUIRED or COMPLETED on its own: CONFIRMED is only
-/// ever set by a person. The names extend the vocabulary the AI module already used in Phase 0
-/// (see modules/ai/receipts/ai-status.ts) rather than inventing a second one.
+/// AI never advances a record past SUCCEEDED or NEEDS_REVIEW on its own: VERIFIED is only ever
+/// set by a person. These are the explicit Phase 7 states; the names are what the API, the admin
+/// console and the audit trail all use.
 enum ServiceReceiptAIStatus {
   /// No receipt attached, or the record predates AI processing. The resting state.
   NOT_PROCESSED
   /// A job exists and is waiting for a worker.
-  PENDING
-  /// A worker has claimed it and the provider is being called.
+  QUEUED
+  /// A worker has claimed it: OCR and the provider call are under way.
   PROCESSING
-  /// Extraction succeeded and looks solid. Values are suggestions awaiting confirmation.
-  COMPLETED
+  /// Extraction succeeded, passed validation and looks solid. Values are suggestions awaiting
+  /// a person's verification — never the record.
+  SUCCEEDED
   /// Extraction succeeded but is uncertain, incomplete or contradicts the record. Needs a human.
-  REVIEW_REQUIRED
+  NEEDS_REVIEW
   /// Processing failed. The original receipt is untouched and a retry is available.
   FAILED
   /// Failed and waiting for an automatic retry attempt.
   RETRYING
-  /// A person checked the extraction against the receipt and confirmed the record. Authoritative.
-  CONFIRMED
+  /// A person checked the figures against the receipt and verified the record. Authoritative.
+  VERIFIED
   /// A person judged the extraction unusable. The record stands on manually entered values.
   REJECTED
 
@@ -398,13 +400,27 @@ enum EmailProviderName {
 /// What an inbound email appears to be about. Proposed by AI, changeable by a person — the
 /// `classifiedById` column records which of the two decided the current value.
 enum InboxClassification {
-  DOCUMENT
-  SERVICE_INVOICE
-  PAYMENT_NOTIFICATION
-  SUPPLIER
-  CUSTOMER_ENQUIRY
-  OPERATIONAL
+  /// Vehicle papers: RC, insurance, permit, fitness, PUC.
+  VEHICLE_DOCUMENT
+  /// Fuel station bills, fuel card statements.
+  FUEL
+  /// Workshop and service-centre invoices, job cards, repair estimates.
+  MAINTENANCE
+  /// Loans, EMIs, bank statements, GST and tax correspondence.
+  FINANCE
+  /// Salary, advances, payouts and payment notifications.
+  SALARY_PAYMENT
+  /// Challans, RTO notices, licence and regulatory correspondence.
+  COMPLIANCE
+  /// Suppliers and vendors other than the above.
+  VENDOR
+  /// Customers: bookings, consignments, quotes, complaints.
+  CUSTOMER
+  /// Routine mail that fits none of the above.
+  GENERAL
+  /// Marketing, phishing or otherwise irrelevant.
   SPAM
+  /// Not yet classified, or too uncertain to say.
   UNCLASSIFIED
 
   @@map("inbox_classification")
@@ -426,10 +442,55 @@ enum InboxAIStatus {
   PENDING
   PROCESSING
   COMPLETED
+  /// Failed with a retryable error; picked up again after `aiNextAttemptAt`.
+  RETRYING
   FAILED
   SKIPPED
 
   @@map("inbox_ai_status")
+}
+
+/// The OAuth connection between a company and its Gmail or Microsoft 365 mailbox.
+enum MailboxConnectionStatus {
+  /// Authorisation was started and has not yet completed.
+  PENDING
+  /// Tokens are held and the mailbox can be read.
+  CONNECTED
+  /// The provider rejected the stored refresh token (revoked, expired, password changed). A
+  /// person has to connect the mailbox again; nothing is synced until they do.
+  REAUTHORIZATION_REQUIRED
+  /// An administrator disconnected it. Tokens are erased; filed mail is kept.
+  DISCONNECTED
+
+  @@map("mailbox_connection_status")
+}
+
+/// A business action AI proposes after reading an email. Never carried out automatically.
+enum InboxSuggestionType {
+  /// A workshop invoice that could become a service record (then goes through Service AI review).
+  CREATE_SERVICE_RECORD
+  /// A vehicle document to check and file in Documents.
+  REVIEW_VEHICLE_DOCUMENT
+  /// A challan or regulatory notice to look at.
+  REVIEW_COMPLIANCE
+  /// A fuel bill to enter in Fuel.
+  RECORD_FUEL_EXPENSE
+  /// A loan, EMI, bank or tax matter for accounts.
+  REVIEW_FINANCE
+  /// A salary or payment matter for accounts.
+  REVIEW_PAYMENT
+
+  @@map("inbox_suggestion_type")
+}
+
+enum InboxSuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  /// Replaced by a later AI reading of the same email before anyone decided.
+  SUPERSEDED
+
+  @@map("inbox_suggestion_status")
 }
 
 enum LocationStatus {
@@ -511,26 +572,28 @@ model Company {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  users            User[]
-  fuelEntries      FuelEntry[]
-  vehicleExpenses  VehicleExpense[]
-  ledgerEntries    FinanceLedgerEntry[]
-  salaryRecords    SalaryRecord[]
-  advances         Advance[]
-  payments         PaymentRecord[]
-  employees        Employee[]
-  drivers          Driver[]
-  vehicles         Vehicle[]
-  documents        Document[]
-  storedFiles      StoredFile[]
-  auditLogs        AuditLog[]
-  locationAlerts   FleetLocationAlert[]
-  receiptAIJobs    ServiceReceiptAIJob[]
-  receiptAIResults ServiceReceiptAIResult[]
-  emailSyncCursors EmailSyncCursor[]
-  inboxMessages    InboxMessage[]
-  inboxAttachments InboxAttachment[]
-  inboxAIResults   InboxAIResult[]
+  users              User[]
+  fuelEntries        FuelEntry[]
+  vehicleExpenses    VehicleExpense[]
+  ledgerEntries      FinanceLedgerEntry[]
+  salaryRecords      SalaryRecord[]
+  advances           Advance[]
+  payments           PaymentRecord[]
+  employees          Employee[]
+  drivers            Driver[]
+  vehicles           Vehicle[]
+  documents          Document[]
+  storedFiles        StoredFile[]
+  auditLogs          AuditLog[]
+  locationAlerts     FleetLocationAlert[]
+  receiptAIJobs      ServiceReceiptAIJob[]
+  receiptAIResults   ServiceReceiptAIResult[]
+  emailSyncCursors   EmailSyncCursor[]
+  inboxMessages      InboxMessage[]
+  inboxAttachments   InboxAttachment[]
+  inboxAIResults     InboxAIResult[]
+  mailboxConnections MailboxConnection[]
+  inboxSuggestions   InboxSuggestion[]
 
   @@map("companies")
 }
@@ -830,21 +893,39 @@ model VehicleExpense {
   /// above (amount, date, vendor) remain the authoritative record throughout: AI writes none of
   /// them. Verification is what promotes a suggestion into one of those columns, and once
   /// `aiVerifiedAt` is set a later AI run may add a new result but may not change them.
-  aiStatus           ServiceReceiptAIStatus @default(NOT_PROCESSED) @map("ai_status")
+  aiStatus         ServiceReceiptAIStatus @default(NOT_PROCESSED) @map("ai_status")
   /// The extraction version an administrator accepted, if any.
-  acceptedResultId   String?                @map("accepted_result_id") @db.Uuid
-  aiVerifiedAt       DateTime?              @map("ai_verified_at") @db.Timestamptz(3)
-  aiVerifiedById     String?                @map("ai_verified_by_id") @db.Uuid
+  acceptedResultId String?                @map("accepted_result_id") @db.Uuid
+  aiVerifiedAt     DateTime?              @map("ai_verified_at") @db.Timestamptz(3)
+  aiVerifiedById   String?                @map("ai_verified_by_id") @db.Uuid
   /// Set when an administrator judged the extraction unusable; the record stands on typed values.
-  aiRejectedAt       DateTime?              @map("ai_rejected_at") @db.Timestamptz(3)
+  aiRejectedAt     DateTime?              @map("ai_rejected_at") @db.Timestamptz(3)
   /// Which fields the administrator took from the extraction rather than typing, e.g.
   /// ["totalAmount","vendorName"]. Kept so a correction can be told from an acceptance.
-  aiAcceptedFields   String[]               @map("ai_accepted_fields")
-  clientSubmissionId String?                @map("client_submission_id")
-  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
-  createdById        String?                @map("created_by_id") @db.Uuid
-  updatedById        String?                @map("updated_by_id") @db.Uuid
+  aiAcceptedFields String[]               @map("ai_accepted_fields")
+
+  /// ── Verified service details (Phase 7) ──
+  /// Written only by a person verifying the record, from the values they submitted — never by a
+  /// model. Together with amount/date/vendor above they are the authoritative maintenance record
+  /// that maintenance intelligence reads. All optional: a receipt that does not state a value
+  /// leaves it null rather than guessed.
+  invoiceNumber      String?   @map("invoice_number")
+  serviceType        String?   @map("service_type")
+  /// Odometer reading at the service, in kilometres.
+  odometerKm         Int?      @map("odometer_km")
+  /// When the workshop said the next service is due, by date and/or distance.
+  nextServiceDate    DateTime? @map("next_service_date") @db.Date
+  nextServiceKm      Int?      @map("next_service_km")
+  labourAmount       Decimal?  @map("labour_amount") @db.Decimal(12, 2)
+  partsAmount        Decimal?  @map("parts_amount") @db.Decimal(12, 2)
+  taxAmount          Decimal?  @map("tax_amount") @db.Decimal(12, 2)
+  /// Verified line items: [{ description, kind: PART|LABOUR|OTHER|null, quantity, unitPrice, amount }].
+  serviceLineItems   Json?     @map("service_line_items")
+  clientSubmissionId String?   @map("client_submission_id")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById        String?   @map("created_by_id") @db.Uuid
+  updatedById        String?   @map("updated_by_id") @db.Uuid
 
   company     Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
   vehicle     Vehicle     @relation(fields: [companyId, vehicleId], references: [companyId, id], onDelete: Restrict)
@@ -862,6 +943,8 @@ model VehicleExpense {
   @@index([companyId, vehicleId, category, expenseDate(sort: Desc)])
   /// The review queue: receipts needing a person, newest first.
   @@index([companyId, aiStatus, createdAt(sort: Desc)])
+  /// Upcoming/overdue service from verified next-service dates.
+  @@index([companyId, nextServiceDate])
   @@map("vehicle_expenses")
 }
 
@@ -1421,7 +1504,7 @@ model ServiceReceiptAIJob {
   /// expense is later pointed at a replacement scan.
   receiptFileId    String @map("receipt_file_id") @db.Uuid
 
-  status      ServiceReceiptAIStatus @default(PENDING)
+  status      ServiceReceiptAIStatus @default(QUEUED)
   /// 1 for the first attempt. Compared against maxAttempts to decide RETRYING versus FAILED.
   attempt     Int                    @default(1)
   /// Attempts allowed for this job before it stops retrying by itself.
@@ -1543,6 +1626,9 @@ model EmailSyncCursor {
   /// Consecutive failures, so a mailbox that has been unreachable for days is visible.
   consecutiveFailures Int       @default(0) @map("consecutive_failures")
   messagesSynced      Int       @default(0) @map("messages_synced")
+  /// After a failure, the earliest the scheduler tries again (exponential backoff). A manual
+  /// "check now" ignores it. Null after a clean run.
+  nextAttemptAt       DateTime? @map("next_attempt_at") @db.Timestamptz(3)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1598,6 +1684,8 @@ model InboxMessage {
 
   aiStatus         InboxAIStatus  @default(NOT_PROCESSED) @map("ai_status")
   aiAttempts       Int            @default(0) @map("ai_attempts")
+  /// When a RETRYING classification may run again.
+  aiNextAttemptAt  DateTime?      @map("ai_next_attempt_at") @db.Timestamptz(3)
   aiFailureCode    AIFailureCode? @map("ai_failure_code")
   aiFailureMessage String?        @map("ai_failure_message")
 
@@ -1615,6 +1703,7 @@ model InboxMessage {
   company     Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
   attachments InboxAttachment[]
   aiResults   InboxAIResult[]
+  suggestions InboxSuggestion[]
 
   /// Synchronisation idempotency. The reason a repeated sync cannot duplicate a message.
   @@unique([companyId, provider, providerMessageId])
@@ -1644,16 +1733,20 @@ model InboxAttachment {
   sizeBytes            Int    @map("size_bytes")
 
   /// Null when the attachment was not stored — see skipReason.
-  fileId     String? @map("file_id") @db.Uuid
+  fileId           String? @map("file_id") @db.Uuid
   /// Why a file was not kept: "unsupported_type", "too_large", "suspicious_extension",
   /// "download_failed". Present exactly when fileId is null.
-  skipReason String? @map("skip_reason")
+  skipReason       String? @map("skip_reason")
+  /// Download attempts made. A `download_failed` attachment is retried on later syncs until
+  /// this reaches the limit, then left in the mailbox with its reason.
+  downloadAttempts Int     @default(0) @map("download_attempts")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  company Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  message InboxMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  file    StoredFile?  @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  message     InboxMessage      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  file        StoredFile?       @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  suggestions InboxSuggestion[]
 
   /// One row per provider part, so re-syncing a message cannot duplicate its attachments.
   @@unique([messageId, providerAttachmentId])
@@ -1689,12 +1782,98 @@ model InboxAIResult {
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  company Company      @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  message InboxMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  message     InboxMessage      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  suggestions InboxSuggestion[]
 
   @@unique([messageId, version])
   @@index([companyId, createdAt(sort: Desc)])
   @@map("inbox_ai_results")
+}
+
+/// A company's OAuth connection to its Gmail or Microsoft 365 mailbox.
+///
+/// One row per company per provider. Tokens are encrypted with EMAIL_TOKEN_ENCRYPTION_KEY before
+/// they reach this table and are never returned by the API. Disconnecting erases them; the row
+/// stays so the history of who connected what, and when, survives.
+model MailboxConnection {
+  id        String                  @id @default(uuid(7)) @db.Uuid
+  companyId String                  @map("company_id") @db.Uuid
+  provider  EmailProviderName
+  status    MailboxConnectionStatus @default(PENDING)
+
+  /// The mailbox account as the provider reported it after consent — not typed by anyone.
+  emailAddress String?  @map("email_address")
+  scopes       String[] @default([])
+
+  refreshTokenCiphertext String?   @map("refresh_token_ciphertext")
+  accessTokenCiphertext  String?   @map("access_token_ciphertext")
+  accessTokenExpiresAt   DateTime? @map("access_token_expires_at") @db.Timestamptz(3)
+
+  /// An authorisation in flight: the SHA-256 of the `state` sent to the provider, the encrypted
+  /// PKCE verifier, who started it and when it lapses. Cleared when the callback completes.
+  oauthStateHash              String?   @unique @map("oauth_state_hash")
+  oauthCodeVerifierCiphertext String?   @map("oauth_code_verifier_ciphertext")
+  oauthRequestedById          String?   @map("oauth_requested_by_id") @db.Uuid
+  oauthExpiresAt              DateTime? @map("oauth_expires_at") @db.Timestamptz(3)
+
+  connectedAt      DateTime? @map("connected_at") @db.Timestamptz(3)
+  connectedById    String?   @map("connected_by_id") @db.Uuid
+  disconnectedAt   DateTime? @map("disconnected_at") @db.Timestamptz(3)
+  disconnectedById String?   @map("disconnected_by_id") @db.Uuid
+  /// Why the connection last failed (token refresh refused, consent denied). Safe to display.
+  lastError        String?   @map("last_error")
+  lastErrorAt      DateTime? @map("last_error_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, provider])
+  @@map("mailbox_connections")
+}
+
+/// A business action AI proposed after reading an email — a suggestion, never an action.
+///
+/// Nothing is created from a suggestion until a person accepts it, and accepting one either
+/// files it as "the office will handle this" or, for a workshop invoice, creates a service
+/// record that then goes through Service AI review and verification like any other. Finance,
+/// payment and compliance records are never created from here.
+model InboxSuggestion {
+  id         String                @id @default(uuid(7)) @db.Uuid
+  companyId  String                @map("company_id") @db.Uuid
+  messageId  String                @map("message_id") @db.Uuid
+  aiResultId String                @map("ai_result_id") @db.Uuid
+  type       InboxSuggestionType
+  status     InboxSuggestionStatus @default(PENDING)
+
+  /// The model's one-sentence reason. Display only.
+  reason       String?
+  /// Values the model read from the mail (registration, amount, date, reference). Prefill for a
+  /// person to check, never written anywhere by themselves.
+  details      Json?
+  /// The attachment the suggestion is about, when there is one.
+  attachmentId String? @map("attachment_id") @db.Uuid
+
+  decidedAt        DateTime? @map("decided_at") @db.Timestamptz(3)
+  decidedById      String?   @map("decided_by_id") @db.Uuid
+  decisionNote     String?   @map("decision_note")
+  /// The record acceptance produced, when it produced one (a service record).
+  resultEntityType String?   @map("result_entity_type")
+  resultEntityId   String?   @map("result_entity_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  message    InboxMessage     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  aiResult   InboxAIResult    @relation(fields: [aiResultId], references: [id], onDelete: Cascade)
+  attachment InboxAttachment? @relation(fields: [attachmentId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status, createdAt(sort: Desc)])
+  @@index([messageId])
+  @@map("inbox_suggestions")
 }
 
 // ───────────────────────────── Audit ─────────────────────────────

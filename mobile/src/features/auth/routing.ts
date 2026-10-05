@@ -35,7 +35,7 @@ export function routeFor(
   if (inAuth) return homeFor(state.role);
 
   const isDriver = state.role === 'DRIVER' || state.role === null;
-  if (isDriver && group === OFFICE) return '/(tabs)';
+  if (isDriver && (group === OFFICE || group === 'admin')) return '/(tabs)';
   if (!isDriver && (group === undefined || DRIVER_SEGMENTS.has(group))) return '/office';
   return null;
 }

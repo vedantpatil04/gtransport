@@ -28,9 +28,9 @@ export interface AIResultView {
   warnings: string[];
   /** What the application's own checks found. These are the ones that route a record to review. */
   validationIssues: string[];
-  /** How the document was prepared: "image", "pdf:text", "pdf:raster", "pdf:text+raster". */
+  /** How the document was prepared: "image", "image+ocr", "pdf:text", "pdf:raster+ocr", "pdf:text+raster"… */
   preparation: string | null;
-  /** Characters of machine-readable text the document carried. Zero means it was a photograph. */
+  /** Characters of machine-readable text found before the model ran (PDF text layer or OCR). */
   sourceTextChars: number | null;
   durationMs: number | null;
   createdAt: string;
@@ -122,6 +122,15 @@ export function presentReceiptReview(review: {
     receiptFileId: string | null;
     status: string;
     aiStatus: ServiceReceiptAIStatus;
+    invoiceNumber: string | null;
+    serviceType: string | null;
+    odometerKm: number | null;
+    nextServiceDate: Date | null;
+    nextServiceKm: number | null;
+    labourAmount: Prisma.Decimal | null;
+    partsAmount: Prisma.Decimal | null;
+    taxAmount: Prisma.Decimal | null;
+    serviceLineItems: Prisma.JsonValue;
     acceptedResultId: string | null;
     aiVerifiedAt: Date | null;
     aiVerifiedById: string | null;
@@ -154,6 +163,21 @@ export function presentReceiptReview(review: {
       driver: expense.driver
         ? { id: expense.driver.id, driverCode: expense.driver.driverCode, fullName: expense.driver.employee.fullName }
         : null,
+      /**
+       * The structured service details as they stand on the record. Only verification writes these,
+       * so on an unverified record they are whatever the last verification left (usually nothing).
+       */
+      service: {
+        invoiceNumber: expense.invoiceNumber,
+        serviceType: expense.serviceType,
+        odometerKm: expense.odometerKm,
+        nextServiceDate: isoDate(expense.nextServiceDate),
+        nextServiceKm: expense.nextServiceKm,
+        labourAmount: expense.labourAmount?.toFixed(2) ?? null,
+        partsAmount: expense.partsAmount?.toFixed(2) ?? null,
+        taxAmount: expense.taxAmount?.toFixed(2) ?? null,
+        lineItems: Array.isArray(expense.serviceLineItems) ? expense.serviceLineItems : [],
+      },
     },
     /**
      * The original, always. Present whatever happened to processing — that is the guarantee the

@@ -9,7 +9,7 @@ import type {
   ApiFleetAlert, ApiFleetAlertSummary, ApiFleetLocation, ApiFleetResponse, ApiPingPage,
   ApiInboxClassification, ApiInboxMessage, ApiInboxRow, ApiInboxStatus, ApiInboxStatusInfo, ApiInboxSummary,
   ApiInboxSyncOutcome, ApiMaintenanceSummary, ApiPendingReceipt, ApiReceiptAIStatus, ApiVehicleMaintenance,
-  ApiReceiptQueueStatus, ApiReceiptReview,
+  ApiReceiptQueueStatus, ApiReceiptReview, ApiVerifyReceiptBody, ApiInboxSuggestion, ApiSuggestionStatus,
 } from './types';
 import { API_BASE_URL } from '@/lib/api/client';
 import { useSession } from './session';
@@ -324,15 +324,17 @@ export const serviceReceiptsApi = {
   queue: () => authedRequest<ApiReceiptQueueStatus>('/service-receipts/queue'),
   review: (id: string) => authedRequest<ApiReceiptReview>(`/service-receipts/${id}`),
   /**
-   * Confirms the record with the values the office submits.
+   * Verifies the record with the values the office submits.
    *
    * Whatever is sent here is what gets saved. The server never reads figures out of the
-   * extraction on the office's behalf, so an empty body confirms the record exactly as it stands.
+   * extraction on the office's behalf, so an empty body verifies the record exactly as it stands.
+   * Which values matched the reading and which were corrected is worked out on the server.
    */
-  verify: (
-    id: string,
-    body: { amount?: string; expenseDate?: string; vendorName?: string; description?: string; acceptedFields?: string[]; resultId?: string },
-  ) => authedRequest<{ id: string; aiStatus: ApiReceiptAIStatus; aiVerifiedAt: string | null }>(`/service-receipts/${id}/verify`, { method: 'POST', body }),
+  verify: (id: string, body: ApiVerifyReceiptBody) =>
+    authedRequest<{ id: string; aiStatus: ApiReceiptAIStatus; aiVerifiedAt: string | null; acceptedFields: string[]; correctedFields: string[] }>(
+      `/service-receipts/${id}/verify`,
+      { method: 'POST', body },
+    ),
   reject: (id: string, reason?: string) =>
     authedRequest<{ id: string; aiStatus: ApiReceiptAIStatus; aiRejectedAt: string | null }>(`/service-receipts/${id}/reject`, { method: 'POST', body: { reason } }),
   /** Re-opening a settled record is a deliberate act, so the reason is required. */
@@ -375,7 +377,27 @@ export const inboxApi = {
   /** A person setting the category. From here on no AI run will change it. */
   classify: (id: string, classification: ApiInboxClassification) =>
     authedRequest<{ id: string; classification: ApiInboxClassification }>(`/inbox/messages/${id}/classification`, { method: 'PATCH', body: { classification } }),
-  retryAI: (id: string) => authedRequest<{ ok: boolean; applied: boolean }>(`/inbox/messages/${id}/retry-ai`, { method: 'POST' }),
+  retryAI: (id: string) => authedRequest<{ ok: boolean; applied: boolean; suggestions: number }>(`/inbox/messages/${id}/retry-ai`, { method: 'POST' }),
+  /** Starts OAuth consent for the company's Gmail or Microsoft 365 mailbox. Administrators only. */
+  authorize: () =>
+    authedRequest<{ authorizationUrl: string; provider: string; expiresAt: string }>('/inbox/connection/authorize', { method: 'POST' }),
+  disconnect: () =>
+    authedRequest<{ status: string; revokedAtProvider: boolean }>('/inbox/connection/disconnect', { method: 'POST' }),
+  suggestions: (query: { status?: ApiSuggestionStatus; limit?: number; cursor?: string } = {}) =>
+    authedRequest<Page<ApiInboxSuggestion>>('/inbox/suggestions', { query: { ...query } }),
+  /**
+   * Accepts a suggestion. For a workshop invoice, `serviceRecord` carries the figures the office
+   * checked; the record it creates still goes through Service AI review and verification.
+   */
+  acceptSuggestion: (
+    id: string,
+    body: {
+      note?: string;
+      serviceRecord?: { vehicleId: string; driverId?: string; amount: number; expenseDate: string; vendorName?: string; description?: string; attachmentId?: string };
+    } = {},
+  ) => authedRequest<ApiInboxSuggestion>(`/inbox/suggestions/${id}/accept`, { method: 'POST', body }),
+  rejectSuggestion: (id: string, note?: string) =>
+    authedRequest<ApiInboxSuggestion>(`/inbox/suggestions/${id}/reject`, { method: 'POST', body: { note } }),
 };
 
 /**

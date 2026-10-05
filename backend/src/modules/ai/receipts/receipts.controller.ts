@@ -78,7 +78,7 @@ export class ServiceReceiptsController {
     return { ...counts, ...this.ai.describeProvider(), workerEnabled: this.config.ai.workerEnabled };
   }
 
-  /** Fleet-wide maintenance summary, computed from confirmed records only. */
+  /** Fleet-wide maintenance intelligence: due and overdue services, repeated issues, recent work. Verified records only. */
   @Get('maintenance/summary')
   @Roles(...OFFICE_ROLES)
   maintenanceSummary(@CurrentUser() user: AuthenticatedUser) {
@@ -107,7 +107,7 @@ export class ServiceReceiptsController {
   }
 
   /**
-   * Confirms the service record.
+   * Verifies the service record, with any corrections the reviewer made.
    *
    * The submitted values become the record and the record becomes authoritative. Restricted to
    * the roles that may change a financial figure elsewhere in the system.
@@ -130,7 +130,7 @@ export class ServiceReceiptsController {
   /**
    * Re-opens a record a person settled — the controlled reprocessing workflow (§14).
    *
-   * Deliberately the narrowest permission here: undoing a confirmation is an administrative act,
+   * Deliberately the narrowest permission here: undoing a verification is an administrative act,
    * not part of ordinary review.
    */
   @Post(':id/reopen')

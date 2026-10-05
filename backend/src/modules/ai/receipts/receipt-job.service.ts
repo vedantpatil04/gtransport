@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { AIFailureCode, Prisma, ServiceReceiptAIStatus } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { AppConfigService } from '../../../config/app-config.service';
 import { backoffMs, canQueueProcessing, isHumanSettled, NEEDS_ATTENTION } from './receipt-state';
 
 /**
@@ -24,7 +25,10 @@ export class ReceiptJobService {
   /** Identifies this process in `claimed_by`, so a stuck job can be traced to a worker. */
   private readonly workerId = `${process.pid}-${randomUUID().slice(0, 8)}`;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: AppConfigService,
+  ) {}
 
   /**
    * Queues processing for a receipt that has just been attached to a maintenance record.
@@ -62,7 +66,7 @@ export class ReceiptJobService {
       const live = await tx.serviceReceiptAIJob.findFirst({
         where: {
           vehicleExpenseId: input.vehicleExpenseId,
-          status: { in: [ServiceReceiptAIStatus.PENDING, ServiceReceiptAIStatus.PROCESSING, ServiceReceiptAIStatus.RETRYING] },
+          status: { in: [ServiceReceiptAIStatus.QUEUED, ServiceReceiptAIStatus.PROCESSING, ServiceReceiptAIStatus.RETRYING] },
         },
         select: { id: true },
       });
@@ -73,9 +77,11 @@ export class ReceiptJobService {
           companyId: input.companyId,
           vehicleExpenseId: input.vehicleExpenseId,
           receiptFileId: input.receiptFileId,
-          status: ServiceReceiptAIStatus.PENDING,
+          status: ServiceReceiptAIStatus.QUEUED,
           attempt: 1,
-          maxAttempts: input.maxAttempts ?? 3,
+          // AI_MAX_ATTEMPTS, recorded on the job so a later configuration change does not
+          // rewrite the retry budget of work already queued.
+          maxAttempts: input.maxAttempts ?? this.config.ai.maxAttempts,
           requestedById: input.requestedById ?? null,
         },
         select: { id: true },
@@ -83,7 +89,7 @@ export class ReceiptJobService {
 
       await tx.vehicleExpense.update({
         where: { id: input.vehicleExpenseId },
-        data: { aiStatus: ServiceReceiptAIStatus.PENDING },
+        data: { aiStatus: ServiceReceiptAIStatus.QUEUED },
       });
 
       return { jobId: job.id, queued: true };
@@ -106,7 +112,7 @@ export class ReceiptJobService {
         SELECT id
           FROM service_receipt_ai_jobs
          WHERE (
-                 status = 'PENDING'
+                 status = 'QUEUED'
                  OR (status = 'RETRYING' AND (next_attempt_at IS NULL OR next_attempt_at <= ${now}))
                  OR (status = 'PROCESSING' AND claimed_at IS NOT NULL AND claimed_at < ${staleBefore})
                )
@@ -278,7 +284,7 @@ export class ReceiptJobService {
    * An explicit request to process a receipt again — the admin's "retry" button, or a rerun
    * against a newly configured model.
    *
-   * A confirmed record is refused: re-opening it is a separate, deliberate act.
+   * A verified record is refused: re-opening it is a separate, deliberate act.
    */
   async requestReprocessing(input: {
     companyId: string;
@@ -324,21 +330,21 @@ export class ReceiptJobService {
 
   /** Queue depth, for the admin's processing indicator and for operational visibility. */
   async queueStatus(companyId: string): Promise<{
-    pending: number;
+    queued: number;
     processing: number;
     retrying: number;
     failed: number;
     awaitingReview: number;
   }> {
-    const [pending, processing, retrying, failed, awaitingReview] = await Promise.all([
-      this.prisma.serviceReceiptAIJob.count({ where: { companyId, status: ServiceReceiptAIStatus.PENDING } }),
+    const [queued, processing, retrying, failed, awaitingReview] = await Promise.all([
+      this.prisma.serviceReceiptAIJob.count({ where: { companyId, status: ServiceReceiptAIStatus.QUEUED } }),
       this.prisma.serviceReceiptAIJob.count({ where: { companyId, status: ServiceReceiptAIStatus.PROCESSING } }),
       this.prisma.serviceReceiptAIJob.count({ where: { companyId, status: ServiceReceiptAIStatus.RETRYING } }),
       this.prisma.serviceReceiptAIJob.count({ where: { companyId, status: ServiceReceiptAIStatus.FAILED } }),
       // Records the office still has to look at, which is the number that actually needs acting on.
       this.prisma.vehicleExpense.count({ where: { companyId, aiStatus: { in: NEEDS_ATTENTION } } }),
     ]);
-    return { pending, processing, retrying, failed, awaitingReview };
+    return { queued, processing, retrying, failed, awaitingReview };
   }
 }
 

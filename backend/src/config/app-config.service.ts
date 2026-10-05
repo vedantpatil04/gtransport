@@ -52,6 +52,12 @@ export class AppConfigService {
       workerBatchSize: this.get('AI_WORKER_BATCH_SIZE'),
       maxAttempts: this.get('AI_MAX_ATTEMPTS'),
       lowConfidenceThreshold: this.get('AI_LOW_CONFIDENCE_THRESHOLD'),
+      ocr: {
+        mode: this.get('OCR_ENGINE'),
+        languages: this.get('OCR_LANGUAGES'),
+        binary: this.get('OCR_TESSERACT_PATH'),
+        timeoutMs: this.get('OCR_TIMEOUT_MS'),
+      },
     };
   }
 
@@ -65,6 +71,21 @@ export class AppConfigService {
       maxAttachmentBytes: this.get('EMAIL_MAX_ATTACHMENT_MB') * 1024 * 1024,
       maxBodyChars: this.get('EMAIL_MAX_BODY_CHARS'),
       aiEnabled: this.get('EMAIL_AI_ENABLED'),
+      aiMinConfidence: this.get('EMAIL_AI_MIN_CONFIDENCE'),
+      aiMaxAttempts: this.get('EMAIL_AI_MAX_ATTEMPTS'),
+      initialSyncDays: this.get('EMAIL_INITIAL_SYNC_DAYS'),
+      maxPagesPerSync: this.get('EMAIL_SYNC_MAX_PAGES'),
+      oauth: {
+        redirectUri: this.get('EMAIL_OAUTH_REDIRECT_URI'),
+        returnUrl: this.get('EMAIL_OAUTH_RETURN_URL'),
+        tokenEncryptionKey: this.get('EMAIL_TOKEN_ENCRYPTION_KEY'),
+        gmail: { clientId: this.get('GMAIL_CLIENT_ID'), clientSecret: this.get('GMAIL_CLIENT_SECRET') },
+        microsoft: {
+          clientId: this.get('MS_GRAPH_CLIENT_ID'),
+          clientSecret: this.get('MS_GRAPH_CLIENT_SECRET'),
+          tenantId: this.get('MS_GRAPH_TENANT_ID'),
+        },
+      },
       imap: {
         host: this.get('IMAP_HOST'),
         port: this.get('IMAP_PORT'),
@@ -90,7 +111,16 @@ export class AppConfigService {
   }
 
   get fileStorage() {
-    return { provider: this.get('FILE_STORAGE_PROVIDER'), localRoot: this.get('FILE_STORAGE_LOCAL_ROOT') };
+    return {
+      provider: this.get('FILE_STORAGE_PROVIDER'),
+      localRoot: this.get('FILE_STORAGE_LOCAL_ROOT'),
+      cloudinary: {
+        cloudName: this.get('CLOUDINARY_CLOUD_NAME'),
+        apiKey: this.get('CLOUDINARY_API_KEY'),
+        apiSecret: this.get('CLOUDINARY_API_SECRET'),
+        folder: this.get('CLOUDINARY_FOLDER'),
+      },
+    };
   }
 
   /** Fleet location thresholds and the tracking strategy served to the driver app. */

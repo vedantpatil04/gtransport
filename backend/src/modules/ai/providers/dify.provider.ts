@@ -30,6 +30,8 @@ export interface DifyProviderOptions {
  * - receipt_file: file input
  * - extraction_instructions: text
  * - vehicle_context: text
+ * - document_text: text (optional — a digital PDF's own text layer)
+ * - ocr_text: text (optional — local OCR of a photo or scan)
  * The workflow should expose its final structured JSON in `outputs.result`.
  */
 export class DifyProvider implements AIProvider {
@@ -73,6 +75,8 @@ export class DifyProvider implements AIProvider {
             vehicle_context: JSON.stringify(input.context ?? {}),
             // Supplied for workflows that use it; a workflow that ignores the input is unaffected.
             document_text: input.sourceText?.slice(0, 24_000) ?? '',
+            // Local OCR of a photograph or scan. A machine reading, offered as a cross-check.
+            ocr_text: input.ocrText?.slice(0, 24_000) ?? '',
           },
           response_mode: 'blocking',
           user,

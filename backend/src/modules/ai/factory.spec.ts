@@ -11,6 +11,7 @@ const config = (provider: 'ollama' | 'dify'): AIConfig => ({
   workerBatchSize: 3,
   maxAttempts: 3,
   lowConfidenceThreshold: 0.6,
+  ocr: { mode: 'auto', languages: 'eng', binary: 'tesseract', timeoutMs: 60_000 },
 });
 
 describe('createAIProvider', () => {

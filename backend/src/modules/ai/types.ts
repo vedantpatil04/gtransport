@@ -28,6 +28,12 @@ export interface ProcessServiceReceiptInput {
    * reading of the document, so the model interprets text it does not have to decipher.
    */
   sourceText?: string | null;
+  /**
+   * Text the local OCR engine read off the receipt image(s), when the document had no text of its
+   * own. A machine reading that can contain recognition errors: supplied as a cross-check beside
+   * the image, never as a replacement for it.
+   */
+  ocrText?: string | null;
 }
 
 /** What a provider reports about the run it just performed. */
@@ -62,9 +68,9 @@ export type ServiceReceiptProcessingResult =
       /** The model that produced this extraction, recorded so a later rerun is comparable. */
       model: string;
       extraction: ServiceReceiptExtraction;
-      /** How the document was prepared, e.g. "image" or "pdf:text+raster". */
+      /** How the document was prepared, e.g. "image", "image+ocr" or "pdf:text+raster". */
       preparation: string;
-      /** Characters of text the document carried itself. */
+      /** Characters of machine-readable text found before any model ran: the PDF's own text layer, or OCR. */
       sourceTextChars: number;
       /** Wall-clock milliseconds the provider call took. */
       durationMs: number;

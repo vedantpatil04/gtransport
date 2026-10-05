@@ -1,5 +1,6 @@
 import { Logger, Module } from '@nestjs/common';
 import { AppConfigService } from '../../config/app-config.service';
+import { CloudinaryFileStorage } from './cloudinary.storage';
 import { FileStorage } from './file-storage';
 import { FilesController } from './files.controller';
 import { FilesService } from './files.service';
@@ -7,8 +8,8 @@ import { LocalDiskFileStorage } from './local-disk.storage';
 
 /**
  * Binds the configured storage provider to the FileStorage abstraction.
- * Adding Cloudflare R2 later means adding an adapter here and widening
- * FILE_STORAGE_PROVIDER — no business module changes.
+ * Currently Cloudinary is the active image/file storage provider, with LocalDisk
+ * fallback for development/tests and ready for Cloudflare R2 in the future.
  */
 @Module({
   controllers: [FilesController],
@@ -17,10 +18,15 @@ import { LocalDiskFileStorage } from './local-disk.storage';
       provide: FileStorage,
       inject: [AppConfigService],
       useFactory: (config: AppConfigService): FileStorage => {
-        const { provider, localRoot } = config.fileStorage;
+        const { provider, localRoot, cloudinary } = config.fileStorage;
+        if (provider === 'cloudinary') {
+          const storage = new CloudinaryFileStorage(cloudinary);
+          storage.logConfig();
+          return storage;
+        }
         if (config.isProduction) {
           new Logger('FilesModule').warn(
-            `File storage provider "${provider}" is local disk. Configure object storage (R2) before relying on this in production.`,
+            `File storage provider "${provider}" is local disk. Configure Cloudinary or object storage (R2) before relying on this in production.`,
           );
         }
         const storage = new LocalDiskFileStorage(localRoot);

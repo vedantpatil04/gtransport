@@ -143,3 +143,27 @@ jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
   useSegments: jest.fn(() => []),
 }));
+
+// Native MapLibre (the office Fleet map). Host views stand in for the native map, camera and
+// markers, carrying the props the screen passed (style URL, marker coordinates, initial view) so
+// tests assert on what the native map would be told. The camera's imperative calls are recorded.
+jest.mock('@maplibre/maplibre-react-native', () => {
+  const React = require('react');
+  const { Pressable, View } = require('react-native');
+  const mockCamera = {
+    fitBounds: jest.fn(),
+    easeTo: jest.fn(),
+    flyTo: jest.fn(),
+    jumpTo: jest.fn(),
+    zoomTo: jest.fn(),
+    setStop: jest.fn(async () => undefined),
+  };
+  const Map = ({ children, ...props }) => React.createElement(View, props, children);
+  const Camera = ({ ref, ...props }) => {
+    React.useImperativeHandle(ref, () => mockCamera, []);
+    return React.createElement(View, { testID: 'maplibre-camera', ...props });
+  };
+  const Marker = ({ id, children, ...props }) =>
+    React.createElement(Pressable, { testID: `maplibre-marker-${id}`, ...props }, children);
+  return { __esModule: true, Map, Camera, Marker, __camera: mockCamera };
+});

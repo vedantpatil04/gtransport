@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Linking, Platform } from 'react-native';
 import { initI18n } from '../../i18n';
 import { useSession } from '../../lib/auth/session-store';
 import type { SessionUser, UserRole } from '../../types/domain';
@@ -37,19 +36,12 @@ const signInAs = (role: UserRole) =>
   });
 
 describe('OfficeMore screen', () => {
-  let openUrlSpy: jest.SpyInstance;
-
   beforeAll(async () => {
     await initI18n();
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    openUrlSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
-  });
-
-  afterEach(() => {
-    openUrlSpy?.mockRestore();
   });
 
   it('renders Operations, Management, and System sections for an ADMIN', async () => {
@@ -117,47 +109,21 @@ describe('OfficeMore screen', () => {
     const profile = await screen.findByTestId('office-more-profile');
     fireEvent.press(profile);
     expect(mockPush).toHaveBeenCalledWith('/office/profile');
-  });
-
-  it('navigates to /admin routes using Linking.openURL on non-web platforms', async () => {
-    signInAs('ADMIN');
-    await render(<OfficeMore />);
 
     const fleet = await screen.findByTestId('office-more-fleet');
     fireEvent.press(fleet);
-    expect(openUrlSpy).toHaveBeenCalledWith(expect.stringContaining('/admin/fleet'));
+    expect(mockPush).toHaveBeenCalledWith('/office/fleet');
 
     const reports = await screen.findByTestId('office-more-reports');
     fireEvent.press(reports);
-    expect(openUrlSpy).toHaveBeenCalledWith(expect.stringContaining('/admin/reports'));
+    expect(mockPush).toHaveBeenCalledWith('/office/reports');
 
     const inbox = await screen.findByTestId('office-more-inbox');
     fireEvent.press(inbox);
-    expect(openUrlSpy).toHaveBeenCalledWith(expect.stringContaining('/admin/inbox'));
+    expect(mockPush).toHaveBeenCalledWith('/office/inbox');
 
     const settings = await screen.findByTestId('office-more-settings');
     fireEvent.press(settings);
-    expect(openUrlSpy).toHaveBeenCalledWith(expect.stringContaining('/admin/settings'));
-  });
-
-  it('navigates to /admin routes using window.location.assign on web platform', async () => {
-    const originalPlatform = Platform.OS;
-    Platform.OS = 'web';
-    const assignMock = jest.fn();
-    const win = window as unknown as { location: unknown };
-    const originalLocation = win.location;
-    win.location = { assign: assignMock };
-
-    try {
-      signInAs('ADMIN');
-      await render(<OfficeMore />);
-
-      const fleet = await screen.findByTestId('office-more-fleet');
-      fireEvent.press(fleet);
-      expect(assignMock).toHaveBeenCalledWith('/admin/fleet');
-    } finally {
-      Platform.OS = originalPlatform;
-      win.location = originalLocation;
-    }
+    expect(mockPush).toHaveBeenCalledWith('/office/settings');
   });
 });

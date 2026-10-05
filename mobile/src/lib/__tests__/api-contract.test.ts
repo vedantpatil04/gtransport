@@ -11,7 +11,7 @@ import paymentsMine from './contracts/payments-mine.json';
 import receiptUpload from './contracts/receipt-upload.json';
 import { accountApi } from '../api/account';
 import { ApiError, apiRequest } from '../api/client';
-import { documentsApi } from '../api/documents';
+import { documentsApi, uploadDocumentFile } from '../api/documents';
 import { driverApi } from '../api/driver';
 import { fuelApi, operationsApi, uploadReceipt } from '../api/operations';
 import { driverPaymentState, paymentsApi, rupees } from '../api/payments';
@@ -105,6 +105,26 @@ describe('API contract — real responses through mobile code', () => {
   it('takes the file id from a real upload response', async () => {
     mockFetch(jest.fn().mockResolvedValue(respond(201, receiptUpload)));
     await expect(uploadReceipt('token', { uri: 'file:///r.jpg', mimeType: 'image/jpeg', name: 'r.jpg' })).resolves.toBe(receiptUpload.fileId);
+  });
+
+  it('uploads document file, normalizes mime type, and reports progress fractionally', async () => {
+    const progressUpdates: number[] = [];
+    mockFetch(jest.fn().mockResolvedValue(respond(201, { fileId: 'doc-file-123' })));
+    const fileId = await uploadDocumentFile(
+      'token',
+      { uri: 'file:///rc.jpg', mimeType: 'image/jpg', name: 'rc.jpg' },
+      (p) => progressUpdates.push(p),
+    );
+    expect(fileId).toBe('doc-file-123');
+    expect(progressUpdates.length).toBeGreaterThanOrEqual(3);
+    expect(progressUpdates[progressUpdates.length - 1]).toBe(1);
+  });
+
+  it('rejects document upload with backend error message on server failure', async () => {
+    mockFetch(jest.fn().mockResolvedValue(respond(400, { error: { message: 'Invalid file format.' } })));
+    await expect(
+      uploadDocumentFile('token', { uri: 'file:///doc.exe', mimeType: 'application/octet-stream', name: 'doc.exe' }, () => {}),
+    ).rejects.toThrow('Invalid file format.');
   });
 
   it('maps the real error envelope onto the message and reference the driver sees', async () => {

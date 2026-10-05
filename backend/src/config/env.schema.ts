@@ -86,13 +86,27 @@ export const envSchema = z
      */
     AI_LOW_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
 
+    /**
+     * Local OCR before the model reads a photograph or scanned PDF. `auto` (default) uses Tesseract
+     * when the server has it; `tesseract` requires it, failing receipts visibly when it is missing;
+     * `none` switches OCR off. Digital PDFs are read from their own text layer either way.
+     */
+    OCR_ENGINE: z.enum(['auto', 'tesseract', 'none']).default('auto'),
+    /** Tesseract language packs, e.g. `eng` or `eng+hin` (each must be installed on the host). */
+    OCR_LANGUAGES: z.string().trim().regex(/^[a-z_]+(\+[a-z_]+)*$/i, 'OCR_LANGUAGES must look like eng or eng+hin').default('eng'),
+    /** The tesseract binary, when it is not on PATH. */
+    OCR_TESSERACT_PATH: z.string().trim().min(1).default('tesseract'),
+    OCR_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(300_000).default(60_000),
+
     // ── Inbound mailbox (Phase 7) ──
 
     /**
-     * `none` (the default) leaves the Inbox empty and contacts nothing. `imap` connects to a
-     * dedicated company mailbox. Nothing here touches anyone's personal account.
+     * `none` (the default) leaves the Inbox empty and contacts nothing. `gmail` and
+     * `microsoft_graph` read a dedicated company mailbox through the provider's official API,
+     * connected by an administrator through OAuth consent. `imap` reads a company mailbox on any
+     * other host with an app password. Nothing here touches anyone's personal account.
      */
-    EMAIL_PROVIDER: z.enum(['none', 'imap']).default('none'),
+    EMAIL_PROVIDER: z.enum(['none', 'imap', 'gmail', 'microsoft_graph']).default('none'),
     EMAIL_SYNC_ENABLED: booleanFromString.default('false'),
     /** Minutes between mailbox synchronisations. */
     EMAIL_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1_440).default(15),
@@ -107,12 +121,46 @@ export const envSchema = z
     IMAP_PASSWORD: z.string().default(''),
     IMAP_MAILBOX: z.string().trim().min(1).default('INBOX'),
 
+    // ── OAuth mailboxes (Gmail API / Microsoft Graph) ──
+
+    /** Google Cloud OAuth client (Web application) with the Gmail API enabled. */
+    GMAIL_CLIENT_ID: z.string().trim().default(''),
+    GMAIL_CLIENT_SECRET: z.string().trim().default(''),
+    /** Microsoft Entra app registration with delegated Mail.Read and offline_access. */
+    MS_GRAPH_CLIENT_ID: z.string().trim().default(''),
+    MS_GRAPH_CLIENT_SECRET: z.string().trim().default(''),
+    /** The company's Entra tenant id (preferred), or `organizations` / `common`. */
+    MS_GRAPH_TENANT_ID: z.string().trim().min(1).default('organizations'),
+    /**
+     * The API's OAuth callback, exactly as registered with the provider, e.g.
+     * https://api.example.com/api/v1/inbox/oauth/callback
+     */
+    EMAIL_OAUTH_REDIRECT_URI: z.string().trim().default(''),
+    /** Where the browser is sent after consent — the admin console's Inbox page. */
+    EMAIL_OAUTH_RETURN_URL: z.string().trim().default(''),
+    /**
+     * 32 random bytes, base64, used to encrypt mailbox tokens at rest (AES-256-GCM). Changing it
+     * makes stored tokens unreadable, and the mailbox has to be connected again.
+     */
+    EMAIL_TOKEN_ENCRYPTION_KEY: z.string().trim().default(''),
+    /** How far back the first synchronisation of a newly connected mailbox reaches. */
+    EMAIL_INITIAL_SYNC_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    /** Provider pages fetched per synchronisation run, so a backlog is worked through over runs. */
+    EMAIL_SYNC_MAX_PAGES: z.coerce.number().int().min(1).max(50).default(5),
+
     /** Largest attachment fetched from an email. Bigger ones are recorded and left in the mailbox. */
     EMAIL_MAX_ATTACHMENT_MB: z.coerce.number().int().min(1).max(100).default(15),
     /** Characters of body text stored. The full message always remains in the mailbox itself. */
     EMAIL_MAX_BODY_CHARS: z.coerce.number().int().min(500).max(200_000).default(20_000),
     /** Whether AI classifies and summarises inbound mail. Off leaves messages UNCLASSIFIED. */
     EMAIL_AI_ENABLED: booleanFromString.default('true'),
+    /**
+     * Below this confidence a classification is recorded but not applied, and no action is
+     * suggested — the message stays UNCLASSIFIED for a person to sort.
+     */
+    EMAIL_AI_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.5),
+    /** Classification attempts per message before it is left FAILED for a manual retry. */
+    EMAIL_AI_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
 
     /**
      * Payouts to employees. `none` (default) allows only manually recorded payments; `razorpayx`
@@ -126,9 +174,13 @@ export const envSchema = z
     RAZORPAYX_ACCOUNT_NUMBER: z.string().trim().default(''),
     RAZORPAYX_WEBHOOK_SECRET: z.string().trim().default(''),
 
-    /** Only `local` is implemented in Phase 0. `r2` is added with the Cloudflare R2 adapter. */
-    FILE_STORAGE_PROVIDER: z.enum(['local']).default('local'),
+    /** Storage provider. `cloudinary` is the active provider (set in .env), with `local` default/fallback and `r2` in future. */
+    FILE_STORAGE_PROVIDER: z.enum(['local', 'cloudinary']).default('local'),
     FILE_STORAGE_LOCAL_ROOT: z.string().trim().min(1).default('./storage'),
+    CLOUDINARY_CLOUD_NAME: z.string().trim().default(''),
+    CLOUDINARY_API_KEY: z.string().trim().default(''),
+    CLOUDINARY_API_SECRET: z.string().trim().default(''),
+    CLOUDINARY_FOLDER: z.string().trim().default('gangamata'),
 
     // ── Fleet location tracking (Phase 6) ──
     // Operational thresholds, not code constants: the office will tune these once real routes
@@ -202,6 +254,32 @@ export const envSchema = z
         ctx.addIssue({ code: 'custom', path: ['IMAP_SECURE'], message: 'IMAP_SECURE cannot be false in production: the mailbox password would be sent unencrypted' });
       }
     }
+    if (env.EMAIL_PROVIDER === 'gmail' || env.EMAIL_PROVIDER === 'microsoft_graph') {
+      const keys =
+        env.EMAIL_PROVIDER === 'gmail'
+          ? (['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET'] as const)
+          : (['MS_GRAPH_CLIENT_ID', 'MS_GRAPH_CLIENT_SECRET'] as const);
+      for (const key of [...keys, 'EMAIL_OAUTH_REDIRECT_URI', 'EMAIL_TOKEN_ENCRYPTION_KEY'] as const) {
+        if (!env[key]) ctx.addIssue({ code: 'custom', path: [key], message: `${key} is required when EMAIL_PROVIDER=${env.EMAIL_PROVIDER}` });
+      }
+      if (env.EMAIL_TOKEN_ENCRYPTION_KEY && Buffer.from(env.EMAIL_TOKEN_ENCRYPTION_KEY, 'base64').length !== 32) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['EMAIL_TOKEN_ENCRYPTION_KEY'],
+          message: 'EMAIL_TOKEN_ENCRYPTION_KEY must be 32 random bytes, base64-encoded',
+        });
+      }
+      for (const key of ['EMAIL_OAUTH_REDIRECT_URI', 'EMAIL_OAUTH_RETURN_URL'] as const) {
+        const value = env[key];
+        if (!value) continue;
+        if (!/^https?:\/\/\S+$/i.test(value)) {
+          ctx.addIssue({ code: 'custom', path: [key], message: `${key} must be an http(s) URL` });
+        } else if (env.NODE_ENV === 'production' && !value.startsWith('https://')) {
+          // The authorisation code travels on this redirect; in production it must be encrypted.
+          ctx.addIssue({ code: 'custom', path: [key], message: `${key} must use HTTPS in production` });
+        }
+      }
+    }
     // Synchronisation that is switched on with no provider behind it would report success while
     // contacting nothing, which is exactly the false comfort Phase 7 forbids.
     if (env.EMAIL_SYNC_ENABLED && env.EMAIL_PROVIDER === 'none') {
@@ -218,6 +296,13 @@ export const envSchema = z
       // Live keys move real money: never allow them outside production.
       if (env.NODE_ENV !== 'production' && env.RAZORPAYX_KEY_ID.startsWith('rzp_live_')) {
         ctx.addIssue({ code: 'custom', path: ['RAZORPAYX_KEY_ID'], message: 'A live RazorpayX key is not allowed outside production; use a rzp_test_ key' });
+      }
+    }
+    if (env.NODE_ENV === 'production' && env.FILE_STORAGE_PROVIDER === 'cloudinary') {
+      for (const key of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const) {
+        if (!env[key] || PLACEHOLDER_SECRETS.has(env[key].toLowerCase())) {
+          ctx.addIssue({ code: 'custom', path: [key], message: `${key} is required when FILE_STORAGE_PROVIDER=cloudinary in production` });
+        }
       }
     }
     if (env.LOCATION_OFFLINE_AFTER_MINUTES < env.LOCATION_STALE_AFTER_MINUTES) {

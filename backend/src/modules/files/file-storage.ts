@@ -21,7 +21,7 @@ export interface StoredObject {
  * are retained. Removal will be an explicit, audited archival operation.
  */
 export abstract class FileStorage {
-  abstract readonly provider: 'LOCAL' | 'R2';
+  abstract readonly provider: 'LOCAL' | 'R2' | 'CLOUDINARY';
 
   abstract put(input: PutObjectInput): Promise<StoredObject>;
 

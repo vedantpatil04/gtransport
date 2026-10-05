@@ -3,6 +3,7 @@ import { ReceiptAIService } from './receipt-ai.service';
 import type { ServiceReceiptExtraction } from './schema';
 import type { ProcessServiceReceiptInput } from './types';
 import { DocumentPreparationError, type DocumentPreparer, type PreparedDocument } from './preprocessing/document-preparation';
+import { OcrError, type OcrEngine } from './ocr/ocr-engine';
 
 /** A preparer that passes an image straight through — the common case, and the simplest. */
 const passThroughPreparer: DocumentPreparer = {
@@ -31,7 +32,10 @@ const VALID_EXTRACTION: ServiceReceiptExtraction = {
   invoiceDate: '2026-03-04',
   vehicleNumber: 'KA 22 AB 1234',
   serviceType: 'Brake service',
-  parts: [{ name: 'Brake pad', quantity: 2, unitPrice: 850, amount: 1700 }],
+  odometerKm: 48_200,
+  nextServiceDate: null,
+  nextServiceKm: null,
+  lineItems: [{ description: 'Brake pad', kind: 'PART', quantity: 2, unitPrice: 850, amount: 1700 }],
   partsAmount: 1700,
   labourAmount: 500,
   gstAmount: 396,
@@ -216,6 +220,96 @@ describe('ReceiptAIService', () => {
     expect(serviceWith(providerReturning(VALID_EXTRACTION)).describeProvider()).toEqual({
       provider: 'ollama',
       model: 'test-model',
+      ocr: 'none',
     });
+  });
+
+  it('reads an extraction stored before line items were typed', async () => {
+    // Older results carried `parts: [{ name, ... }]`. They are still valid readings.
+    const { lineItems: _omit, odometerKm: _o, nextServiceDate: _d, nextServiceKm: _k, ...legacy } = VALID_EXTRACTION;
+    const result = await serviceWith(
+      providerReturning({ ...legacy, parts: [{ name: 'Brake pad', quantity: 2, unitPrice: 850, amount: 1700 }] }),
+    ).processServiceReceipt(INPUT);
+    expect(result.ok && result.extraction.lineItems).toEqual([
+      { description: 'Brake pad', kind: 'PART', quantity: 2, unitPrice: 850, amount: 1700 },
+    ]);
+    // Values the old shape never had are unknown, not zero.
+    expect(result.ok && result.extraction.odometerKm).toBeNull();
+  });
+
+  it('reads printed kilometres without inventing any', async () => {
+    const result = await serviceWith(providerReturning({ ...VALID_EXTRACTION, odometerKm: '48,200 km' })).processServiceReceipt(INPUT);
+    expect(result.ok && result.extraction.odometerKm).toBe(48_200);
+
+    const vague = await serviceWith(providerReturning({ ...VALID_EXTRACTION, odometerKm: 'about 48k' })).processServiceReceipt(INPUT);
+    expect(vague).toMatchObject({ ok: false, failure: { code: 'INVALID_AI_OUTPUT' } });
+  });
+});
+
+describe('ReceiptAIService — the OCR stage', () => {
+  const engine = (overrides: Partial<OcrEngine> = {}): OcrEngine => ({
+    name: 'tesseract',
+    isAvailable: async () => true,
+    supports: (mimeType) => mimeType !== 'image/heic',
+    recognise: jest.fn().mockResolvedValue({ text: 'SHARMA AUTO WORKS\nTOTAL 2596.00', pages: 1 }),
+    ...overrides,
+  });
+
+  it('runs OCR on a photograph and hands the text to the provider beside the image', async () => {
+    const provider = providerReturning(VALID_EXTRACTION);
+    const ocr = engine();
+    const result = await new ReceiptAIService(provider, passThroughPreparer, { engine: ocr, required: false }).processServiceReceipt(INPUT);
+
+    expect(ocr.recognise).toHaveBeenCalledWith([{ bytes: INPUT.receipt.bytes, mimeType: 'image/jpeg' }]);
+    const call = (provider.processServiceReceipt as jest.Mock).mock.calls[0][0] as ProcessServiceReceiptInput;
+    expect(call.ocrText).toContain('TOTAL 2596.00');
+    // The original image still goes to the model: OCR is a cross-check, not a replacement.
+    expect(call.receipt.bytes).toBe(INPUT.receipt.bytes);
+    expect(result.ok && result.preparation).toBe('image+ocr');
+  });
+
+  it('skips OCR for a digital PDF that carried its own text', async () => {
+    const ocr = engine();
+    const withText: DocumentPreparer = {
+      ...passThroughPreparer,
+      prepare: async (document) => ({ document, kind: 'pdf:text', sourceText: 'TAX INVOICE ...', sourceTextChars: 15, warnings: [] }),
+    };
+    await new ReceiptAIService(providerReturning(VALID_EXTRACTION), withText, { engine: ocr, required: false }).processServiceReceipt(INPUT);
+    expect(ocr.recognise).not.toHaveBeenCalled();
+  });
+
+  it('carries on without OCR when it is optional and fails, saying so in review', async () => {
+    const ocr = engine({ recognise: jest.fn().mockRejectedValue(new OcrError('The OCR engine could not read this image.', true)) });
+    const result = await new ReceiptAIService(providerReturning(VALID_EXTRACTION), passThroughPreparer, { engine: ocr, required: false })
+      .processServiceReceipt(INPUT);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.preparation).toBe('image');
+    expect(result.ok && result.extraction.warnings.join(' ')).toContain('OCR engine could not read');
+  });
+
+  it('fails visibly when OCR is required and the engine is missing', async () => {
+    const provider = providerReturning(VALID_EXTRACTION);
+    const result = await new ReceiptAIService(provider, passThroughPreparer, { engine: engine({ isAvailable: async () => false }), required: true })
+      .processServiceReceipt(INPUT);
+    expect(result).toMatchObject({ ok: false, failure: { code: 'PREPROCESSING_FAILED', retryable: true } });
+    expect(provider.processServiceReceipt).not.toHaveBeenCalled();
+  });
+
+  it('never presents an empty OCR result as text', async () => {
+    const provider = providerReturning(VALID_EXTRACTION);
+    const result = await new ReceiptAIService(provider, passThroughPreparer, {
+      engine: engine({ recognise: jest.fn().mockResolvedValue({ text: '   ', pages: 1 }) }),
+      required: false,
+    }).processServiceReceipt(INPUT);
+    const call = (provider.processServiceReceipt as jest.Mock).mock.calls[0][0] as ProcessServiceReceiptInput;
+    expect(call.ocrText).toBeNull();
+    expect(result.ok && result.extraction.warnings).toContain('OCR found no readable text on the receipt image.');
+  });
+
+  it('notes a photo format OCR cannot read, and lets the model read it directly', async () => {
+    const heic: ProcessServiceReceiptInput = { receipt: { ...INPUT.receipt, mimeType: 'image/heic' } };
+    const result = await new ReceiptAIService(providerReturning(VALID_EXTRACTION), passThroughPreparer, { engine: engine(), required: false })
+      .processServiceReceipt(heic);
+    expect(result.ok && result.extraction.warnings.join(' ')).toContain('OCR cannot read image/heic');
   });
 });

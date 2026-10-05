@@ -2,48 +2,103 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patc
 import { UserRole } from '@prisma/client';
 import type { Response } from 'express';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
-import { CurrentUser, Roles } from '../auth/decorators';
-import { FLEET_MANAGE_ROLES, OFFICE_ROLES } from '../auth/roles';
+import { CurrentUser, Public, Roles } from '../auth/decorators';
+import { FINANCE_MANAGE_ROLES, FLEET_MANAGE_ROLES, OFFICE_ROLES } from '../auth/roles';
 import { FilesService } from '../files/files.service';
-import { ClassifyMessageDto, InboxQuery, SetInboxStatusDto, SyncInboxDto } from './dto/inbox.dto';
+import {
+  AcceptSuggestionDto, ClassifyMessageDto, InboxQuery, RejectSuggestionDto, SetInboxStatusDto, SuggestionQuery, SyncInboxDto,
+} from './dto/inbox.dto';
 import { InboxService } from './inbox.service';
 import { InboxSyncService } from './inbox-sync.service';
-import { presentInboxDetail, presentInboxRow } from './inbox.presenter';
+import { MailboxConnectionService } from './mailbox-connection.service';
+import { presentInboxDetail, presentInboxRow, presentSuggestion } from './inbox.presenter';
 
 const uuid = () => new ParseUUIDPipe({ version: '7' });
+
+/** Everyone who may decide at least one kind of suggestion; the service checks the kind. */
+const SUGGESTION_DECIDERS = [...new Set([...FLEET_MANAGE_ROLES, ...FINANCE_MANAGE_ROLES, UserRole.ACCOUNTING])];
 
 /**
  * The office inbox.
  *
- * Office roles read; the roles that run the fleet trigger a synchronisation or a re-classification.
- * A driver has no access at all — company mail is not theirs to read, and the guard refuses it
- * before any handler runs.
+ * Office roles read; the roles that run the fleet trigger a synchronisation or a re-classification;
+ * only an administrator connects or disconnects the company mailbox. A driver has no access at all
+ * — company mail is not theirs to read, and the guard refuses it before any handler runs.
  *
  * Nothing here sends, replies to, forwards or deletes a message. The provider interface has no
- * method for it (§21).
+ * method for it and the OAuth scopes are read-only (§21).
  */
 @Controller('inbox')
 export class InboxController {
   constructor(
     private readonly inbox: InboxService,
     private readonly sync: InboxSyncService,
+    private readonly connections: MailboxConnectionService,
     private readonly files: FilesService,
   ) {}
 
-  /** Whether a mailbox is connected, and how the last synchronisation went. */
+  /** Whether a mailbox is connected, by whom, and how the last synchronisation went. */
   @Get('status')
   @Roles(...OFFICE_ROLES)
   status(@CurrentUser() user: AuthenticatedUser) {
     return this.sync.status(user.companyId);
   }
 
+  // ── Connection (Gmail API / Microsoft Graph, OAuth) ──
+
+  /** Starts OAuth consent. The console sends the browser to the returned provider URL. */
+  @Post('connection/authorize')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  authorize(@CurrentUser() user: AuthenticatedUser) {
+    return this.connections.beginAuthorization(user);
+  }
+
+  /**
+   * The provider's redirect after consent.
+   *
+   * Public because it is the provider sending the browser back, with no session attached. It
+   * trusts nothing but the single-use state, and answers with a redirect to the console carrying
+   * only an outcome code — never a token.
+   */
+  @Public()
+  @Get('oauth/callback')
+  async callback(
+    @Query('state') state: string | undefined,
+    @Query('code') code: string | undefined,
+    @Query('error') error: string | undefined,
+    @Res() res: Response,
+  ): Promise<void> {
+    const outcome = await this.connections.completeAuthorization({ state, code, error });
+    const target = this.connections.returnUrl(outcome);
+    res.setHeader('Cache-Control', 'no-store');
+    if (target) {
+      res.redirect(HttpStatus.SEE_OTHER, target);
+      return;
+    }
+    res
+      .status(outcome.ok ? HttpStatus.OK : HttpStatus.BAD_REQUEST)
+      .type('text/plain')
+      .send(outcome.ok ? 'The mailbox is connected. You can close this window.' : `The mailbox could not be connected (${outcome.reason}).`);
+  }
+
+  /** Disconnects the company mailbox: tokens are erased and revoked where the provider allows. */
+  @Post('connection/disconnect')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  disconnect(@CurrentUser() user: AuthenticatedUser) {
+    return this.connections.disconnect(user);
+  }
+
   /** Contacts the mailbox now, and says plainly what happened. */
   @Post('verify-connection')
   @HttpCode(HttpStatus.OK)
   @Roles(...FLEET_MANAGE_ROLES)
-  verifyConnection() {
-    return this.sync.verifyConnection();
+  verifyConnection(@CurrentUser() user: AuthenticatedUser) {
+    return this.sync.verifyConnection(user.companyId);
   }
+
+  // ── Mail ──
 
   @Get('summary')
   @Roles(...OFFICE_ROLES)
@@ -61,14 +116,14 @@ export class InboxController {
   /**
    * Runs a synchronisation on demand.
    *
-   * Returns what actually happened — fetched, filed, already known, failed — rather than a bare
-   * success, so "synced" can never mean "we contacted nothing" (§39).
+   * Returns what actually happened — pages read, filed, already known, failed — rather than a
+   * bare success, so "synced" can never mean "we contacted nothing" (§39).
    */
   @Post('sync')
   @HttpCode(HttpStatus.OK)
   @Roles(...FLEET_MANAGE_ROLES)
   async runSync(@CurrentUser() user: AuthenticatedUser, @Body() dto: SyncInboxDto) {
-    const outcome = await this.sync.sync(user.companyId, { limit: dto.limit, actorUserId: user.id });
+    const outcome = await this.sync.sync(user.companyId, { limit: dto.limit, actorUserId: user.id, trigger: 'manual' });
     // Classification follows ingestion, bounded so one request cannot run away.
     const classified = outcome.ok ? await this.inbox.classifyPending(user.companyId, 10) : { processed: 0, failed: 0 };
     return { ...outcome, classified };
@@ -125,7 +180,29 @@ export class InboxController {
     res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
     res.end(Buffer.from(file.bytes));
   }
-}
 
-/** Kept out of the class above so the role list reads in one place. */
-export const INBOX_DRIVER_ACCESS: UserRole[] = [];
+  // ── Suggestions ──
+
+  /** AI-proposed follow-ups awaiting a decision (or, by status, decided ones). */
+  @Get('suggestions')
+  @Roles(...OFFICE_ROLES)
+  async suggestions(@CurrentUser() user: AuthenticatedUser, @Query() query: SuggestionQuery) {
+    const page = await this.inbox.listSuggestions(user.companyId, query);
+    return { ...page, data: page.data.map(presentSuggestion) };
+  }
+
+  /** Accepts a suggestion. The service checks the role against the kind of suggestion. */
+  @Post('suggestions/:id/accept')
+  @HttpCode(HttpStatus.OK)
+  @Roles(...SUGGESTION_DECIDERS)
+  async accept(@CurrentUser() user: AuthenticatedUser, @Param('id', uuid()) id: string, @Body() dto: AcceptSuggestionDto) {
+    return presentSuggestion(await this.inbox.acceptSuggestion(user, id, dto));
+  }
+
+  @Post('suggestions/:id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles(...SUGGESTION_DECIDERS)
+  async reject(@CurrentUser() user: AuthenticatedUser, @Param('id', uuid()) id: string, @Body() dto: RejectSuggestionDto) {
+    return presentSuggestion(await this.inbox.rejectSuggestion(user, id, dto.note));
+  }
+}

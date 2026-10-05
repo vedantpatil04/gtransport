@@ -579,14 +579,14 @@ export interface ApiFleetAlertSummary {
 // ───────────────────────── Service receipt AI (Phase 7) ─────────────────────────
 
 /**
- * The lifecycle of an uploaded service receipt, as the office sees it.
+ * The lifecycle of an uploaded service receipt, as the office sees it — the explicit Phase 7 states.
  *
- * `COMPLETED` means the extraction succeeded — not that anyone has agreed with it. Only
- * `CONFIRMED` says a person checked the figures and put their name to them.
+ * `SUCCEEDED` means the extraction succeeded and checks out — not that anyone has agreed with it.
+ * Only `VERIFIED` says a person checked the figures and put their name to them.
  */
 export type ApiReceiptAIStatus =
-  | 'NOT_PROCESSED' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'REVIEW_REQUIRED'
-  | 'FAILED' | 'RETRYING' | 'CONFIRMED' | 'REJECTED';
+  | 'NOT_PROCESSED' | 'QUEUED' | 'PROCESSING' | 'SUCCEEDED' | 'NEEDS_REVIEW'
+  | 'FAILED' | 'RETRYING' | 'VERIFIED' | 'REJECTED';
 
 /** What the driver's phone is told. Five words, no AI detail. */
 export type ApiDriverReceiptState = 'uploaded' | 'processing' | 'needsReview' | 'verified' | 'failed';
@@ -603,6 +603,22 @@ export interface ApiReceiptSuggestions {
   vendorName: ApiSuggestedValue<string>;
   invoiceNumber: ApiSuggestedValue<string>;
   serviceType: ApiSuggestedValue<string>;
+  odometerKm: ApiSuggestedValue<number>;
+  nextServiceDate: ApiSuggestedValue<string>;
+  nextServiceKm: ApiSuggestedValue<number>;
+  labourAmount: ApiSuggestedValue<number>;
+  partsAmount: ApiSuggestedValue<number>;
+  taxAmount: ApiSuggestedValue<number>;
+}
+
+export type ApiLineItemKind = 'PART' | 'LABOUR' | 'OTHER';
+
+export interface ApiReceiptLineItem {
+  description: string | null;
+  kind: ApiLineItemKind | null;
+  quantity: number | null;
+  unitPrice: number | null;
+  amount: number | null;
 }
 
 export interface ApiReceiptExtraction {
@@ -611,7 +627,10 @@ export interface ApiReceiptExtraction {
   invoiceDate: string | null;
   vehicleNumber: string | null;
   serviceType: string | null;
-  parts: { name: string; quantity: number | null; unitPrice: number | null; amount: number | null }[];
+  odometerKm: number | null;
+  nextServiceDate: string | null;
+  nextServiceKm: number | null;
+  lineItems: ApiReceiptLineItem[];
   partsAmount: number | null;
   labourAmount: number | null;
   gstAmount: number | null;
@@ -632,6 +651,7 @@ export interface ApiReceiptAIResult {
   warnings: string[];
   /** What the application's checks found. These are what send a record to review. */
   validationIssues: string[];
+  /** How the receipt was read: "image", "image+ocr", "pdf:text", "pdf:raster+ocr", … */
   preparation: string | null;
   sourceTextChars: number | null;
   durationMs: number | null;
@@ -654,6 +674,15 @@ export interface ApiReceiptAIJob {
   failureMessage: string | null;
 }
 
+/** A verified line, as stored on the record: money as strings, as the person entered it. */
+export interface ApiVerifiedLineItem {
+  description: string;
+  kind: ApiLineItemKind | null;
+  quantity: string | null;
+  unitPrice: string | null;
+  amount: string | null;
+}
+
 export interface ApiReceiptReview {
   /** The authoritative record, exactly as it stands now. */
   record: {
@@ -666,6 +695,18 @@ export interface ApiReceiptReview {
     status: string;
     vehicle: { id: string; registrationNumber: string };
     driver: { id: string; driverCode: string; fullName: string } | null;
+    /** The structured service details. Only verification writes these. */
+    service: {
+      invoiceNumber: string | null;
+      serviceType: string | null;
+      odometerKm: number | null;
+      nextServiceDate: string | null;
+      nextServiceKm: number | null;
+      labourAmount: string | null;
+      partsAmount: string | null;
+      taxAmount: string | null;
+      lineItems: ApiVerifiedLineItem[];
+    };
   };
   /** The original upload. Present whatever happened to processing. */
   receipt: { fileId: string; filename: string; mimeType: string; sizeBytes: number; uploadedAt: string } | null;
@@ -675,6 +716,7 @@ export interface ApiReceiptReview {
     verifiedById: string | null;
     rejectedAt: string | null;
     acceptedResultId: string | null;
+    /** Which values matched the extraction, as the server worked it out. */
     acceptedFields: string[];
     canVerify: boolean;
     canRetry: boolean;
@@ -684,6 +726,23 @@ export interface ApiReceiptReview {
   jobs: ApiReceiptAIJob[];
   extraction: ApiReceiptExtraction | null;
   suggestions: ApiReceiptSuggestions | null;
+}
+
+export interface ApiVerifyReceiptBody {
+  amount?: string;
+  expenseDate?: string;
+  vendorName?: string;
+  description?: string;
+  invoiceNumber?: string | null;
+  serviceType?: string | null;
+  odometerKm?: number | null;
+  nextServiceDate?: string | null;
+  nextServiceKm?: number | null;
+  labourAmount?: string | null;
+  partsAmount?: string | null;
+  taxAmount?: string | null;
+  lineItems?: ApiVerifiedLineItem[] | null;
+  resultId?: string;
 }
 
 export interface ApiPendingReceipt {
@@ -700,34 +759,69 @@ export interface ApiPendingReceipt {
 }
 
 export interface ApiReceiptQueueStatus {
-  pending: number;
+  queued: number;
   processing: number;
   retrying: number;
   failed: number;
   awaitingReview: number;
   provider: string;
   model: string;
+  /** Which OCR engine runs before the model, e.g. "tesseract" or "none". */
+  ocr: string;
   /** False when the in-process worker is off and jobs are drained by a scheduled run instead. */
   workerEnabled: boolean;
 }
 
 export interface ApiMaintenanceObservation {
-  kind: 'estimated_reminder' | 'frequent_service' | 'repeated_part' | 'recurring_vendor';
+  kind: 'service_due' | 'estimated_reminder' | 'frequent_service' | 'repeated_issue' | 'recurring_vendor';
   severity: 'info' | 'attention';
   /** Plain words for the office. Always an observation, never an instruction. */
   message: string;
 }
 
-/** One vehicle's verified service history. Every figure here rests on confirmed records only. */
+export interface ApiNextService {
+  /** `workshop`: printed on a verified receipt. `estimate`: from past intervals. */
+  source: 'workshop' | 'estimate';
+  status: 'overdue' | 'upcoming' | 'scheduled';
+  dueDate: string | null;
+  daysRemaining: number | null;
+  dueKm: number | null;
+  lastServiceDate: string;
+  lastOdometerKm: number | null;
+}
+
+export interface ApiRepeatedIssue {
+  kind: 'part' | 'labour' | 'service_type';
+  label: string;
+  occurrences: number;
+  firstSeen: string;
+  lastSeen: string;
+}
+
+export interface ApiRecentService {
+  id: string;
+  vehicle: { id: string; registrationNumber: string };
+  serviceDate: string;
+  vendorName: string | null;
+  serviceType: string | null;
+  invoiceNumber: string | null;
+  amount: string;
+  odometerKm: number | null;
+}
+
+/** One vehicle's verified service history. Every figure here rests on verified records only. */
 export interface ApiVehicleMaintenance {
   vehicleId: string;
-  confirmedServices: number;
+  verifiedServices: number;
   totalSpend: string;
   lastServiceDate: string | null;
+  lastOdometerKm: number | null;
   averageIntervalDays: number | null;
-  /** An estimate from past intervals, not a manufacturer schedule. */
-  estimatedNextServiceDate: string | null;
-  frequentParts: { name: string; occurrences: number }[];
+  servicesLast90Days: number;
+  servicesLast365Days: number;
+  nextService: ApiNextService | null;
+  repeatedIssues: ApiRepeatedIssue[];
+  recent: ApiRecentService[];
   observations: ApiMaintenanceObservation[];
   /** Says in words what the numbers were drawn from, so they can be judged rather than believed. */
   basis: string;
@@ -735,22 +829,25 @@ export interface ApiVehicleMaintenance {
 
 export interface ApiMaintenanceSummary {
   windowDays: number;
-  confirmedServices: number;
-  /** Receipts the office has still to look at. Counted separately, and excluded from the spend. */
+  verifiedServices: number;
+  /** Receipts the office has still to look at. Counted separately, and excluded from every figure. */
   awaitingReview: number;
-  confirmedSpend: string;
+  verifiedSpend: string;
+  dueServices: (ApiNextService & { vehicle: { id: string; registrationNumber: string } })[];
+  repeatedIssues: (ApiRepeatedIssue & { vehicle: { id: string; registrationNumber: string } })[];
+  recent: ApiRecentService[];
   basis: string;
 }
 
 // ───────────────────────────── Inbox (Phase 7) ─────────────────────────────
 
 export type ApiInboxClassification =
-  | 'UNCLASSIFIED' | 'SERVICE_INVOICE' | 'DOCUMENT' | 'PAYMENT_NOTIFICATION'
-  | 'GOVERNMENT' | 'CUSTOMER' | 'SPAM' | 'OPERATIONAL' | 'OTHER';
+  | 'VEHICLE_DOCUMENT' | 'FUEL' | 'MAINTENANCE' | 'FINANCE' | 'SALARY_PAYMENT' | 'COMPLIANCE'
+  | 'VENDOR' | 'CUSTOMER' | 'GENERAL' | 'SPAM' | 'UNCLASSIFIED';
 
 export type ApiInboxStatus = 'UNREAD' | 'READ' | 'ARCHIVED';
 
-export type ApiInboxAIStatus = 'NOT_PROCESSED' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type ApiInboxAIStatus = 'NOT_PROCESSED' | 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'RETRYING' | 'FAILED' | 'SKIPPED';
 
 export interface ApiInboxRow {
   id: string;
@@ -763,6 +860,8 @@ export interface ApiInboxRow {
   classificationConfirmed: boolean;
   aiStatus: ApiInboxAIStatus;
   attachmentCount: number;
+  /** Undecided AI suggestions on this message. */
+  pendingSuggestions: number;
   hasHtml: boolean;
   provider: string;
   aiSummary: string | null;
@@ -774,9 +873,35 @@ export interface ApiInboxAttachment {
   filename: string;
   mimeType: string;
   sizeBytes: number;
-  /** False when the file was refused. It is still listed, with a reason. */
+  /** False when the file was refused or not yet downloaded. It is still listed, with a reason. */
   stored: boolean;
   skipReason: string | null;
+  downloadAttempts: number;
+}
+
+export type ApiSuggestionType =
+  | 'CREATE_SERVICE_RECORD' | 'REVIEW_VEHICLE_DOCUMENT' | 'REVIEW_COMPLIANCE'
+  | 'RECORD_FUEL_EXPENSE' | 'REVIEW_FINANCE' | 'REVIEW_PAYMENT';
+
+export type ApiSuggestionStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'SUPERSEDED';
+
+/** Something AI proposes doing about an email. Nothing happens until a person accepts it. */
+export interface ApiInboxSuggestion {
+  id: string;
+  messageId: string;
+  resultId: string;
+  type: ApiSuggestionType;
+  status: ApiSuggestionStatus;
+  reason: string | null;
+  /** What the model read from the mail — prefill for a person to check, never applied. */
+  details: { vehicleRegistration: string | null; amount: number | null; date: string | null; reference: string | null };
+  attachment: { id: string; filename: string; mimeType: string; stored: boolean } | null;
+  decidedAt: string | null;
+  decidedById: string | null;
+  decisionNote: string | null;
+  result: { entityType: string; entityId: string } | null;
+  createdAt: string;
+  message?: { id: string; subject: string | null; from: { address: string; name: string | null }; receivedAt: string };
 }
 
 export interface ApiInboxMessage {
@@ -801,7 +926,7 @@ export interface ApiInboxMessage {
   classification: ApiInboxClassification;
   classificationConfirmed: boolean;
   classifiedAt: string | null;
-  ai: { status: ApiInboxAIStatus; attempts: number; failureCode: string | null; failureMessage: string | null };
+  ai: { status: ApiInboxAIStatus; attempts: number; failureCode: string | null; failureMessage: string | null; nextAttemptAt: string | null };
   attachments: ApiInboxAttachment[];
   aiResults: {
     id: string;
@@ -816,35 +941,66 @@ export interface ApiInboxMessage {
     durationMs: number | null;
     createdAt: string;
   }[];
+  suggestions: ApiInboxSuggestion[];
 }
 
 export interface ApiInboxSummary {
   unread: number;
   total: number;
   needingAttention: number;
+  pendingSuggestions: number;
   byClassification: Partial<Record<ApiInboxClassification, number>>;
 }
 
+export type ApiMailboxConnectionStatus = 'PENDING' | 'CONNECTED' | 'REAUTHORIZATION_REQUIRED' | 'DISCONNECTED';
+
 export interface ApiInboxStatusInfo {
-  /** False when no mailbox is configured on the server — which is not the same as no mail. */
+  /** True only when a mailbox can actually be read right now — not the same as "has mail". */
   configured: boolean;
   provider: string | null;
   mailbox: string | null;
+  /** Why nothing can be read, in words, when `configured` is false. */
+  unavailableReason: string | null;
+  connection: {
+    /** `oauth`: Gmail / Microsoft 365, connected from here. `imap`: set on the server. */
+    mode: 'oauth' | 'imap' | 'none';
+    provider: string | null;
+    canConnect: boolean;
+    connection: {
+      status: ApiMailboxConnectionStatus;
+      emailAddress: string | null;
+      scopes: string[];
+      connectedAt: string | null;
+      connectedById: string | null;
+      disconnectedAt: string | null;
+      lastError: string | null;
+      lastErrorAt: string | null;
+      authorizationPending: boolean;
+    } | null;
+  };
   syncEnabled: boolean;
   aiEnabled: boolean;
   lastSyncStartedAt: string | null;
   lastSyncFinishedAt: string | null;
   lastError: string | null;
   consecutiveFailures: number;
+  /** When the scheduler will try a failing mailbox again. */
+  nextAttemptAt: string | null;
   messagesSynced: number;
 }
 
 export interface ApiInboxSyncOutcome {
   ok: boolean;
+  skipped?: boolean;
   reason?: string;
+  retryable: boolean;
   fetched: number;
   created: number;
   duplicates: number;
   failed: number;
+  pages: number;
+  hasMore: boolean;
+  attachmentsRecovered: number;
+  notices: string[];
   classified: { processed: number; failed: number };
 }

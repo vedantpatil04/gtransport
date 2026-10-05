@@ -1,5 +1,5 @@
 import { InboxClassification } from '@prisma/client';
-import { buildClassificationInput, EmailClassificationSchema, mayApplyClassification } from './email-ai';
+import { buildClassificationInput, EmailClassificationSchema, mayApplyClassification, suggestionsToKeep } from './email-ai';
 
 /**
  * What a model is allowed to say about an email, and when its answer may be applied.
@@ -9,7 +9,7 @@ import { buildClassificationInput, EmailClassificationSchema, mayApplyClassifica
  */
 
 const VALID = {
-  classification: 'SERVICE_INVOICE',
+  classification: 'MAINTENANCE',
   confidence: 0.88,
   summary: 'Sharma Auto Works has sent invoice INV-2291 for brake work on KA 22 AB 1234, totalling ₹4,850.',
   references: [
@@ -24,7 +24,7 @@ describe('EmailClassificationSchema', () => {
   it('accepts a well-formed classification', () => {
     const parsed = EmailClassificationSchema.safeParse(VALID);
     expect(parsed.success).toBe(true);
-    if (parsed.success) expect(parsed.data.classification).toBe(InboxClassification.SERVICE_INVOICE);
+    if (parsed.success) expect(parsed.data.classification).toBe(InboxClassification.MAINTENANCE);
   });
 
   it('refuses a category outside the agreed list', () => {
@@ -46,6 +46,30 @@ describe('EmailClassificationSchema', () => {
 
   it('refuses extra fields rather than storing whatever the model volunteered', () => {
     expect(EmailClassificationSchema.safeParse({ ...VALID, suggestedAction: 'pay this invoice' }).success).toBe(false);
+  });
+
+  it('knows every category the office files mail under', () => {
+    for (const classification of ['VEHICLE_DOCUMENT', 'FUEL', 'MAINTENANCE', 'FINANCE', 'SALARY_PAYMENT', 'COMPLIANCE', 'VENDOR', 'CUSTOMER', 'GENERAL', 'SPAM']) {
+      expect(EmailClassificationSchema.safeParse({ ...VALID, classification }).success).toBe(true);
+    }
+  });
+
+  it('accepts a suggested action from the fixed list, and nothing else', () => {
+    const action = {
+      type: 'CREATE_SERVICE_RECORD', reason: 'A workshop invoice for brake work.', attachment: 'invoice-2291.pdf',
+      vehicleRegistration: 'KA 22 AB 1234', amount: '4,850', date: '2026-03-04', reference: 'INV-2291',
+    };
+    const parsed = EmailClassificationSchema.safeParse({ ...VALID, suggestedActions: [action] });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.suggestedActions[0]!.amount).toBe(4850);
+
+    // An action the system does not offer — paying, replying — is refused outright.
+    expect(EmailClassificationSchema.safeParse({ ...VALID, suggestedActions: [{ ...action, type: 'PAY_INVOICE' }] }).success).toBe(false);
+  });
+
+  it('treats a missing suggestion list as none', () => {
+    const parsed = EmailClassificationSchema.safeParse(VALID);
+    expect(parsed.success && parsed.data.suggestedActions).toEqual([]);
   });
 
   it('accepts a model that honestly cannot tell', () => {
@@ -73,6 +97,33 @@ describe('mayApplyClassification', () => {
     // The office has looked at this mail and said what it is. A model reading it again later
     // records its own view, but the category stays as the person set it.
     expect(mayApplyClassification({ classifiedById: 'user-1' })).toBe(false);
+  });
+
+  it('does not file mail under a low-confidence guess', () => {
+    expect(mayApplyClassification({ classifiedById: null }, 0.3, 0.5)).toBe(false);
+    expect(mayApplyClassification({ classifiedById: null }, 0.7, 0.5)).toBe(true);
+  });
+});
+
+describe('suggestionsToKeep', () => {
+  const reading = (overrides: Record<string, unknown> = {}) =>
+    EmailClassificationSchema.parse({
+      ...VALID,
+      suggestedActions: [
+        { type: 'CREATE_SERVICE_RECORD', reason: 'Workshop invoice.' },
+        { type: 'CREATE_SERVICE_RECORD', reason: 'Same invoice again.' },
+        { type: 'REVIEW_PAYMENT', reason: 'Payment due.' },
+      ],
+      ...overrides,
+    });
+
+  it('keeps each kind of suggestion once', () => {
+    expect(suggestionsToKeep(reading(), 0.5).map((s) => s.type)).toEqual(['CREATE_SERVICE_RECORD', 'REVIEW_PAYMENT']);
+  });
+
+  it('suggests nothing for spam, or for a reading below the confidence floor', () => {
+    expect(suggestionsToKeep(reading({ classification: 'SPAM' }), 0.5)).toEqual([]);
+    expect(suggestionsToKeep(reading({ confidence: 0.2 }), 0.5)).toEqual([]);
   });
 });
 

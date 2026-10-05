@@ -1,11 +1,10 @@
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Linking, Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { AppText, Card, Row } from '../../components/ui';
 import { officePath, sectionsFor, type OfficeModule } from '../../features/office/modules';
 import { OfficeScreen } from '../../features/office/ui';
 import { useSession } from '../../lib/auth/session-store';
-import { API_URL } from '../../lib/config';
 import { colors, spacing } from '../../theme/tokens';
 
 /** The role's remaining modules organized by section, and Profile. Nothing here the role may not open. */
@@ -17,20 +16,6 @@ export default function OfficeMore() {
 
   const handlePress = (module: OfficeModule) => {
     const path = officePath(module);
-    if (typeof path === 'string' && path.startsWith('/admin')) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.location.assign(path);
-      } else {
-        const baseUrl =
-          process.env.EXPO_PUBLIC_WEB_URL ||
-          (API_URL ? API_URL.replace(/:\d+$/, ':5173') : 'http://localhost:5173');
-        const fullUrl = `${baseUrl.replace(/\/+$/, '')}${path}`;
-        void Linking.openURL(fullUrl).catch((err) => {
-          console.warn('[OfficeMore] Could not open admin URL:', fullUrl, err);
-        });
-      }
-      return;
-    }
     router.push(path);
   };
 

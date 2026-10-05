@@ -4,6 +4,7 @@ import { simpleParser, type ParsedMail } from 'mailparser';
 import {
   EmailProviderError, type EmailProvider, type EmailSyncPage, type InboundAttachmentDescriptor, type InboundEmail,
 } from '../email-provider';
+import { htmlToText } from './mail-text';
 
 export interface ImapProviderOptions {
   host: string;
@@ -20,14 +21,13 @@ export interface ImapProviderOptions {
 /**
  * A dedicated company mailbox over IMAP.
  *
- * ── Why IMAP ──
+ * ── When IMAP ──
  *
- * The alternatives — the Gmail API or Microsoft Graph — need an OAuth application, a consent
- * flow, and somewhere to keep and refresh tokens. That is a large amount of machinery, and it ties
- * a transport company to one vendor's account model. A dedicated mailbox with an app password
- * works against Gmail, Microsoft 365, Zoho and any hosting provider's mail, needs one set of
- * credentials in the server's environment, and suits how this application is actually deployed.
- * The abstraction above is what makes swapping it a contained job.
+ * Gmail and Microsoft 365 mailboxes connect through their official APIs with OAuth
+ * (`EMAIL_PROVIDER=gmail` / `microsoft_graph`) — both providers are retiring password access to
+ * IMAP. This adapter is for a company mailbox on any other host (Zoho, a hosting provider's mail)
+ * that offers IMAP with an app password. It sits behind the same abstraction and is never used
+ * for an account that has an API.
  *
  * ── The cursor ──
  *
@@ -45,6 +45,10 @@ export class ImapEmailProvider implements EmailProvider {
   readonly name = EmailProviderName.IMAP_MAILBOX;
 
   constructor(private readonly options: ImapProviderOptions) {}
+
+  get mailbox(): string {
+    return this.options.mailbox;
+  }
 
   isConfigured(): boolean {
     return Boolean(this.options.host && this.options.user && this.options.password);
@@ -142,19 +146,6 @@ export class ImapEmailProvider implements EmailProvider {
     });
   }
 
-  async markRead(providerMessageId: string): Promise<void> {
-    const parsed = this.parseMessageId(providerMessageId);
-    if (!parsed) return;
-    await this.withConnection(async (client) => {
-      const lock = await client.getMailboxLock(this.options.mailbox);
-      try {
-        await client.messageFlagsAdd(String(parsed.uid), ['\\Seen'], { uid: true });
-      } finally {
-        lock.release();
-      }
-    });
-  }
-
   // ───────────────────────────── internals ─────────────────────────────
 
   private async toInboundEmail(
@@ -169,7 +160,7 @@ export class ImapEmailProvider implements EmailProvider {
 
     // Only the text is kept. An HTML-only message is flattened to text here, so nothing
     // downstream ever holds markup that could be rendered by accident (§24).
-    const bodyText = (mail.text ?? (mail.html ? this.htmlToText(String(mail.html)) : '')) || null;
+    const bodyText = (mail.text ?? (mail.html ? htmlToText(String(mail.html)) : '')) || null;
 
     return {
       providerMessageId: this.messageId(uidValidity, message.uid),
@@ -247,25 +238,6 @@ export class ImapEmailProvider implements EmailProvider {
     const value = mail.headers.get(header);
     if (!value) return null;
     return (typeof value === 'string' ? value : JSON.stringify(value)).slice(0, 2_000);
-  }
-
-  /** Flattens HTML to readable text. Nothing is rendered, and no script survives. */
-  private htmlToText(html: string): string {
-    return html
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/p>/gi, '\n\n')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/[ \t]+/g, ' ')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
   }
 
   /** Opens a connection, runs the work, and closes it — even when the work throws. */

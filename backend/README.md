@@ -5,7 +5,8 @@ NestJS + Prisma + PostgreSQL. Modular monolith serving the driver and admin appl
 Architecture: [`docs/backend/architecture.md`](../docs/backend/architecture.md) ·
 Data model: [`docs/backend/data-model.md`](../docs/backend/data-model.md) ·
 Retention: [`docs/backend/data-retention.md`](../docs/backend/data-retention.md) ·
-Receipt AI: [`docs/ai-receipt-processing.md`](../docs/ai-receipt-processing.md)
+Receipt AI: [`docs/ai-receipt-processing.md`](../docs/ai-receipt-processing.md) ·
+Inbox: [`docs/email-inbox.md`](../docs/email-inbox.md)
 
 ## Quick start
 
@@ -14,11 +15,12 @@ Service-receipt reading needs Poppler on the host — `pdftotext` and `pdftoppm`
 from its own text layer, which is exact; a scan or photograph is rasterised first. Without Poppler,
 a PDF receipt fails with a stated reason that reaches the review screen — it is never read
 approximately and never silently skipped. Photographs of bills, which is most of what drivers send,
-need nothing extra.
+need nothing extra; with Tesseract installed (`tesseract-ocr`) they are also OCR'd locally before
+the model reads them (`OCR_ENGINE`, see `.env.example`).
 
 ```bash
 docker compose up -d                 # PostgreSQL 16 (from the repository root)
-sudo apt-get install -y poppler-utils   # Debian/Ubuntu; needed for PDF receipts
+sudo apt-get install -y poppler-utils tesseract-ocr   # Debian/Ubuntu; PDF receipts and local OCR
 
 cd backend
 cp .env.example .env                 # then set JWT_SECRET (see below)
@@ -55,7 +57,7 @@ SEED_SUPER_ADMIN_EMAIL=you@example.com SEED_SUPER_ADMIN_PASSWORD=a-long-password
 | `npm run db:studio` | browse data |
 | `npm run db:seed` | idempotent bootstrap seed |
 | `npm run ai:worker` | drain the receipt-reading queue once (for cron, or a separate machine, with `AI_WORKER_ENABLED=false`) |
-| `npm run inbox:sync` | fetch the company mailbox once (for cron, with `EMAIL_SYNC_ENABLED=false`) |
+| `npm run inbox:sync` | sync and classify every connected company mailbox once (for cron, with `EMAIL_SYNC_ENABLED=false`); exits non-zero if a mailbox failed |
 
 ## Tests
 
@@ -77,5 +79,6 @@ misconfigured `DATABASE_URL` cannot wipe development data.
 - An AI reading is never authoritative. A service receipt's figures become the record only when a
   person confirms them, and a later run cannot change a record someone has already settled.
 - The company mailbox is read-only: there is no send, reply, forward or delete anywhere in the
-  provider interface. Inbound mail is treated as untrusted — HTML is flattened to text on the way
+  provider interface, and Gmail / Microsoft 365 are connected by OAuth with read-only scopes. AI may
+  suggest follow-ups, but nothing is created until a person accepts one. Inbound mail is treated as untrusted — HTML is flattened to text on the way
   in, and attachments outside a small allowlist are recorded with a reason and left in the mailbox.

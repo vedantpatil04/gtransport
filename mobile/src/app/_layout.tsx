@@ -59,6 +59,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="office" />
+              <Stack.Screen name="admin" />
               <Stack.Screen name="(auth)/login" />
               <Stack.Screen name="(auth)/change-password" />
             </Stack>

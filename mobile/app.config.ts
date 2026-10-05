@@ -10,6 +10,13 @@ import { withProjectBuildGradle, type ConfigPlugin } from '@expo/config-plugins'
  */
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000';
 
+/**
+ * The MapLibre style the office Fleet map draws (tile source, fonts, look). Configuration, not
+ * code: pointing a build at a self-hosted or contracted tile server is an environment change.
+ * Deliberately no default — without it the Fleet screen says the map is not configured.
+ */
+const MAP_STYLE_URL = process.env.EXPO_PUBLIC_MAP_STYLE_URL;
+
 /** Brand navy, matching --primary in the approved web app. */
 const BRAND_NAVY = '#1B2B44';
 
@@ -112,6 +119,8 @@ const config: ExpoConfig = {
         isAndroidForegroundServiceEnabled: true,
       },
     ],
+    // Native MapLibre (Android/iOS SDKs) for the office Live Fleet map. No Mapbox or Google key.
+    '@maplibre/maplibre-react-native',
   ],
 
   experiments: { typedRoutes: true },
@@ -120,6 +129,7 @@ const config: ExpoConfig = {
     apiUrl: API_URL,
     /** development | staging | production — drives non-secret behaviour such as logging. */
     appEnv: process.env.EXPO_PUBLIC_APP_ENV ?? 'development',
+    mapStyleUrl: MAP_STYLE_URL,
   },
 };
 
