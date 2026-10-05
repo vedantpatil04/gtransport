@@ -1,8 +1,15 @@
 import * as React from 'react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/** The close button's spoken label, in the screen's language. */
+function CloseLabel() {
+  const { t } = useTranslation();
+  return <span className="sr-only">{t('common.close')}</span>;
+}
 
 export const Sheet = SheetPrimitive.Root;
 export const SheetTrigger = SheetPrimitive.Trigger;
@@ -32,7 +39,7 @@ export const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimit
       {!hideClose && (
         <SheetPrimitive.Close className="absolute right-3 top-3 rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
           <X className="size-5" />
-          <span className="sr-only">Close</span>
+          <CloseLabel />
         </SheetPrimitive.Close>
       )}
     </SheetPrimitive.Content>

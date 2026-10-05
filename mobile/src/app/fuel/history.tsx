@@ -10,6 +10,7 @@ import { ApiError } from '../../lib/api/client';
 import { fuelApi, receiptSource } from '../../lib/api/operations';
 import { useSession } from '../../lib/auth/session-store';
 import { daysAgoIso, displayDate, monthStartIso, todayIso } from '../../lib/dates';
+import { quantity, rupees } from '../../lib/format';
 import { offlineQueue } from '../../lib/offline/queue';
 import { colors, radius, spacing, TOUCH_TARGET } from '../../theme/tokens';
 import type { FuelEntry, FuelTotals } from '../../types/domain';
@@ -17,8 +18,6 @@ import type { FuelEntry, FuelTotals } from '../../types/domain';
 type Range = 'today' | 'last7' | 'thisMonth';
 
 const rangeFrom = (range: Range): string => (range === 'today' ? todayIso() : range === 'last7' ? daysAgoIso(6) : monthStartIso());
-
-const rupees = (value: string | number) => `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 /**
  * The driver's own fuel history: a simple date filter, a total, and each fill-up with its
@@ -140,7 +139,7 @@ export default function FuelHistoryScreen() {
                 {rupees(totals.amount)}
               </AppText>
               <AppText tone="muted">
-                {t('daily.litresValue', { value: Number(totals.litres).toLocaleString('en-IN', { maximumFractionDigits: 1 }) })}
+                {t('daily.litresValue', { value: quantity(totals.litres, 1) })}
                 {totals.averageRate ? ` · ${t('daily.perLitre', { rate: totals.averageRate })}` : ''}
               </AppText>
             </Card>
@@ -161,7 +160,7 @@ export default function FuelHistoryScreen() {
                   </AppText>
                   <AppText variant="h2">{rupees(entry.amount)}</AppText>
                   <AppText tone="muted" numberOfLines={1}>
-                    {t('daily.litresValue', { value: Number(entry.litres).toLocaleString('en-IN', { maximumFractionDigits: 2 }) })} · {entry.fuelStation}
+                    {t('daily.litresValue', { value: quantity(entry.litres) })} · {entry.fuelStation}
                   </AppText>
                 </View>
                 {entry.receiptFileId ? (

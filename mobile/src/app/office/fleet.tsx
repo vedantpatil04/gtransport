@@ -26,24 +26,19 @@ import {
 } from '../../features/office/ui';
 import { officeApi, type OfficeFleetLocation, type OfficeLocationPing } from '../../lib/api/office';
 import { useSession } from '../../lib/auth/session-store';
+import { relativeTime } from '../../lib/relative';
 import { colors, radius, spacing, TOUCH_TARGET } from '../../theme/tokens';
-
-function relTime(iso: string | null | undefined): string {
-  if (!iso) return DASH;
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const secs = Math.floor(diffMs / 1000);
-  if (secs < 60) return `${Math.max(1, secs)}s ago`;
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
 
 /** Speed only from a current fix: an old reading is not the vehicle's speed now. */
 function currentSpeed(row: OfficeFleetLocation): number | null {
   const speed = row.position?.speedKmh;
   return speed !== null && speed !== undefined && !row.stale && row.status !== 'STALE' ? Math.round(speed) : null;
+}
+
+/** "5 h 5 min" in the reader's language. */
+function useDuration() {
+  const { t } = useTranslation();
+  return (totalMinutes: number) => t('office.fleet.duration', hoursAndMinutes(totalMinutes));
 }
 
 /** Detail sheet for one driver, kept current by the parent as each poll lands. */
@@ -56,6 +51,8 @@ function DriverDetailModal({
   onClose: () => void;
   onAcknowledged: () => void;
 }) {
+  const { t } = useTranslation();
+  const duration = useDuration();
   const token = useSession((s) => s.token);
   const [history, setHistory] = useState<OfficeLocationPing[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -103,6 +100,7 @@ function DriverDetailModal({
     setAcknowledging(true);
     setAckFailed(false);
     try {
+      // Stored on the alert as the office's note (data, not interface text).
       await officeApi.acknowledgeAlert(token, driver.alert.id, 'Acknowledged from mobile');
       onAcknowledged();
     } catch {
@@ -126,7 +124,6 @@ function DriverDetailModal({
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={modalStyles.backdrop}>
         <View style={modalStyles.sheet} testID="fleet-driver-detail">
-          {/* Header */}
           <View style={modalStyles.headerRow}>
             <View style={{ flex: 1 }}>
               <AppText variant="h2">{driver.employee.fullName}</AppText>
@@ -134,95 +131,84 @@ function DriverDetailModal({
                 {driver.employee.employeeCode} · {driver.driverCode}
               </AppText>
             </View>
-            <Pressable onPress={onClose} style={modalStyles.closeBtn} accessibilityLabel="Close" testID="fleet-detail-close">
+            <Pressable accessibilityRole="button" onPress={onClose} style={modalStyles.closeBtn} accessibilityLabel={t('common.close')} testID="fleet-detail-close">
               <AppText variant="h2" tone="muted">✕</AppText>
             </Pressable>
           </View>
 
           <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: spacing.md, paddingVertical: spacing.sm }}>
-            {/* Status & Vehicle */}
             <View style={officeStyles.row}>
-              {driver.vehicle ? (
-                <Plate reg={driver.vehicle.registrationNumber} size="sm" />
-              ) : (
-                <AppText tone="muted">No vehicle</AppText>
-              )}
-              <Pill label={status.label} tone={status.tone} />
+              {driver.vehicle ? <Plate reg={driver.vehicle.registrationNumber} size="sm" /> : <AppText tone="muted">{t('office.fleet.noVehicle')}</AppText>}
+              <Pill label={t(status.labelKey)} tone={status.tone} />
             </View>
 
-            {/* Stationary Alert Warning */}
             {hasAlert && (
               <Card style={modalStyles.alertCard} testID="fleet-detail-alert">
-                <AppText variant="h2" tone="danger">⚠️ Stationary Alert</AppText>
-                <AppText style={{ marginTop: 2 }}>
-                  Vehicle stationary for {hoursAndMinutes(driver.alert?.durationMinutes ?? 0)}.
-                </AppText>
+                <AppText variant="h2" tone="danger">{t('office.fleet.stationaryAlert')}</AppText>
+                <AppText style={{ marginTop: 2 }}>{t('office.fleet.stationaryFor', { duration: duration(driver.alert?.durationMinutes ?? 0) })}</AppText>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => void handleAcknowledge()}
                   disabled={acknowledging}
-                  style={modalStyles.ackBtn}
+                  style={[modalStyles.ackBtn, acknowledging && { opacity: 0.6 }]}
                   testID="fleet-acknowledge"
                 >
                   <AppText tone="inverse" style={{ fontWeight: '700' }}>
-                    {acknowledging ? 'Acknowledging…' : 'Acknowledge Alert'}
+                    {acknowledging ? t('office.fleet.acknowledging') : t('office.fleet.acknowledge')}
                   </AppText>
                 </Pressable>
                 {ackFailed && (
                   <AppText variant="label" tone="danger" testID="fleet-acknowledge-error">
-                    Could not acknowledge the alert. Try again.
+                    {t('office.fleet.ackFailed')}
                   </AppText>
                 )}
               </Card>
             )}
 
-            {/* Metrics */}
             <View style={officeStyles.grid}>
               <View style={officeStyles.half}>
                 <Card style={{ padding: spacing.md }}>
-                  <AppText variant="label" tone="muted">Speed</AppText>
-                  <AppText variant="figure">{speed !== null ? `${speed} km/h` : DASH}</AppText>
+                  <AppText variant="label" tone="muted">{t('office.fleet.speed')}</AppText>
+                  <AppText variant="figure">{speed !== null ? t('office.fleet.speedValue', { speed }) : DASH}</AppText>
                 </Card>
               </View>
               <View style={officeStyles.half}>
                 <Card style={{ padding: spacing.md }}>
-                  <AppText variant="label" tone="muted">Last Updated</AppText>
+                  <AppText variant="label" tone="muted">{t('office.fleet.lastUpdated')}</AppText>
                   <AppText variant="figure" style={{ fontSize: 16 }} testID="fleet-detail-last-updated">
-                    {relTime(driver.capturedAt || driver.lastSeenAt)}
+                    {relativeTime(driver.capturedAt || driver.lastSeenAt, t)}
                   </AppText>
                 </Card>
               </View>
             </View>
 
-            {/* Position Coordinates */}
             {position ? (
               <Card style={{ padding: spacing.md }}>
-                <AppText variant="label" tone="muted">Coordinates</AppText>
+                <AppText variant="label" tone="muted">{t('office.fleet.coordinates')}</AppText>
                 <AppText style={{ fontWeight: '600', marginTop: 2 }} testID="fleet-detail-coordinates">
                   {position.latitude.toFixed(5)}, {position.longitude.toFixed(5)}
                 </AppText>
                 {driver.position?.accuracyMeters !== null && driver.position?.accuracyMeters !== undefined && (
                   <AppText variant="label" tone="muted">
-                    Accuracy: ±{Math.round(driver.position.accuracyMeters)}m
+                    {t('office.fleet.accuracy', { metres: Math.round(driver.position.accuracyMeters) })}
                   </AppText>
                 )}
               </Card>
             ) : (
               <Card style={{ padding: spacing.md }} testID="fleet-detail-location-unavailable">
-                <AppText variant="label" tone="muted">Coordinates</AppText>
-                <AppText style={{ fontWeight: '600', marginTop: 2 }}>Location unavailable</AppText>
+                <AppText variant="label" tone="muted">{t('office.fleet.coordinates')}</AppText>
+                <AppText style={{ fontWeight: '600', marginTop: 2 }}>{t('office.fleet.noLocation')}</AppText>
               </Card>
             )}
 
-            {/* Recent Location Pings */}
             <View style={{ gap: spacing.xs }}>
-              <AppText variant="label" tone="muted" style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                Recent Pings
+              <AppText variant="label" tone="muted" style={modalStyles.sectionLabel}>
+                {t('office.fleet.recentFixes')}
               </AppText>
               {loadingHistory && history.length === 0 ? (
-                <AppText tone="muted">Loading fixes…</AppText>
+                <AppText tone="muted">{t('office.fleet.loadingFixes')}</AppText>
               ) : history.length === 0 ? (
-                <AppText tone="muted">No recent fixes recorded</AppText>
+                <AppText tone="muted">{t('office.fleet.noFixes')}</AppText>
               ) : (
                 history.map((ping) => (
                   <View key={ping.id} style={modalStyles.pingRow} testID={`fleet-ping-${ping.id}`}>
@@ -230,34 +216,23 @@ function DriverDetailModal({
                       {ping.latitude.toFixed(4)}, {ping.longitude.toFixed(4)}
                     </AppText>
                     <AppText variant="label" tone="muted">
-                      {relTime(ping.capturedAt)}
+                      {relativeTime(ping.capturedAt, t)}
                     </AppText>
                   </View>
                 ))
               )}
             </View>
 
-            {/* External Actions */}
             <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>
               {position && (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={openGoogleMaps}
-                  style={modalStyles.actionBtn}
-                  testID="fleet-open-google-maps"
-                >
-                  <AppText style={modalStyles.actionBtnText}>🗺️ Open in Google Maps</AppText>
+                <Pressable accessibilityRole="button" onPress={openGoogleMaps} style={modalStyles.actionBtn} testID="fleet-open-google-maps">
+                  <AppText style={modalStyles.actionBtnText}>{t('office.fleet.openGoogleMaps')}</AppText>
                 </Pressable>
               )}
 
               {driver.employee.phone && (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={callPhone}
-                  style={modalStyles.actionBtn}
-                  testID="fleet-call-driver"
-                >
-                  <AppText style={modalStyles.actionBtnText}>📞 Call {driver.employee.phone}</AppText>
+                <Pressable accessibilityRole="button" onPress={callPhone} style={modalStyles.actionBtn} testID="fleet-call-driver">
+                  <AppText style={modalStyles.actionBtnText}>{t('office.fleet.call', { phone: driver.employee.phone })}</AppText>
                 </Pressable>
               )}
             </View>
@@ -270,6 +245,7 @@ function DriverDetailModal({
 
 function OfficeFleetBody() {
   const { t } = useTranslation();
+  const duration = useDuration();
   const [filter, setFilter] = useState<FleetFilter>('all');
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounced(query.trim());
@@ -303,46 +279,36 @@ function OfficeFleetBody() {
 
   return (
     <OfficeScreen
-      title={t('office.nav.fleet', { defaultValue: 'Live Fleet' })}
-      subtitle={fleet.data ? `${counts.active} active of ${counts.all} drivers` : undefined}
+      title={t('office.nav.fleet')}
+      subtitle={fleet.data ? t('office.fleet.subtitle', { active: counts.active, total: counts.all }) : undefined}
       onRefresh={() => void fleet.reload()}
       refreshing={fleet.refreshing}
       testID="office-fleet"
     >
-      {/* Alert Banner */}
       {counts.alerting > 0 && (
-        <Pressable onPress={() => setFilter('alerting')}>
+        <Pressable accessibilityRole="button" onPress={() => setFilter('alerting')}>
           <Card style={screenStyles.alertBanner} testID="fleet-alert-banner">
             <AppText tone="danger" style={{ fontWeight: '700' }}>
-              ⚠️ {counts.alerting} driver(s) stationary for over 4 hours
+              {t('office.fleet.alertBanner', { count: counts.alerting })}
             </AppText>
           </Card>
         </Pressable>
       )}
 
       {/* Map: drawn once there is a real fleet response to place on it. */}
-      {fleet.data && (
-        <FleetMap
-          rows={filtered}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          frameKey={`${filter}|${fleet.data.q}`}
-        />
-      )}
+      {fleet.data && <FleetMap rows={filtered} selectedId={selectedId} onSelect={setSelectedId} frameKey={`${filter}|${fleet.data.q}`} />}
 
-      {/* Search Input */}
       <TextInput
         style={officeStyles.search}
         value={query}
         onChangeText={setQuery}
-        placeholder="Search driver, vehicle or code"
+        placeholder={t('office.fleet.search')}
         placeholderTextColor={colors.mutedForeground}
         autoCapitalize="none"
-        accessibilityLabel="Search drivers"
+        accessibilityLabel={t('office.fleet.search')}
         testID="fleet-search-input"
       />
 
-      {/* Filter Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={screenStyles.filterRow}>
         {FLEET_FILTERS.map((f) => (
           <Pressable
@@ -354,25 +320,23 @@ function OfficeFleetBody() {
             testID={`fleet-filter-${f}`}
           >
             <AppText variant="label" style={[screenStyles.filterText, filter === f && screenStyles.filterTextActive]}>
-              {f.toUpperCase()} ({counts[f]})
+              {`${t(`office.fleet.filter.${f}`)} (${counts[f]})`}
             </AppText>
           </Pressable>
         ))}
       </ScrollView>
 
-      {/* Errors & Loading */}
       {fleet.error && <LoadError error={fleet.error} onRetry={() => void fleet.reload()} />}
       {fleet.loading && !fleet.data ? (
         <Loading />
       ) : !fleet.data ? null : rows.length === 0 ? (
         <EmptyView
-          title={debouncedQuery ? 'No matching drivers' : 'No drivers reporting'}
-          hint={debouncedQuery ? undefined : 'Drivers appear here once their app reports a location.'}
+          title={debouncedQuery ? t('office.fleet.emptyMatching') : t('office.fleet.emptyNone')}
+          hint={debouncedQuery ? undefined : t('office.fleet.emptyNoneHint')}
         />
       ) : filtered.length === 0 ? (
-        <EmptyView title="No drivers in this view" />
+        <EmptyView title={t('office.fleet.emptyFilter')} />
       ) : (
-        /* Driver Rows */
         filtered.map((driver) => {
           const status = fleetStatus(driver);
           const speed = currentSpeed(driver);
@@ -399,17 +363,17 @@ function OfficeFleetBody() {
 
                     <View style={[officeStyles.row, { marginTop: 4 }]}>
                       <AppText variant="label" tone="muted" testID={`fleet-driver-status-${driver.driverId}`}>
-                        {status.label} · {driver.driverCode}
-                        {speed !== null ? ` · ${speed} km/h` : ''}
+                        {t(status.labelKey)} · {driver.driverCode}
+                        {speed !== null ? ` · ${t('office.fleet.speedValue', { speed })}` : ''}
                       </AppText>
                       <AppText variant="label" tone="muted">
-                        · {relTime(driver.capturedAt || driver.lastSeenAt)}
+                        · {relativeTime(driver.capturedAt || driver.lastSeenAt, t)}
                       </AppText>
                     </View>
 
                     {!located && (
                       <AppText variant="label" tone="muted" style={{ marginTop: 2 }} testID={`fleet-driver-no-location-${driver.driverId}`}>
-                        Location unavailable
+                        {t('office.fleet.noLocation')}
                       </AppText>
                     )}
                   </View>
@@ -418,7 +382,7 @@ function OfficeFleetBody() {
                 {driver.alert?.status === 'ACTIVE' && (
                   <View style={[screenStyles.subAlertBadge, { marginTop: 8 }]}>
                     <AppText variant="label" tone="danger" style={{ fontWeight: '700' }}>
-                      ⚠️ Stationary {hoursAndMinutes(driver.alert.durationMinutes)}
+                      {t('office.fleet.stoppedFor', { duration: duration(driver.alert.durationMinutes) })}
                     </AppText>
                   </View>
                 )}
@@ -428,7 +392,6 @@ function OfficeFleetBody() {
         })
       )}
 
-      {/* Detailed Driver Modal */}
       <DriverDetailModal
         driver={selectedDriver}
         onClose={() => setSelectedId(null)}
@@ -456,8 +419,9 @@ const screenStyles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   filterChip: {
+    minHeight: 40,
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
     borderRadius: radius.md,
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -469,15 +433,15 @@ const screenStyles = StyleSheet.create({
   },
   filterText: {
     fontWeight: '700',
-    fontSize: 11,
     color: colors.mutedForeground,
   },
   filterTextActive: {
     color: colors.primaryForeground,
   },
   alertBanner: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#F87171',
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.danger,
   },
   driverCard: {
     gap: 4,
@@ -488,11 +452,9 @@ const screenStyles = StyleSheet.create({
     borderRadius: 5,
   },
   subAlertBadge: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.dangerSoft,
     padding: spacing.xs,
     borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: '#FECACA',
   },
 });
 
@@ -518,19 +480,28 @@ const modalStyles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   closeBtn: {
-    padding: spacing.xs,
+    minWidth: TOUCH_TARGET,
+    minHeight: TOUCH_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   alertCard: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#F87171',
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.danger,
     gap: spacing.xs,
   },
   ackBtn: {
-    backgroundColor: '#DC2626',
+    minHeight: TOUCH_TARGET,
+    backgroundColor: colors.danger,
     borderRadius: radius.md,
-    paddingVertical: spacing.sm,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: spacing.xs,
+  },
+  sectionLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   pingRow: {
     flexDirection: 'row',

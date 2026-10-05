@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { AppText, Card, EmptyView, Loading, Plate } from '../../components/ui';
 import { DASH, LoadError, ModuleGuard, OfficeScreen, officeStyles, ShowMore, StatTile, useOfficeData, usePagedList } from '../../features/office/ui';
 import { officeApi } from '../../lib/api/office';
-import { rupees } from '../../lib/api/payments';
+import { quantity, rupees } from '../../lib/format';
 import { displayDate } from '../../lib/dates';
 
 /** Fuel, read-only: today, this month and the financial year, then the latest entries. */
@@ -20,16 +20,16 @@ function OfficeFuelBody() {
       {(summary.error ?? list.error) && <LoadError error={(summary.error ?? list.error)!} onRetry={() => void refresh()} />}
       <View style={officeStyles.grid}>
         <View style={officeStyles.half}>
-          <StatTile label={t('office.today')} value={summary.data ? rupees(summary.data.today.amount) : DASH} sub={summary.data ? t('office.litres', { litres: summary.data.today.litres }) : undefined} />
+          <StatTile label={t('office.today')} value={summary.data ? rupees(summary.data.today.amount) : DASH} sub={summary.data ? t('office.litres', { litres: quantity(summary.data.today.litres, 1) }) : undefined} />
         </View>
         <View style={officeStyles.half}>
-          <StatTile label={t('office.thisMonth')} value={summary.data ? rupees(summary.data.month.amount) : DASH} sub={summary.data ? t('office.litres', { litres: summary.data.month.litres }) : undefined} />
+          <StatTile label={t('office.thisMonth')} value={summary.data ? rupees(summary.data.month.amount) : DASH} sub={summary.data ? t('office.litres', { litres: quantity(summary.data.month.litres, 1) }) : undefined} />
         </View>
       </View>
       <StatTile
         label={t('office.financialYear')}
         value={summary.data ? rupees(summary.data.financialYear.amount) : DASH}
-        sub={summary.data ? t('office.litresEntries', { litres: summary.data.financialYear.litres, count: summary.data.financialYear.entries }) : undefined}
+        sub={summary.data ? t('office.litresEntries', { litres: quantity(summary.data.financialYear.litres, 1), count: summary.data.financialYear.entries }) : undefined}
       />
 
       <AppText variant="h2" style={{ marginTop: 4 }}>{t('office.latestEntries')}</AppText>
@@ -45,7 +45,7 @@ function OfficeFuelBody() {
               <View style={officeStyles.grow}>
                 <AppText numberOfLines={1}>{f.driver.fullName}</AppText>
                 <AppText variant="label" tone="muted" numberOfLines={1}>
-                  {displayDate(f.transactionDate.slice(0, 10), i18n.language)} · {t(`office.fuelType.${f.fuelType}`)} · {t('office.litres', { litres: f.litres })}
+                  {displayDate(f.transactionDate.slice(0, 10), i18n.language)} · {t(`office.fuelType.${f.fuelType}`)} · {t('office.litres', { litres: quantity(f.litres) })}
                 </AppText>
               </View>
               <AppText variant="h2">{rupees(f.amount)}</AppText>

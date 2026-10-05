@@ -5,6 +5,8 @@ dist-demo
 .env
 .env.*
 !.env.example
+# Public production build settings (no secrets): see the file's header.
+!.env.production
 *.local
 .DS_Store
 Thumbs.db

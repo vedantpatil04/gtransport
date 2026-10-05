@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Contact, CornerDownLeft, FileText, Fuel, ReceiptIndianRupee, Search, Truck, Users, Wallet } from 'lucide-react';
+import { Contact, CornerDownLeft, FileText, Fuel, Loader2, ReceiptIndianRupee, Search, Truck, Users, Wallet } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Plate } from '@/components/Plate';
+import type { ApiError } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/store';
 import { searchAll, type SearchGroup, type SearchGroupKey } from '../search';
@@ -32,8 +34,11 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
     () => (live ? [] : searchAll(query, { drivers, vehicles, fuel, expenses, payments, documents }, t, i18n.language)),
     [live, query, drivers, vehicles, fuel, expenses, payments, documents, t, i18n.language],
   );
-  const liveGroups = useLiveSearch(live && open ? query : '');
-  const groups = live ? liveGroups : demoGroups;
+  const liveSearch = useLiveSearch(live && open ? query : '');
+  const groups = live ? liveSearch.groups : demoGroups;
+  // Real mode: a search still in flight, or one that failed, is never shown as "no results".
+  const searching = live && liveSearch.searching && groups.length === 0;
+  const failed = live && Boolean(liveSearch.error) && !liveSearch.searching;
   const flat = useMemo(() => groups.flatMap((g) => g.items.map((it) => it.to)), [groups]);
 
   useEffect(() => setActive(0), [query]);
@@ -78,6 +83,11 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
           <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">Esc</kbd>
         </div>
         <div ref={listRef} className="scroll-thin max-h-[60vh] overflow-y-auto p-2">
+          {failed && groups.length > 0 && query.trim().length >= 2 && (
+            <p className="px-3 pb-1 pt-2 text-xs text-danger" role="status">
+              {t('admin.search.partial')}
+            </p>
+          )}
           {query.trim().length < 2 ? (
             <div className="px-3 py-6">
               <p className="text-sm text-muted-foreground">{t('admin.search.hint')}</p>
@@ -88,6 +98,18 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
                   </button>
                 ))}
               </div>
+            </div>
+          ) : searching ? (
+            <p className="flex items-center justify-center gap-2 px-3 py-10 text-sm text-muted-foreground" aria-live="polite" data-testid="search-searching">
+              <Loader2 className="size-4 animate-spin" />
+              {t('admin.search.searching')}
+            </p>
+          ) : failed && groups.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 px-3 py-10 text-center" role="alert" data-testid="search-failed">
+              <p className="text-sm text-danger">{t('admin.search.failed')}</p>
+              <Button variant="outline" size="sm" onClick={liveSearch.retry}>
+                {t('admin.api.retry')}
+              </Button>
             </div>
           ) : groups.length === 0 ? (
             <p className="px-3 py-10 text-center text-sm text-muted-foreground">{t('admin.search.empty', { query })}</p>
@@ -142,12 +164,20 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
  * Real mode: people and vehicles from the live API (the searches every office role may run).
  * Sample records are never searched once an API is configured.
  */
-function useLiveSearch(query: string): SearchGroup[] {
-  const q = useDebounced(query.trim());
+function useLiveSearch(query: string): { groups: SearchGroup[]; searching: boolean; error: ApiError | null; retry: () => void } {
+  const typed = query.trim();
+  const q = useDebounced(typed);
   const enabled = q.length >= 2;
   const people = useApiResource(() => employeesApi.list({ q, limit: 5 }), [q], enabled);
   const fleet = useApiResource(() => vehiclesApi.list({ q, limit: 5 }), [q], enabled);
-  if (!enabled) return [];
+  const retry = () => {
+    people.reload();
+    fleet.reload();
+  };
+  // Still typing (the debounce has not caught up) or a request is in flight.
+  const searching = typed.length >= 2 && (typed !== q || people.loading || people.refreshing || fleet.loading || fleet.refreshing);
+  const error = people.error ?? fleet.error;
+  if (!enabled) return { groups: [], searching, error: null, retry };
   const groups: SearchGroup[] = [];
   const staff = people.data?.data ?? [];
   if (staff.length) {
@@ -170,5 +200,5 @@ function useLiveSearch(query: string): SearchGroup[] {
       items: vans.map((v) => ({ id: v.id, title: v.registrationNumber, sub: [v.make, v.model].filter(Boolean).join(' '), to: `/admin/vehicles/${v.id}`, plate: v.registrationNumber })),
     });
   }
-  return groups;
+  return { groups, searching, error, retry };
 }

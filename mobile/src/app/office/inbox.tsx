@@ -1,16 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { AppText, Card, EmptyView, Loading } from '../../components/ui';
 import {
-  DASH,
   LoadError,
   ModuleGuard,
   OfficeScreen,
@@ -21,55 +13,24 @@ import {
   useOfficeData,
   usePagedList,
 } from '../../features/office/ui';
-import {
-  officeApi,
-  type OfficeInboxDetail,
-  type OfficeInboxMessage,
-} from '../../lib/api/office';
+import { officeApi, type OfficeInboxDetail, type OfficeInboxMessage } from '../../lib/api/office';
 import { useSession } from '../../lib/auth/session-store';
+import { relativeTime } from '../../lib/relative';
 import { colors, radius, spacing, TOUCH_TARGET } from '../../theme/tokens';
 
 type InboxStatusFilter = '' | 'UNREAD' | 'READ' | 'ARCHIVED';
 
-const STATUS_FILTERS: { key: InboxStatusFilter; label: string }[] = [
-  { key: '', label: 'All' },
-  { key: 'UNREAD', label: 'Unread' },
-  { key: 'READ', label: 'Read' },
-  { key: 'ARCHIVED', label: 'Archived' },
-];
+const STATUS_FILTERS: InboxStatusFilter[] = ['', 'UNREAD', 'READ', 'ARCHIVED'];
 
-function relTime(iso: string | null | undefined): string {
-  if (!iso) return DASH;
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const secs = Math.floor(diffMs / 1000);
-  if (secs < 60) return `${Math.max(1, secs)}s ago`;
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
+/** The office's categories (see the API's InboxClassification); unknown ones read as "Not sorted". */
+const CATEGORIES = new Set([
+  'VEHICLE_DOCUMENT', 'FUEL', 'MAINTENANCE', 'FINANCE', 'SALARY_PAYMENT', 'COMPLIANCE', 'VENDOR', 'CUSTOMER', 'GENERAL', 'SPAM', 'UNCLASSIFIED',
+]);
 
-/** The office's categories (see the API's InboxClassification), as the pill reads them. */
-const CATEGORY_LABEL: Record<string, string> = {
-  VEHICLE_DOCUMENT: 'Vehicle papers',
-  FUEL: 'Fuel',
-  MAINTENANCE: 'Maintenance',
-  FINANCE: 'Finance',
-  SALARY_PAYMENT: 'Salary / payment',
-  COMPLIANCE: 'Compliance',
-  VENDOR: 'Vendor',
-  CUSTOMER: 'Customer',
-  GENERAL: 'General',
-  SPAM: 'Junk',
-  UNCLASSIFIED: 'Not sorted',
-};
+/** Why an attachment was not kept. Something arrived; the office should know why it is not here. */
+const SKIP_REASONS = new Set(['suspicious_extension', 'unsupported_type', 'too_large', 'empty', 'download_failed']);
 
-const categoryLabel = (category: string) => CATEGORY_LABEL[category] ?? category.replace(/_/g, ' ');
-
-function classificationTone(
-  category: string,
-): 'default' | 'success' | 'warning' | 'danger' {
+function classificationTone(category: string): 'default' | 'success' | 'warning' | 'danger' {
   switch (category) {
     case 'FINANCE':
     case 'SALARY_PAYMENT':
@@ -83,19 +44,15 @@ function classificationTone(
   }
 }
 
-/** Why an attachment was not kept. Something arrived; the office should know why it is not here. */
-const SKIP_REASON: Record<string, string> = {
-  suspicious_extension: 'Refused: this kind of file is not accepted',
-  unsupported_type: 'Refused: not a document or photo',
-  too_large: 'Refused: larger than the office keeps',
-  empty: 'Refused: the file was empty',
-  download_failed: 'Not saved yet: the download failed and will be retried',
-};
-
 /** Contacting the mailbox is a fleet-management act on the API; other roles only read. */
 const MAY_SYNC = new Set(['SUPER_ADMIN', 'ADMIN', 'MANAGER']);
 
-/** Detail modal for one message */
+function useCategoryLabel() {
+  const { t } = useTranslation();
+  return (category: string) => t(`office.inbox.class.${CATEGORIES.has(category) ? category : 'UNCLASSIFIED'}`);
+}
+
+/** Detail sheet for one message. */
 function MessageDetailModal({
   messageId,
   onClose,
@@ -105,10 +62,14 @@ function MessageDetailModal({
   onClose: () => void;
   onStatusChanged: () => void;
 }) {
+  const { t } = useTranslation();
+  const categoryLabel = useCategoryLabel();
   const token = useSession((s) => s.token);
   const [detail, setDetail] = useState<OfficeInboxDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [updateFailed, setUpdateFailed] = useState(false);
 
   const loadDetail = useCallback(async () => {
     if (!messageId || !token) {
@@ -116,11 +77,13 @@ function MessageDetailModal({
       return;
     }
     setLoading(true);
+    setLoadFailed(false);
+    setUpdateFailed(false);
     try {
-      const data = await officeApi.inboxMessage(token, messageId);
-      setDetail(data);
+      setDetail(await officeApi.inboxMessage(token, messageId));
     } catch {
       setDetail(null);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -135,35 +98,38 @@ function MessageDetailModal({
   const handleSetStatus = async (nextStatus: 'UNREAD' | 'READ' | 'ARCHIVED') => {
     if (!token || !detail || updating) return;
     setUpdating(true);
+    setUpdateFailed(false);
     try {
       await officeApi.inboxSetStatus(token, detail.id, nextStatus);
       setDetail((prev) => (prev ? { ...prev, status: nextStatus } : null));
       onStatusChanged();
     } catch {
-      // Ignored
+      // Nothing changed on the server, so nothing changes here — and the office is told so.
+      setUpdateFailed(true);
     } finally {
       setUpdating(false);
     }
   };
 
+  const reading = detail?.aiResults?.[0];
+
   return (
     <Modal visible={Boolean(messageId)} transparent animationType="slide" onRequestClose={onClose}>
       <View style={modalStyles.backdrop}>
         <View style={modalStyles.sheet} testID="inbox-message-detail">
-          {/* Header */}
           <View style={modalStyles.headerRow}>
             <View style={{ flex: 1 }}>
               <AppText variant="h2" numberOfLines={2}>
-                {detail?.subject ?? 'Message Details'}
+                {detail ? detail.subject || t('office.inbox.noSubject') : t('office.inbox.message')}
               </AppText>
               {detail && (
                 <AppText variant="label" tone="muted">
                   {detail.from.name ? `${detail.from.name} · ` : ''}
-                  {detail.from.address} · {relTime(detail.receivedAt)}
+                  {detail.from.address} · {relativeTime(detail.receivedAt, t)}
                 </AppText>
               )}
             </View>
-            <Pressable onPress={onClose} style={modalStyles.closeBtn} accessibilityLabel="Close">
+            <Pressable accessibilityRole="button" onPress={onClose} style={modalStyles.closeBtn} accessibilityLabel={t('common.close')}>
               <AppText variant="h2" tone="muted">✕</AppText>
             </Pressable>
           </View>
@@ -173,20 +139,22 @@ function MessageDetailModal({
               <Loading />
             </View>
           ) : !detail ? (
-            <View style={{ padding: spacing.xl, alignItems: 'center' }}>
-              <AppText tone="muted">Could not load message details.</AppText>
+            <View style={{ padding: spacing.xl, alignItems: 'center', gap: spacing.sm }}>
+              <AppText tone={loadFailed ? 'danger' : 'muted'}>{t('office.inbox.detailFailed')}</AppText>
+              <Pressable accessibilityRole="button" onPress={() => void loadDetail()} style={modalStyles.retry} testID="inbox-detail-retry">
+                <AppText tone="success">{t('common.retry')}</AppText>
+              </Pressable>
             </View>
           ) : (
             <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ gap: spacing.md, paddingVertical: spacing.sm }}>
-              {/* Category Pill */}
               <View style={officeStyles.row}>
                 <Pill label={categoryLabel(detail.classification)} tone={classificationTone(detail.classification)} />
-                <Pill label={detail.status} />
+                <Pill label={t(`office.inbox.status.${detail.status}`, { defaultValue: detail.status })} />
               </View>
 
               {detail.ai.status === 'RETRYING' && (
                 <AppText variant="label" tone="muted" testID="inbox-ai-retrying">
-                  Reading this mail failed; it will be tried again automatically.
+                  {t('office.inbox.readingRetrying')}
                 </AppText>
               )}
               {detail.ai.status === 'FAILED' && detail.ai.failureMessage && (
@@ -195,36 +163,31 @@ function MessageDetailModal({
                 </AppText>
               )}
 
-              {/* AI Reading Summary */}
-              {detail.aiResults && detail.aiResults.length > 0 && detail.aiResults[0]?.summary && (
+              {reading?.summary && (
                 <Card style={modalStyles.aiCard} testID="inbox-ai-summary">
-                  <AppText variant="label" tone="muted" style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                    ✨ AI Reading
+                  <AppText variant="label" tone="muted" style={modalStyles.sectionLabel}>
+                    {t('office.inbox.reading')}
                   </AppText>
-                  <AppText style={{ marginTop: 4 }}>{detail.aiResults[0].summary}</AppText>
-                  {detail.aiResults[0].confidence !== null && detail.aiResults[0].confidence !== undefined && (
+                  <AppText style={{ marginTop: 4 }}>{reading.summary}</AppText>
+                  {reading.confidence !== null && reading.confidence !== undefined && (
                     <AppText variant="label" tone="muted" style={{ marginTop: 4 }}>
-                      Confidence: {Math.round(detail.aiResults[0].confidence * 100)}%
+                      {t('office.inbox.confidence', { percent: Math.round(reading.confidence * 100) })}
                     </AppText>
                   )}
                 </Card>
               )}
 
-              {/* Message Body */}
               <Card style={{ padding: spacing.md }}>
-                <AppText variant="label" tone="muted" style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  Message Content
+                <AppText variant="label" tone="muted" style={modalStyles.sectionLabel}>
+                  {t('office.inbox.message')}
                 </AppText>
-                <AppText style={{ marginTop: 6, lineHeight: 20 }}>
-                  {detail.bodyText ? detail.bodyText.trim() : '(No message body)'}
-                </AppText>
+                <AppText style={{ marginTop: 6, lineHeight: 20 }}>{detail.bodyText?.trim() || t('office.inbox.noBody')}</AppText>
               </Card>
 
-              {/* Attachments */}
               {detail.attachments.length > 0 && (
                 <View style={{ gap: spacing.xs }}>
-                  <AppText variant="label" tone="muted" style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                    Attachments ({detail.attachments.length})
+                  <AppText variant="label" tone="muted" style={modalStyles.sectionLabel}>
+                    {t('office.inbox.attachments', { count: detail.attachments.length })}
                   </AppText>
                   {detail.attachments.map((att) => (
                     <Card key={att.id} style={{ padding: spacing.sm }}>
@@ -234,14 +197,15 @@ function MessageDetailModal({
                       <AppText variant="label" tone={att.stored ? 'muted' : 'danger'}>
                         {att.stored
                           ? `${att.mimeType} · ${Math.max(1, Math.round(att.sizeBytes / 1024))} KB`
-                          : (SKIP_REASON[att.skipReason ?? ''] ?? 'Not stored')}
+                          : SKIP_REASONS.has(att.skipReason ?? '')
+                            ? t(`office.inbox.skip.${att.skipReason}`)
+                            : t('office.inbox.notStored')}
                       </AppText>
                     </Card>
                   ))}
                 </View>
               )}
 
-              {/* Status Actions */}
               <View style={officeStyles.row}>
                 {detail.status === 'UNREAD' ? (
                   <Pressable
@@ -250,16 +214,16 @@ function MessageDetailModal({
                     disabled={updating}
                     style={[modalStyles.statusBtn, { backgroundColor: colors.primary }]}
                   >
-                    <AppText tone="inverse" style={{ fontWeight: '700' }}>Mark Read</AppText>
+                    <AppText tone="inverse" style={{ fontWeight: '700' }}>{t('office.inbox.markRead')}</AppText>
                   </Pressable>
                 ) : (
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => void handleSetStatus('UNREAD')}
                     disabled={updating}
-                    style={[modalStyles.statusBtn, { borderColor: colors.border, borderWidth: 1 }]}
+                    style={[modalStyles.statusBtn, modalStyles.statusBtnOutline]}
                   >
-                    <AppText style={{ fontWeight: '700' }}>Mark Unread</AppText>
+                    <AppText style={{ fontWeight: '700' }}>{t('office.inbox.markUnread')}</AppText>
                   </Pressable>
                 )}
 
@@ -268,12 +232,17 @@ function MessageDetailModal({
                     accessibilityRole="button"
                     onPress={() => void handleSetStatus('ARCHIVED')}
                     disabled={updating}
-                    style={[modalStyles.statusBtn, { borderColor: colors.border, borderWidth: 1 }]}
+                    style={[modalStyles.statusBtn, modalStyles.statusBtnOutline]}
                   >
-                    <AppText style={{ fontWeight: '700' }}>Archive</AppText>
+                    <AppText style={{ fontWeight: '700' }}>{t('office.inbox.archive')}</AppText>
                   </Pressable>
                 )}
               </View>
+              {updateFailed && (
+                <AppText variant="label" tone="danger" testID="inbox-status-error">
+                  {t('office.inbox.statusFailed')}
+                </AppText>
+              )}
             </ScrollView>
           )}
         </View>
@@ -284,6 +253,7 @@ function MessageDetailModal({
 
 function OfficeInboxBody() {
   const { t } = useTranslation();
+  const categoryLabel = useCategoryLabel();
   const token = useSession((s) => s.token);
   const role = useSession((s) => s.role);
   const maySync = Boolean(role && MAY_SYNC.has(role));
@@ -316,45 +286,48 @@ function OfficeInboxBody() {
       // What actually happened, never a bare "done": a sync that reached nothing says so.
       setSyncMessage(
         !outcome.ok
-          ? { ok: false, text: outcome.reason ?? 'The mailbox could not be checked.' }
+          ? { ok: false, text: outcome.reason ?? t('office.inbox.syncFailed') }
           : outcome.created > 0
-            ? { ok: true, text: `Filed ${outcome.created} new message(s).` }
-            : { ok: true, text: 'Nothing new.' },
+            ? { ok: true, text: t('office.inbox.syncFiled', { count: outcome.created }) }
+            : { ok: true, text: t('office.inbox.syncNothingNew') },
       );
       await Promise.all([list.reload(), mailboxStatus.reload()]);
     } catch {
-      setSyncMessage({ ok: false, text: 'The mailbox could not be checked. Try again shortly.' });
+      setSyncMessage({ ok: false, text: t('office.inbox.syncFailed') });
     } finally {
       setSyncing(false);
     }
   };
 
+  const notConnected = mailboxStatus.data?.configured === false;
+
   return (
     <OfficeScreen
-      title={t('office.nav.inbox', { defaultValue: 'Inbox' })}
+      title={t('office.nav.inbox')}
       subtitle={
         mailboxStatus.data?.configured && mailboxStatus.data.mailbox
-          ? `Connected: ${mailboxStatus.data.mailbox}`
-          : mailboxStatus.data?.configured === false
-            ? (mailboxStatus.data.unavailableReason ?? 'Mailbox not connected')
+          ? t('office.inbox.connectedAs', { mailbox: mailboxStatus.data.mailbox })
+          : notConnected
+            ? mailboxStatus.data?.unavailableReason ?? t('office.inbox.notConnected')
             : undefined
       }
       onRefresh={() => void Promise.all([list.reload(), mailboxStatus.reload()])}
       refreshing={list.refreshing}
       testID="office-inbox"
     >
-      {/* Sync / Check Now Button — only for the roles the API lets contact the mailbox */}
+      {/* Only for the roles the API lets contact the mailbox. */}
       {maySync && (
         <View style={officeStyles.row}>
           <Pressable
             accessibilityRole="button"
+            accessibilityState={{ disabled: syncing || notConnected }}
             onPress={() => void handleSync()}
-            disabled={syncing || mailboxStatus.data?.configured === false}
-            style={[inboxStyles.syncBtn, mailboxStatus.data?.configured === false && { opacity: 0.5 }]}
+            disabled={syncing || notConnected}
+            style={[inboxStyles.syncBtn, notConnected && { opacity: 0.5 }]}
             testID="inbox-check-now"
           >
             <AppText tone="inverse" style={{ fontWeight: '700' }}>
-              {syncing ? 'Checking Mailbox…' : '🔄 Check Now'}
+              {syncing ? t('office.inbox.checking') : t('office.inbox.checkNow')}
             </AppText>
           </Pressable>
         </View>
@@ -366,54 +339,46 @@ function OfficeInboxBody() {
       )}
       {mailboxStatus.data?.configured && mailboxStatus.data.lastError ? (
         <AppText variant="label" tone="danger" testID="inbox-last-error">
-          Last check failed: {mailboxStatus.data.lastError}
+          {t('office.inbox.lastCheckFailed', { reason: mailboxStatus.data.lastError })}
         </AppText>
       ) : null}
 
-      {/* Search Input */}
       <TextInput
         style={officeStyles.search}
         value={query}
         onChangeText={setQuery}
-        placeholder="Search subject or sender"
+        placeholder={t('office.inbox.search')}
         placeholderTextColor={colors.mutedForeground}
         autoCapitalize="none"
-        accessibilityLabel="Search inbox"
+        accessibilityLabel={t('office.inbox.search')}
         testID="inbox-search-input"
       />
 
-      {/* Filter Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={inboxStyles.filterRow}>
-        {STATUS_FILTERS.map((item) => (
+        {STATUS_FILTERS.map((key) => (
           <Pressable
-            key={item.key}
+            key={key || 'all'}
             accessibilityRole="button"
-            onPress={() => setStatus(item.key)}
-            style={[inboxStyles.filterChip, status === item.key && inboxStyles.filterChipActive]}
-            testID={`inbox-filter-${item.key || 'all'}`}
+            accessibilityState={{ selected: status === key }}
+            onPress={() => setStatus(key)}
+            style={[inboxStyles.filterChip, status === key && inboxStyles.filterChipActive]}
+            testID={`inbox-filter-${key || 'all'}`}
           >
-            <AppText
-              variant="label"
-              style={[inboxStyles.filterText, status === item.key && inboxStyles.filterTextActive]}
-            >
-              {item.label}
+            <AppText variant="label" style={[inboxStyles.filterText, status === key && inboxStyles.filterTextActive]}>
+              {key ? t(`office.inbox.status.${key}`) : t('office.inbox.all')}
             </AppText>
           </Pressable>
         ))}
       </ScrollView>
 
-      {/* Errors & Loading */}
       {list.error && <LoadError error={list.error} onRetry={() => void list.reload()} />}
       {list.loading ? (
         <Loading />
       ) : list.rows.length === 0 && !list.error ? (
-        <EmptyView title={query ? 'No matching messages' : 'Inbox is empty'} />
+        <EmptyView title={query || status ? t('office.inbox.emptyMatching') : notConnected ? t('office.inbox.notConnected') : t('office.inbox.empty')} />
       ) : (
-        /* Messages List */
         list.rows.map((msg: OfficeInboxMessage) => {
-          const tone = classificationTone(msg.classification);
           const isUnread = msg.status === 'UNREAD';
-
           return (
             <Pressable
               key={msg.id}
@@ -426,13 +391,10 @@ function OfficeInboxBody() {
                 <View style={officeStyles.row}>
                   <View style={officeStyles.grow}>
                     <View style={officeStyles.row}>
-                      <AppText
-                        style={[inboxStyles.subjectText, isUnread && { fontWeight: '700' }]}
-                        numberOfLines={1}
-                      >
-                        {msg.subject || '(No subject)'}
+                      <AppText style={[inboxStyles.subjectText, isUnread && { fontWeight: '700' }]} numberOfLines={1}>
+                        {msg.subject || t('office.inbox.noSubject')}
                       </AppText>
-                      {isUnread && <Pill label="NEW" tone="success" />}
+                      {isUnread && <Pill label={t('office.inbox.new')} tone="success" />}
                     </View>
 
                     <AppText variant="label" tone="muted" numberOfLines={1} style={{ marginTop: 2 }}>
@@ -442,12 +404,12 @@ function OfficeInboxBody() {
 
                     {msg.aiSummary && (
                       <AppText variant="label" numberOfLines={2} style={inboxStyles.aiSummaryText}>
-                        ✨ {msg.aiSummary}
+                        {msg.aiSummary}
                       </AppText>
                     )}
 
                     <View style={[officeStyles.row, { marginTop: 6, justifyContent: 'space-between' }]}>
-                      <Pill label={categoryLabel(msg.classification)} tone={tone} />
+                      <Pill label={categoryLabel(msg.classification)} tone={classificationTone(msg.classification)} />
                       <View style={officeStyles.row}>
                         {msg.attachmentCount > 0 && (
                           <AppText variant="label" tone="muted">
@@ -455,7 +417,7 @@ function OfficeInboxBody() {
                           </AppText>
                         )}
                         <AppText variant="label" tone="muted">
-                          {relTime(msg.receivedAt)}
+                          {relativeTime(msg.receivedAt, t)}
                         </AppText>
                       </View>
                     </View>
@@ -469,7 +431,6 @@ function OfficeInboxBody() {
 
       <ShowMore list={list} />
 
-      {/* Message Detail Modal */}
       <MessageDetailModal
         messageId={selectedId}
         onClose={() => setSelectedId(null)}
@@ -493,11 +454,10 @@ const inboxStyles = StyleSheet.create({
   syncBtn: {
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: TOUCH_TARGET - 4,
+    minHeight: TOUCH_TARGET,
   },
   filterRow: {
     flexDirection: 'row',
@@ -505,8 +465,9 @@ const inboxStyles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   filterChip: {
+    minHeight: 40,
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
     borderRadius: radius.md,
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -518,7 +479,6 @@ const inboxStyles = StyleSheet.create({
   },
   filterText: {
     fontWeight: '700',
-    fontSize: 12,
     color: colors.mutedForeground,
   },
   filterTextActive: {
@@ -564,12 +524,24 @@ const modalStyles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   closeBtn: {
-    padding: spacing.xs,
+    minWidth: TOUCH_TARGET,
+    minHeight: TOUCH_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginLeft: spacing.sm,
   },
+  retry: {
+    minHeight: TOUCH_TARGET,
+    justifyContent: 'center',
+  },
+  sectionLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   aiCard: {
-    backgroundColor: '#F8FAFC',
-    borderColor: '#CBD5E1',
+    backgroundColor: colors.muted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   statusBtn: {
     flex: 1,
@@ -578,5 +550,9 @@ const modalStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
+  },
+  statusBtnOutline: {
+    borderColor: colors.border,
+    borderWidth: 1,
   },
 });

@@ -1,5 +1,7 @@
-import OfficeReports from '../office/reports';
+import { Redirect } from 'expo-router';
+import { officePath } from '../../features/office/modules';
 
-export default function AdminReportsScreen() {
-  return <OfficeReports />;
+/** An older address: the office Reports screen lives under /office, with the office tabs around it. */
+export default function AdminReportsRedirect() {
+  return <Redirect href={officePath('reports')} />;
 }

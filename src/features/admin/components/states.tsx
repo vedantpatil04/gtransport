@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Construction, Loader2, Lock, PlugZap } from 'lucide-react';
+import { AlertTriangle, Loader2, Lock, PlugZap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ApiError } from '@/lib/api/client';
@@ -67,26 +67,6 @@ export function InlineBusy({ label }: { label: string }) {
       <Loader2 className="size-4 animate-spin" />
       {label}
     </span>
-  );
-}
-
-/**
- * Real mode, for a module whose live data arrives in a later phase. Says so plainly rather
- * than showing the prototype's sample records as if they were real.
- */
-export function NotLiveState({ title, body }: { title: string; body: string }) {
-  const { t } = useTranslation();
-  return (
-    <div>
-      <h1 className="mb-6 text-2xl font-bold tracking-tight">{title}</h1>
-      <div className="panel flex flex-col items-center gap-3 px-6 py-14 text-center" data-testid="not-live">
-        <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <Construction className="size-6" />
-        </span>
-        <p className="font-semibold">{t('admin.real.notLiveTitle')}</p>
-        <p className="max-w-md text-sm text-muted-foreground">{body}</p>
-      </div>
-    </div>
   );
 }
 

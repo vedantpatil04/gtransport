@@ -250,7 +250,7 @@ export const useApp = create<AppState>()(
           };
           set({
             payments: [p, ...s.payments],
-            notifications: withNotes(s.notifications, { audience: 'admin', kind: 'advance_reported', params: { driver: driver.name, amount }, link: `/admin/payments?payment=${p.id}` }),
+            notifications: withNotes(s.notifications, { audience: 'admin', kind: 'advance_reported', params: { driver: driver.name, amount }, link: `/admin/finance/payments?payment=${p.id}` }),
           });
           return p;
         },
@@ -290,7 +290,7 @@ export const useApp = create<AppState>()(
           let notifications = s.notifications;
           const dk = driverKind[status];
           if (dk) notifications = withNotes(notifications, { audience: p.driverId, kind: dk, params: { amount: p.amount, type: p.type }, link: `/driver/payments/${p.id}` });
-          if (status === 'failed') notifications = withNotes(notifications, { audience: 'admin', kind: 'payment_failed', params: { driver: driverName(p.driverId), amount: p.amount, type: p.type }, link: `/admin/payments?payment=${p.id}` });
+          if (status === 'failed') notifications = withNotes(notifications, { audience: 'admin', kind: 'payment_failed', params: { driver: driverName(p.driverId), amount: p.amount, type: p.type }, link: `/admin/finance/payments?payment=${p.id}` });
           set({ payments: s.payments.map((x) => (x.id === id ? updated : x)), notifications });
         },
 

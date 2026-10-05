@@ -1,5 +1,6 @@
 import type { CameraRef, InitialViewState } from '@maplibre/maplibre-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppText, Card } from '../../components/ui';
 import type { OfficeFleetLocation } from '../../lib/api/office';
@@ -45,6 +46,7 @@ export interface FleetMapProps {
 }
 
 export function FleetMap(props: FleetMapProps) {
+  const { t } = useTranslation();
   // Build-time configuration: it cannot change while the app is open.
   const config = useMemo(() => resolveMapStyle(), []);
 
@@ -61,9 +63,9 @@ export function FleetMap(props: FleetMapProps) {
     return (
       <Card style={styles.container} testID="fleet-map-native-unavailable">
         <View style={[styles.frame, styles.centered]}>
-          <AppText style={styles.problemTitle}>Native map module unavailable.</AppText>
+          <AppText style={styles.problemTitle}>{t('office.map.nativeUnavailable')}</AppText>
           <AppText variant="label" tone="muted" style={styles.problemBody}>
-            The driver list, details and Google Maps links below still work.
+            {t('office.map.listStillWorks')}
           </AppText>
         </View>
       </Card>
@@ -74,9 +76,9 @@ export function FleetMap(props: FleetMapProps) {
     return (
       <Card style={styles.container} testID="fleet-map-config-error">
         <View style={[styles.frame, styles.centered]}>
-          <AppText style={styles.problemTitle}>Map configuration is unavailable.</AppText>
+          <AppText style={styles.problemTitle}>{t('office.map.configUnavailable')}</AppText>
           <AppText variant="label" tone="muted" style={styles.problemBody}>
-            The driver list, details and Google Maps links below still work.
+            {t('office.map.listStillWorks')}
           </AppText>
         </View>
       </Card>
@@ -102,6 +104,7 @@ function viewFor(points: Coordinate[]): InitialViewState | undefined {
 }
 
 function LiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMapProps & { styleUrl: string }) {
+  const { t } = useTranslation();
   if (!MapLibre) return null;
   const { Map: MapLibreMap, Camera } = MapLibre;
   const [attempt, setAttempt] = useState(0);
@@ -206,18 +209,18 @@ function LiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMapPro
         {loadState === 'loading' && (
           <View style={[StyleSheet.absoluteFill, styles.centered, styles.veil]} pointerEvents="none" testID="fleet-map-loading">
             <ActivityIndicator color={colors.primary} />
-            <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>Loading map…</AppText>
+            <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>{t('office.map.loading')}</AppText>
           </View>
         )}
 
         {loadState === 'error' && (
           <View style={[StyleSheet.absoluteFill, styles.centered, styles.veilSolid]} testID="fleet-map-error">
-            <AppText style={styles.problemTitle}>The map could not be loaded.</AppText>
+            <AppText style={styles.problemTitle}>{t('office.map.loadFailed')}</AppText>
             <AppText variant="label" tone="muted" style={styles.problemBody}>
-              Check the connection. The driver list below is unaffected.
+              {t('office.map.loadFailedBody')}
             </AppText>
             <Pressable accessibilityRole="button" onPress={retry} style={styles.retry} testID="fleet-map-retry">
-              <AppText tone="inverse" style={{ fontWeight: '700' }}>Retry map</AppText>
+              <AppText tone="inverse" style={{ fontWeight: '700' }}>{t('office.map.retry')}</AppText>
             </Pressable>
           </View>
         )}
@@ -225,10 +228,10 @@ function LiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMapPro
         {loadState === 'ready' && plotted.length === 0 && (
           <View style={styles.notice} pointerEvents="none" testID="fleet-map-no-positions">
             <AppText variant="label" style={{ fontWeight: '700' }}>
-              {rows.length === 0 ? 'No drivers in this view' : 'Location unavailable'}
+              {rows.length === 0 ? t('office.map.noDrivers') : t('office.map.noPosition')}
             </AppText>
             {rows.length > 0 && (
-              <AppText variant="label" tone="muted">No driver in this view has reported a position.</AppText>
+              <AppText variant="label" tone="muted">{t('office.map.noPositionBody')}</AppText>
             )}
           </View>
         )}
@@ -236,7 +239,7 @@ function LiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMapPro
         {plotted.length > 0 && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Fit map to vehicles"
+            accessibilityLabel={t('office.map.fit')}
             onPress={() => {
               framed.current = frame(true);
             }}
@@ -248,9 +251,9 @@ function LiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMapPro
         )}
 
         <View style={styles.legend} pointerEvents="none">
-          <LegendDot color={TONE_COLOR.success} label="Moving" />
-          <LegendDot color={TONE_COLOR.warning} label="Stopped/Stale" />
-          <LegendDot color={TONE_COLOR.danger} label="Offline/Alert" />
+          <LegendDot color={TONE_COLOR.success} label={t('office.map.legend.moving')} />
+          <LegendDot color={TONE_COLOR.warning} label={t('office.map.legend.stopped')} />
+          <LegendDot color={TONE_COLOR.danger} label={t('office.map.legend.alert')} />
         </View>
       </View>
     </Card>
@@ -268,6 +271,7 @@ function DriverMarker({
   selected: boolean;
   onPress: (driverId: string) => void;
 }) {
+  const { t } = useTranslation();
   const status = fleetStatus(row);
   const color = TONE_COLOR[status.tone];
   const label = row.vehicle?.registrationNumber ?? row.driverCode;
@@ -287,7 +291,7 @@ function DriverMarker({
         style={styles.marker}
         accessible
         accessibilityRole="button"
-        accessibilityLabel={`${row.employee.fullName}, ${label}, ${status.label}`}
+        accessibilityLabel={`${row.employee.fullName}, ${label}, ${t(status.labelKey)}`}
         testID={`fleet-marker-${row.driverId}`}
       >
         <View style={[styles.dotRing, { borderColor: color }, selected && styles.dotRingSelected]}>
@@ -430,7 +434,7 @@ const styles = StyleSheet.create({
     maxWidth: 140,
   },
   tagAlert: {
-    backgroundColor: '#B91C1C',
+    backgroundColor: colors.danger,
   },
   tagSelected: {
     backgroundColor: colors.primary,

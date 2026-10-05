@@ -141,7 +141,8 @@ describe('OfficeInbox screen', () => {
   it('shows the office categories by name', async () => {
     signInAs('ADMIN');
     await render(<OfficeInbox />);
-    expect(await screen.findByText('Maintenance')).toBeTruthy();
+    // The same names as the office web console's mailbox.
+    expect(await screen.findByText('Maintenance / service')).toBeTruthy();
     expect(await screen.findByText('Vehicle papers')).toBeTruthy();
   });
 
@@ -164,7 +165,7 @@ describe('OfficeInbox screen', () => {
     signInAs('MANAGER');
     await render(<OfficeInbox />);
     fireEvent.press(await screen.findByTestId('inbox-check-now'));
-    expect(await screen.findByText('Filed 1 new message(s).')).toBeTruthy();
+    expect(await screen.findByText('Filed 1 new message.')).toBeTruthy();
   });
 
   it('does not offer accounting a mailbox check the API would refuse', async () => {

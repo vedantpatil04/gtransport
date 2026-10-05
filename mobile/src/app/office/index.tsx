@@ -5,7 +5,7 @@ import { AppText, Card } from '../../components/ui';
 import { officePath, seesPayroll } from '../../features/office/modules';
 import { DASH, LoadError, OfficeScreen, officeStyles, StatTile, useOfficeData } from '../../features/office/ui';
 import { officeApi } from '../../lib/api/office';
-import { rupees } from '../../lib/api/payments';
+import { quantity, rupees } from '../../lib/format';
 import { useSession } from '../../lib/auth/session-store';
 
 /**
@@ -50,7 +50,7 @@ export default function OfficeDashboard() {
         hero
         label={t('office.fuelToday')}
         value={fuel.data ? rupees(fuel.data.today.amount) : DASH}
-        sub={fuel.data ? t('office.litresEntries', { litres: fuel.data.today.litres, count: fuel.data.today.entries }) : undefined}
+        sub={fuel.data ? t('office.litresEntries', { litres: quantity(fuel.data.today.litres, 1), count: fuel.data.today.entries }) : undefined}
         onPress={() => router.push(officePath('fuel'))}
         testID="office-fuel-today"
       />

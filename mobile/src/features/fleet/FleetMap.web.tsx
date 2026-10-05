@@ -6,6 +6,7 @@ import {
   setWorkerUrl,
 } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppText, Card } from '../../components/ui';
 import type { OfficeFleetLocation } from '../../lib/api/office';
@@ -46,6 +47,7 @@ export interface FleetMapProps {
 }
 
 export function FleetMap(props: FleetMapProps) {
+  const { t } = useTranslation();
   const config = useMemo(() => resolveMapStyle(), []);
 
   useEffect(() => {
@@ -61,9 +63,9 @@ export function FleetMap(props: FleetMapProps) {
     return (
       <Card style={styles.container} testID="fleet-map-config-error">
         <View style={[styles.frame, styles.centered]}>
-          <AppText style={styles.problemTitle}>Map configuration is unavailable.</AppText>
+          <AppText style={styles.problemTitle}>{t('office.map.configUnavailable')}</AppText>
           <AppText variant="label" tone="muted" style={styles.problemBody}>
-            The driver list, details and Google Maps links below still work.
+            {t('office.map.listStillWorks')}
           </AppText>
         </View>
       </Card>
@@ -81,6 +83,7 @@ interface Plotted {
 }
 
 function WebLiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMapProps & { styleUrl: string }) {
+  const { t } = useTranslation();
   const [attempt, setAttempt] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -222,7 +225,7 @@ function WebLiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMap
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.justifyContent = 'center';
-        el.title = `${label} (${status.label})`;
+        el.title = `${label} (${t(status.labelKey)})`;
 
         const inner = document.createElement('div');
         inner.style.width = '10px';
@@ -244,6 +247,7 @@ function WebLiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMap
       } else {
         marker.setLngLat([coordinate.longitude, coordinate.latitude]);
         const el = marker.getElement();
+        el.title = `${label} (${t(status.labelKey)})`;
         el.style.backgroundColor = color;
         el.style.border = isSelected ? '3px solid #FFFFFF' : '2px solid rgba(255, 255, 255, 0.9)';
         el.style.boxShadow = isSelected
@@ -259,7 +263,7 @@ function WebLiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMap
         currentMarkers.delete(driverId);
       }
     });
-  }, [plotted, selectedId, loadState, onSelect]);
+  }, [plotted, selectedId, loadState, onSelect, t]);
 
   // Re-frame camera on frameKey change
   const lastFrameKey = useRef(frameKey);
@@ -295,20 +299,20 @@ function WebLiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMap
           <View style={[StyleSheet.absoluteFill, styles.centered, styles.veil]} pointerEvents="none" testID="fleet-map-loading">
             <ActivityIndicator color={colors.primary} />
             <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>
-              Loading map…
+              {t('office.map.loading')}
             </AppText>
           </View>
         )}
 
         {loadState === 'error' && (
           <View style={[StyleSheet.absoluteFill, styles.centered, styles.veilSolid]} testID="fleet-map-error">
-            <AppText style={styles.problemTitle}>The map could not be loaded.</AppText>
+            <AppText style={styles.problemTitle}>{t('office.map.loadFailed')}</AppText>
             <AppText variant="label" tone="muted" style={styles.problemBody}>
-              Check the connection. The driver list below is unaffected.
+              {t('office.map.loadFailedBody')}
             </AppText>
             <Pressable accessibilityRole="button" onPress={retry} style={styles.retry} testID="fleet-map-retry">
               <AppText tone="inverse" style={{ fontWeight: '700' }}>
-                Retry map
+                {t('office.map.retry')}
               </AppText>
             </Pressable>
           </View>
@@ -317,11 +321,11 @@ function WebLiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMap
         {loadState === 'ready' && plotted.length === 0 && (
           <View style={styles.notice} pointerEvents="none" testID="fleet-map-no-positions">
             <AppText variant="label" style={{ fontWeight: '700' }}>
-              {rows.length === 0 ? 'No drivers in this view' : 'Location unavailable'}
+              {rows.length === 0 ? t('office.map.noDrivers') : t('office.map.noPosition')}
             </AppText>
             {rows.length > 0 && (
               <AppText variant="label" tone="muted">
-                No driver in this view has reported a position.
+                {t('office.map.noPositionBody')}
               </AppText>
             )}
           </View>
@@ -330,7 +334,7 @@ function WebLiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMap
         {plotted.length > 0 && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Fit map to vehicles"
+            accessibilityLabel={t('office.map.fit')}
             onPress={() => {
               frame(true);
             }}
@@ -342,9 +346,9 @@ function WebLiveMap({ rows, selectedId, onSelect, frameKey, styleUrl }: FleetMap
         )}
 
         <View style={styles.legend} pointerEvents="none">
-          <LegendDot color={TONE_COLOR.success} label="Moving" />
-          <LegendDot color={TONE_COLOR.warning} label="Stopped/Stale" />
-          <LegendDot color={TONE_COLOR.danger} label="Offline/Alert" />
+          <LegendDot color={TONE_COLOR.success} label={t('office.map.legend.moving')} />
+          <LegendDot color={TONE_COLOR.warning} label={t('office.map.legend.stopped')} />
+          <LegendDot color={TONE_COLOR.danger} label={t('office.map.legend.alert')} />
         </View>
       </View>
     </Card>

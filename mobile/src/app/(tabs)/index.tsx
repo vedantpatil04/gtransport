@@ -7,16 +7,35 @@ import { OfflineBanner } from '../../components/OfflineBanner';
 import { AppText, Card, ErrorView, Loading, Plate } from '../../components/ui';
 import { LocationStatusCard } from '../../features/location/LocationStatusCard';
 import { fuelApi, operationsApi } from '../../lib/api/operations';
+import { paymentsApi, type DriverPayment } from '../../lib/api/payments';
 import { useSession } from '../../lib/auth/session-store';
-import { todayIso } from '../../lib/dates';
+import { isoDate, todayIso } from '../../lib/dates';
+import { rupees } from '../../lib/format';
 import { colors, radius, shadow, spacing, TOUCH_TARGET } from '../../theme/tokens';
+
+interface TodaySummary {
+  fuel: string | null;
+  other: string | null;
+  received: number | null;
+}
+
+const NO_FIGURES: TodaySummary = { fuel: null, other: null, received: null };
+
+/** Money that reached the driver on `date` (local calendar), from their latest payments. */
+function receivedOn(date: string, payments: DriverPayment[] | undefined): number | null {
+  if (!Array.isArray(payments)) return null;
+  return payments
+    .filter((p) => p.status === 'PAID' && p.paidAt && isoDate(new Date(p.paidAt)) === date)
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+}
 
 /**
  * Driver Home, keeping the approved hierarchy: who you are, your vehicle, location status,
  * today's summary, then ADD FUEL as the dominant action, then everything else.
  *
- * Identity and vehicle are real API data. Today's amounts, payments and documents are sample
- * values until their phases connect — labelled as such, never presented as records.
+ * Everything shown is live API data: identity and vehicle from the session, and today's fuel,
+ * other expenses and money received from the driver's own records. A figure that could not be
+ * loaded (offline, say) shows a dash — never a guess.
  */
 export default function HomeScreen() {
   const { t } = useTranslation();
@@ -27,21 +46,22 @@ export default function HomeScreen() {
   const [error, setError] = useState(false);
   const router = useRouter();
   const token = useSession((s) => s.token);
-  const [today, setToday] = useState<{ fuel: string; other: string } | null>(null);
+  const [today, setToday] = useState<TodaySummary>(NO_FIGURES);
 
   const loadToday = useCallback(async () => {
     if (!token) return;
     const date = todayIso();
-    try {
-      const [fuel, other] = await Promise.all([
-        fuelApi.list(token, { from: date, to: date, limit: 1 }),
-        operationsApi.list(token, { from: date, to: date }),
-      ]);
-      setToday({ fuel: fuel.totals.amount, other: other.total });
-    } catch {
-      // Offline: the summary simply shows no figures rather than wrong ones.
-      setToday(null);
-    }
+    // Each figure stands alone: one source failing never blanks the others.
+    const [fuel, other, payments] = await Promise.allSettled([
+      fuelApi.list(token, { from: date, to: date, limit: 1 }),
+      operationsApi.list(token, { from: date, to: date }),
+      paymentsApi.mine(token, { limit: 30 }),
+    ]);
+    setToday({
+      fuel: fuel.status === 'fulfilled' ? fuel.value?.totals?.amount ?? null : null,
+      other: other.status === 'fulfilled' ? other.value?.total ?? null : null,
+      received: payments.status === 'fulfilled' ? receivedOn(date, payments.value?.data) : null,
+    });
   }, [token]);
 
   // Refresh whenever Home comes back into view, e.g. after saving a fill-up.
@@ -61,7 +81,7 @@ export default function HomeScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [refreshDriver]);
+  }, [refreshDriver, loadToday]);
 
   if (!driver && error) return <ErrorView onRetry={() => void onRefresh()} />;
   if (!driver) return <Loading />;
@@ -108,15 +128,14 @@ export default function HomeScreen() {
             </View>
             <View style={styles.summaryRow}>
               {[
-                { key: 'fuel', label: t('home.fuel'), value: today?.fuel ?? null },
-                { key: 'other', label: t('home.otherExpenses'), value: today?.other ?? null },
-                // Payments arrive with the payments phase; nothing is shown until they are real.
-                { key: 'received', label: t('home.received'), value: null },
+                { key: 'fuel', label: t('home.fuel'), value: today.fuel },
+                { key: 'other', label: t('home.otherExpenses'), value: today.other },
+                { key: 'received', label: t('home.received'), value: today.received },
               ].map((cell) => (
                 <View key={cell.key} style={styles.summaryCell} testID={`summary-${cell.key}`}>
                   <AppText variant="label" tone="muted" numberOfLines={2}>{cell.label}</AppText>
                   <AppText variant="figure" tone={cell.value === null ? 'muted' : 'default'} style={{ marginTop: spacing.xs }}>
-                    {cell.value === null ? '—' : `₹${Number(cell.value).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                    {cell.value === null ? '—' : rupees(cell.value)}
                   </AppText>
                 </View>
               ))}
@@ -153,14 +172,14 @@ export default function HomeScreen() {
           <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/documents')} testID="home-documents">
             <Card style={styles.sectionCard}>
               <AppText variant="h2">{t('home.documents')}</AppText>
-              <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>{t('tabs.documents')}</AppText>
+              <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>{t('home.documentsHint')}</AppText>
             </Card>
           </Pressable>
 
           <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/payments')} testID="home-payments">
             <Card style={styles.sectionCard}>
               <AppText variant="h2">{t('home.payments')}</AppText>
-              <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>{t('home.comingSoon')}</AppText>
+              <AppText variant="label" tone="muted" style={{ marginTop: spacing.xs }}>{t('home.paymentsHint')}</AppText>
             </Card>
           </Pressable>
         </View>

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { generatePath, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { DriverLayout } from '@/layouts/DriverLayout';
 import { DriverHome } from '@/features/driver/pages/DriverHome';
 import { AddFuel } from '@/features/driver/pages/AddFuel';
@@ -45,6 +45,17 @@ function RequireModule({ module, children }: { module: AdminNavKey; children: Re
   return useCanOpen(module) ? children : <NoAccessState />;
 }
 
+/**
+ * An older address for a screen that now lives elsewhere in the navigation. It lands on the one
+ * canonical address — so the sidebar highlights the right section — and keeps the query string,
+ * so saved links and notification links still open the same filtered view or record.
+ */
+function Moved({ to }: { to: string }) {
+  const params = useParams();
+  const { search, hash } = useLocation();
+  return <Navigate to={`${generatePath(to, params)}${search}${hash}`} replace />;
+}
+
 /** Finance opens on the first of its screens this role may use (Expenses, for a manager). */
 function FinanceIndex() {
   const role = useAdminRole();
@@ -76,14 +87,14 @@ export function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="fleet" element={<Fleet />} />
 
-        {/* People management: Employees is parent module */}
+        {/* People: Employees is the parent module. A driver is an employee with a driver profile;
+            the Drivers view keeps its own address, which every driver link uses. */}
         <Route path="employees">
           <Route index element={<EmployeesPage />} />
           <Route path="staff" element={<EmployeesPage staffOnly />} />
-          <Route path="drivers" element={<DriversPage />} />
-          <Route path="drivers/:id" element={<DriverDetail />} />
+          <Route path="drivers" element={<Moved to="/admin/drivers" />} />
+          <Route path="drivers/:id" element={<Moved to="/admin/drivers/:id" />} />
         </Route>
-        {/* Preserved direct driver routes so all existing links work */}
         <Route path="drivers" element={<DriversPage />} />
         <Route path="drivers/:id" element={<DriverDetail />} />
 
@@ -99,9 +110,9 @@ export function AppRoutes() {
           <Route path="payments" element={<RequireModule module="payments"><PaymentsPage /></RequireModule>} />
           <Route path="expenses" element={<ExpensesPage />} />
         </Route>
-        {/* Preserved direct finance routes for existing links */}
-        <Route path="expenses" element={<ExpensesPage />} />
-        <Route path="payments" element={<RequireModule module="payments"><PaymentsPage /></RequireModule>} />
+        {/* Older direct finance addresses land inside Finance */}
+        <Route path="expenses" element={<Moved to="/admin/finance/expenses" />} />
+        <Route path="payments" element={<Moved to="/admin/finance/payments" />} />
 
         <Route path="documents" element={<DocumentsPage />} />
         <Route path="reports" element={<ReportsPage />} />

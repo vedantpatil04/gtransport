@@ -13,7 +13,7 @@ import {
   useOfficeData,
 } from '../../features/office/ui';
 import { officeApi } from '../../lib/api/office';
-import { rupees } from '../../lib/api/payments';
+import { quantity, rupees } from '../../lib/format';
 import { useSession } from '../../lib/auth/session-store';
 import { colors, spacing } from '../../theme/tokens';
 
@@ -61,7 +61,7 @@ function OfficeReportsBody() {
         hero
         label={t('office.reports.fuelYear')}
         value={fuel.data ? rupees(fuel.data.financialYear.amount) : DASH}
-        sub={fuel.data ? t('office.litresEntries', { litres: fuel.data.financialYear.litres, count: fuel.data.financialYear.entries }) : undefined}
+        sub={fuel.data ? t('office.litresEntries', { litres: quantity(fuel.data.financialYear.litres, 1), count: fuel.data.financialYear.entries }) : undefined}
         testID="reports-fuel-year"
       />
 
@@ -70,14 +70,14 @@ function OfficeReportsBody() {
           <StatTile
             label={t('office.fuelToday')}
             value={fuel.data ? rupees(fuel.data.today.amount) : DASH}
-            sub={fuel.data ? t('office.litresEntries', { litres: fuel.data.today.litres, count: fuel.data.today.entries }) : undefined}
+            sub={fuel.data ? t('office.litresEntries', { litres: quantity(fuel.data.today.litres, 1), count: fuel.data.today.entries }) : undefined}
           />
         </View>
         <View style={officeStyles.half}>
           <StatTile
             label={t('office.fuelMonth')}
             value={fuel.data ? rupees(fuel.data.month.amount) : DASH}
-            sub={fuel.data ? t('office.litresEntries', { litres: fuel.data.month.litres, count: fuel.data.month.entries }) : undefined}
+            sub={fuel.data ? t('office.litresEntries', { litres: quantity(fuel.data.month.litres, 1), count: fuel.data.month.entries }) : undefined}
           />
         </View>
       </View>

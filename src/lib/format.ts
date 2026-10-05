@@ -5,9 +5,16 @@ const LOCALES: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', kn: 'kn-IN',
 export const localeFor = (lang: string) => `${LOCALES[lang] ?? 'en-IN'}-u-nu-latn`;
 
 const inrFmt = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
-const inrFmt2 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+const inrFmt2 = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 
-export const inr = (n: number, decimals = false) => `₹${(decimals ? inrFmt2 : inrFmt).format(Math.round(n * 100) / 100)}`;
+/**
+ * Rupees with Indian digit grouping. With `decimals`, paise show as exactly two digits and a whole
+ * amount shows none — "₹23,999.70", "₹18,000" — the same rule as the driver app's rupees().
+ */
+export const inr = (n: number, decimals = false) => {
+  const value = Math.round(n * 100) / 100;
+  return `₹${(decimals && !Number.isInteger(value) ? inrFmt2 : inrFmt).format(value)}`;
+};
 export const num = (n: number, digits = 1) => new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits }).format(n);
 
 /** Compact rupees for chart axes: ₹8.4L, ₹42K. */

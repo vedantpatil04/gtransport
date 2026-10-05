@@ -66,10 +66,5 @@ export function driverPaymentState(status: PaymentStatus): DriverPaymentState {
   }
 }
 
-/** "₹23,999.75", or "₹18,000" when there are no paise. Exact: the string is never rounded. */
-export function rupees(amount: string): string {
-  const [whole = '0', fraction = ''] = amount.replace(/^-/, '').split('.');
-  const grouped = Number(whole).toLocaleString('en-IN');
-  const paise = fraction.padEnd(2, '0').slice(0, 2);
-  return `${amount.startsWith('-') ? '−' : ''}₹${grouped}${paise === '00' ? '' : `.${paise}`}`;
-}
+/** Kept here for existing imports; the formatter itself is shared app-wide in lib/format. */
+export { rupees } from '../format';

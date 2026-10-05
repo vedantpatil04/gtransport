@@ -1,13 +1,28 @@
-# Gangamata Roadlines — Fleet Management Prototype
+# Gangamata Transport — Fleet Management
 
-A working, client-facing prototype for an Indian transport company: a **driver app** (mobile-first, six Indian languages) and an **office admin console** (desktop-first, responsive). Everything runs in the browser — no backend, payment gateway or GPS — with realistic simulations behind clean, swappable modules.
+One product with two clients on one backend:
+
+| Client | Who | Where |
+|---|---|---|
+| **Office console** (this folder, React + Vite) | Super admin, admin, manager, accounting | Vercel — https://gangamata.vercel.app (official domain later) |
+| **Driver app** ([`mobile/`](mobile), Expo / React Native) | Drivers (Android APK); office roles get a phone-sized office view | Android |
+| **API** ([`backend/`](backend), NestJS) | Both clients — one auth/RBAC system | Render — https://gtransport-kxbe.onrender.com, data in Supabase PostgreSQL, files in Cloudinary |
+
+Production builds of both clients talk to the Render API: the console through the committed
+[`.env.production`](.env.production), the driver app through its default in
+[`mobile/app.config.ts`](mobile/app.config.ts). `VITE_API_URL` / `EXPO_PUBLIC_API_URL` override them;
+there is no localhost, emulator or LAN fallback. See
+[`PHASE-CROSS-PLATFORM-1-NOTES.md`](PHASE-CROSS-PLATFORM-1-NOTES.md) for how the two clients are kept consistent.
+
+The sections below describe the original browser-only prototype, which still runs as a
+self-contained demo with sample data (`npm run build:demo`).
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173  → opens the driver app
-npm run build        # type-check + production build (dist/)
+npm run dev          # http://localhost:5173 — real mode when VITE_API_URL is set (see .env.example), else the demo
+npm run build        # type-check + production build (dist/), always against the API in .env.production
 npm run build:demo   # dist-demo/index.html, plus one MapLibre worker file for the Fleet map (serve both over HTTP; set VITE_MAP_STYLE_URL at build time)
 npm run i18n:check   # every t('key') exists; all locales complete
 npm test             # unit and component tests (Vitest)

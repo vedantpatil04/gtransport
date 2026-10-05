@@ -18,9 +18,18 @@ export function fromIsoDate(value: string): Date {
   return new Date(y as number, (m as number) - 1, d as number);
 }
 
+/**
+ * The Intl locale for a UI language: native month names, but Latin digits (the norm on Indian
+ * consumer apps, and what the office web console shows) — Marathi would otherwise default to
+ * Devanagari digits.
+ */
+export function localeFor(language: string): string {
+  return `${{ en: 'en-IN', hi: 'hi-IN', kn: 'kn-IN', mr: 'mr-IN', ta: 'ta-IN', te: 'te-IN' }[language] ?? 'en-IN'}-u-nu-latn`;
+}
+
 /** "19 September 2026" in the driver's language. */
 export function displayDate(value: string, language: string): string {
-  const locale = { en: 'en-IN', hi: 'hi-IN', kn: 'kn-IN', mr: 'mr-IN', ta: 'ta-IN', te: 'te-IN' }[language] ?? 'en-IN';
+  const locale = localeFor(language);
   try {
     return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(fromIsoDate(value));
   } catch {

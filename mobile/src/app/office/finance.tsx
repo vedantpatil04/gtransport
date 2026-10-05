@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { AppText, Card, EmptyView, Loading } from '../../components/ui';
 import { DASH, LoadError, ModuleGuard, OfficeScreen, officeStyles, Pill, ShowMore, StatTile, useOfficeData, usePagedList } from '../../features/office/ui';
 import { officeApi, type OfficePaymentStatus } from '../../lib/api/office';
-import { rupees } from '../../lib/api/payments';
+import { rupees } from '../../lib/format';
 import { displayDate } from '../../lib/dates';
 
 const TONE: Record<OfficePaymentStatus, 'default' | 'success' | 'warning' | 'danger'> = {

@@ -1,7 +1,14 @@
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+/** The close button's spoken label, in the screen's language. */
+function CloseLabel() {
+  const { t } = useTranslation();
+  return <span className="sr-only">{t('common.close')}</span>;
+}
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -31,7 +38,7 @@ export const DialogContent = React.forwardRef<
       {!hideClose && (
         <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
           <X className="size-4" />
-          <span className="sr-only">Close</span>
+          <CloseLabel />
         </DialogPrimitive.Close>
       )}
     </DialogPrimitive.Content>

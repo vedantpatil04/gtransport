@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Moon, RotateCcw, Save, Sun, WifiOff } from 'lucide-react';
+import { ChevronRight, Inbox, Info, KeyRound, Moon, RotateCcw, Save, Sun, Users, WifiOff, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { FieldError, Input, Label } from '@/components/ui/input';
@@ -9,17 +9,115 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/store';
 import type { ReminderTarget } from '@/types';
-import { ConfirmDialog, PageHeader, Panel } from '../components/ui';
+import { ConfirmDialog, DetailList, PageHeader, Panel } from '../components/ui';
+import { ChangePasswordDialog } from '../components/ChangePassword';
 import { isApiConfigured } from '@/features/api/mode';
-import { NotLiveState } from '../components/states';
+import { useSession } from '@/features/api/session';
+
+/** Theme and console language: kept on this browser, so they work the same in every mode. */
+function AppearancePanel() {
+  const { t } = useTranslation();
+  const theme = useApp((s) => s.theme);
+  const adminLanguage = useApp((s) => s.adminLanguage);
+  return (
+    <Panel title={t('admin.settings.appearance')} bodyClass="space-y-4 p-4">
+      <div>
+        <p className="mb-2 text-sm font-medium">{t('admin.settings.theme')}</p>
+        <div className="grid grid-cols-2 gap-2">
+          {(['light', 'dark'] as const).map((th) => (
+            <button key={th} onClick={() => useApp.getState().setTheme(th)} className={cn('flex h-11 items-center justify-center gap-2 rounded-lg border text-sm font-medium', theme === th ? 'border-primary bg-primary/5' : 'hover:bg-accent')} aria-pressed={theme === th}>
+              {th === 'light' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              {t(`admin.top.${th}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="mb-2 text-sm font-medium">{t('admin.top.language')}</p>
+        <div className="grid grid-cols-2 gap-2">
+          {(['en', 'hi'] as const).map((l) => (
+            <button key={l} lang={l} onClick={() => useApp.getState().setAdminLanguage(l)} className={cn('flex h-11 items-center justify-center rounded-lg border text-sm font-medium', adminLanguage === l ? 'border-primary bg-primary/5' : 'hover:bg-accent')} aria-pressed={adminLanguage === l}>
+              {l === 'en' ? 'English' : 'हिंदी'}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">{t('admin.settings.driverLangHint')}</p>
+      </div>
+    </Panel>
+  );
+}
+
+function SettingsLink({ to, icon: Icon, title, hint }: { to: string; icon: LucideIcon; title: string; hint: string }) {
+  return (
+    <Link to={to} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/50">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground/70">
+        <Icon className="size-[18px]" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+    </Link>
+  );
+}
+
+/**
+ * Real mode. Everything here works against the live system: the signed-in account and its
+ * password, this browser's appearance, and the screens where logins and the company mailbox are
+ * actually managed. Company details and reminder rules are not stored on the server yet, and the
+ * page says so instead of offering controls that would save nothing.
+ */
+function SettingsLive() {
+  const { t } = useTranslation();
+  const account = useSession((s) => s.user);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  return (
+    <div data-testid="settings-live">
+      <PageHeader title={t('admin.settings.title')} description={t('admin.settings.liveSubtitle')} />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title={t('admin.settings.account')} bodyClass="space-y-4 p-4">
+          <DetailList
+            rows={[
+              [t('admin.settings.name'), account?.displayName ?? '—'],
+              [t('admin.settings.role'), account ? t(`admin.enum.userRole.${account.role}`) : '—'],
+              [t('admin.settings.signInId'), account?.email ?? account?.phone ?? '—'],
+            ]}
+          />
+          <div>
+            <Button variant="outline" onClick={() => setChangingPassword(true)} data-testid="settings-change-password">
+              <KeyRound />
+              {t('admin.password.title')}
+            </Button>
+            <p className="mt-2 text-xs text-muted-foreground">{t('admin.password.hint')}</p>
+          </div>
+        </Panel>
+
+        <AppearancePanel />
+
+        <Panel title={t('admin.settings.administration')} bodyClass="divide-y">
+          <SettingsLink to="/admin/employees" icon={Users} title={t('admin.settings.loginsTitle')} hint={t('admin.settings.loginsHint')} />
+          <SettingsLink to="/admin/inbox" icon={Inbox} title={t('admin.settings.mailboxTitle')} hint={t('admin.settings.mailboxHint')} />
+        </Panel>
+
+        <Panel title={t('admin.settings.companyLater')} bodyClass="p-4">
+          <p className="flex gap-2.5 text-sm text-muted-foreground" data-testid="settings-company-later">
+            <Info className="mt-0.5 size-4 shrink-0" />
+            {t('admin.settings.companyLaterBody')}
+          </p>
+        </Panel>
+      </div>
+      <ChangePasswordDialog open={changingPassword} onOpenChange={setChangingPassword} />
+    </div>
+  );
+}
 
 function SettingsDemo() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const company = useApp((s) => s.company);
-  const theme = useApp((s) => s.theme);
   const offline = useApp((s) => s.offline);
-  const adminLanguage = useApp((s) => s.adminLanguage);
   const pending = useApp((s) => s.fuel.filter((f) => f.sync === 'pending').length + s.expenses.filter((e) => e.sync === 'pending').length + s.payments.filter((p) => p.sync === 'pending').length);
   const [form, setForm] = useState({ name: company.name, office: company.office });
   const [error, setError] = useState<string | null>(null);
@@ -95,30 +193,7 @@ function SettingsDemo() {
           </div>
         </Panel>
 
-        <Panel title={t('admin.settings.appearance')} bodyClass="space-y-4 p-4">
-          <div>
-            <p className="mb-2 text-sm font-medium">{t('admin.settings.theme')}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(['light', 'dark'] as const).map((th) => (
-                <button key={th} onClick={() => useApp.getState().setTheme(th)} className={cn('flex h-11 items-center justify-center gap-2 rounded-lg border text-sm font-medium', theme === th ? 'border-primary bg-primary/5' : 'hover:bg-accent')} aria-pressed={theme === th}>
-                  {th === 'light' ? <Sun className="size-4" /> : <Moon className="size-4" />}
-                  {t(`admin.top.${th}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-medium">{t('admin.top.language')}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(['en', 'hi'] as const).map((l) => (
-                <button key={l} lang={l} onClick={() => useApp.getState().setAdminLanguage(l)} className={cn('flex h-11 items-center justify-center rounded-lg border text-sm font-medium', adminLanguage === l ? 'border-primary bg-primary/5' : 'hover:bg-accent')} aria-pressed={adminLanguage === l}>
-                  {l === 'en' ? 'English' : 'हिंदी'}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">{t('admin.settings.driverLangHint')}</p>
-          </div>
-        </Panel>
+        <AppearancePanel />
 
         <Panel title={t('admin.settings.demo')} bodyClass="space-y-4 p-4">
           <label className="flex cursor-pointer items-start justify-between gap-3">
@@ -159,8 +234,7 @@ function SettingsDemo() {
   );
 }
 
-/** Real mode shows no sample records: this module's live data arrives in a later phase. */
+/** The live settings hub with an API; the approved prototype's settings in the demo. */
 export function SettingsPage() {
-  const { t } = useTranslation();
-  return isApiConfigured() ? <NotLiveState title={t('admin.nav.settings')} body={t('admin.real.settingsBody')} /> : <SettingsDemo />;
+  return isApiConfigured() ? <SettingsLive /> : <SettingsDemo />;
 }

@@ -1,5 +1,7 @@
-import OfficeFleet from '../office/fleet';
+import { Redirect } from 'expo-router';
+import { officePath } from '../../features/office/modules';
 
-export default function AdminFleetScreen() {
-  return <OfficeFleet />;
+/** An older address: the office Fleet screen lives under /office, with the office tabs around it. */
+export default function AdminFleetRedirect() {
+  return <Redirect href={officePath('fleet')} />;
 }

@@ -1,4 +1,5 @@
 import type { OfficeFleetLocation } from '../../lib/api/office';
+import { colors } from '../../theme/tokens';
 
 /**
  * The office Fleet screen's rules, kept apart from anything that draws.
@@ -16,7 +17,8 @@ export type FleetTone = 'success' | 'warning' | 'danger';
 
 export interface FleetStatus {
   key: 'alerting' | 'moving' | 'stopped' | 'stale' | 'offline' | 'unavailable';
-  label: string;
+  /** Translation key for the status, in the same words as the office web console's Live Fleet. */
+  labelKey: string;
   tone: FleetTone;
 }
 
@@ -54,20 +56,21 @@ export function validPosition(row: OfficeFleetLocation): Coordinate | null {
  * speed. An old fix's speed is not the vehicle's speed now, so a stale driver is never "moving".
  */
 export function fleetStatus(row: OfficeFleetLocation): FleetStatus {
-  if (row.alert?.status === 'ACTIVE') return { key: 'alerting', label: 'Alerting', tone: 'danger' };
-  if (row.status === 'OFFLINE') return { key: 'offline', label: 'Offline', tone: 'danger' };
-  if (row.status === 'PERMISSION_DENIED') return { key: 'unavailable', label: 'Permission denied', tone: 'danger' };
-  if (row.status === 'LOCATION_DISABLED') return { key: 'unavailable', label: 'Location off', tone: 'danger' };
-  if (row.status === 'STALE' || row.stale) return { key: 'stale', label: 'Stale', tone: 'warning' };
+  if (row.alert?.status === 'ACTIVE') return { key: 'alerting', labelKey: 'office.fleet.status.alerting', tone: 'danger' };
+  if (row.status === 'OFFLINE') return { key: 'offline', labelKey: 'office.fleet.status.offline', tone: 'danger' };
+  if (row.status === 'PERMISSION_DENIED') return { key: 'unavailable', labelKey: 'office.fleet.status.permissionDenied', tone: 'danger' };
+  if (row.status === 'LOCATION_DISABLED') return { key: 'unavailable', labelKey: 'office.fleet.status.locationOff', tone: 'danger' };
+  if (row.status === 'STALE' || row.stale) return { key: 'stale', labelKey: 'office.fleet.status.stale', tone: 'warning' };
   return (row.position?.speedKmh ?? 0) > MOVING_SPEED_KMH
-    ? { key: 'moving', label: 'Moving', tone: 'success' }
-    : { key: 'stopped', label: 'Stopped', tone: 'warning' };
+    ? { key: 'moving', labelKey: 'office.fleet.status.moving', tone: 'success' }
+    : { key: 'stopped', labelKey: 'office.fleet.status.stopped', tone: 'warning' };
 }
 
+/** Status colours are the product's success / warning / danger tokens — the same as the web console. */
 export const TONE_COLOR: Record<FleetTone, string> = {
-  success: '#10B981',
-  warning: '#F59E0B',
-  danger: '#EF4444',
+  success: colors.success,
+  warning: colors.warning,
+  danger: colors.danger,
 };
 
 /** Same buckets as the server's summary and the web console's filters. */
@@ -139,7 +142,8 @@ export function googleMapsUrl({ latitude, longitude }: Coordinate): string {
   return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
 }
 
-export function hoursAndMinutes(totalMinutes: number): string {
+/** Whole hours and the minutes left over, for a duration shown in the office's language. */
+export function hoursAndMinutes(totalMinutes: number): { hours: number; minutes: number } {
   const minutes = Math.max(0, Math.floor(totalMinutes));
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  return { hours: Math.floor(minutes / 60), minutes: minutes % 60 };
 }

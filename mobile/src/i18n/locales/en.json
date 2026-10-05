@@ -11,6 +11,15 @@
     "close": "Close",
     "back": "Back"
   },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo_one": "{{count}} min ago",
+    "minutesAgo_other": "{{count}} min ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
   "login": {
     "title": "Gangamata Transport",
     "subtitle": "Sign in",
@@ -50,9 +59,8 @@
     "otherUpdates": "Other daily updates",
     "payments": "Payments",
     "documents": "Documents",
-    "comingSoon": "Coming soon",
-    "demoData": "Sample data",
-    "demoNotice": "Amounts below are sample data until the fuel and payment modules are connected."
+    "documentsHint": "Licence, RC, insurance and PUC",
+    "paymentsHint": "Salary, advances and allowances"
   },
   "location": {
     "title": "Location sharing",
@@ -82,7 +90,7 @@
     "compulsoryPermissionRequired": "Location permission is required. Tap below to grant permission.",
     "compulsoryEnableBtn": "Enable Location Now",
     "compulsorySettingsBtn": "Open Location Settings",
-    "compulsorySignOut": "Not on duty? Sign Out"
+    "compulsorySignOut": "Not on duty? Log out"
   },
   "tabs": {
     "home": "Home",
@@ -106,13 +114,12 @@
     "helpBody": "Call the Gangamata Transport office for help with the app or your account.",
     "logout": "Log out",
     "logoutConfirm": "Log out of this device?",
-    "logoutBody": "You will need your mobile number and passcode to sign in again.",
+    "logoutBody": "You will need to sign in again to use the app on this phone.",
     "chooseLanguage": "Choose your language"
   },
   "updates": {
     "title": "Daily updates",
-    "empty": "Nothing recorded yet.",
-    "phaseNote": "Recording daily updates arrives in the next release."
+    "empty": "Nothing recorded yet."
   },
   "payments": {
     "title": "Payments",
@@ -146,8 +153,7 @@
   },
   "documents": {
     "title": "Documents",
-    "empty": "No documents yet.",
-    "phaseNote": "Your documents will appear here in a later release."
+    "empty": "No documents yet."
   },
   "states": {
     "offline": "You're offline. Changes will sync when connected.",
@@ -269,6 +275,7 @@
     "title": "Choose your password",
     "body": "Welcome, {{name}}. You signed in with a temporary password — choose your own to continue.",
     "current": "Temporary or current password",
+    "currentOnly": "Current password",
     "new": "New password",
     "repeat": "Repeat new password",
     "rules": "At least 8 characters. Not your mobile number or email.",
@@ -277,7 +284,8 @@
     "changed": "Password changed.",
     "errMissing": "Fill in both passwords.",
     "errRepeat": "The new passwords do not match.",
-    "errCurrent": "The current password is not correct."
+    "errCurrent": "The current password is not correct.",
+    "errOffline": "You are offline. Connect to the internet to change your password."
   },
   "office": {
     "nav": {
@@ -341,6 +349,138 @@
     "showMore": "Show more",
     "noAccessTitle": "Not available for your role",
     "noAccessBody": "Ask an administrator if you need this.",
+    "settings": {
+      "subtitle": "This app and your account",
+      "account": "Your account",
+      "name": "Name",
+      "app": "This app",
+      "version": "App version",
+      "environment": "Environment",
+      "env": {
+        "development": "Development",
+        "staging": "Staging",
+        "production": "Production"
+      },
+      "server": "Server",
+      "consoleNote": "Logins, roles, the company mailbox and other administration are managed in the office web console."
+    },
+    "fleet": {
+      "subtitle": "{{active}} of {{total}} drivers reporting",
+      "search": "Search driver, vehicle or code",
+      "filter": {
+        "all": "All",
+        "active": "Reporting",
+        "stale": "Falling behind",
+        "offline": "Not reporting",
+        "alerting": "Stopped too long"
+      },
+      "status": {
+        "alerting": "Stopped too long",
+        "moving": "Moving",
+        "stopped": "Stopped",
+        "stale": "Falling behind",
+        "offline": "Not reporting",
+        "permissionDenied": "Permission off",
+        "locationOff": "Location off"
+      },
+      "alertBanner_one": "{{count}} driver has been stationary past the alert threshold",
+      "alertBanner_other": "{{count}} drivers have been stationary past the alert threshold",
+      "noVehicle": "No vehicle assigned",
+      "stationaryAlert": "Stationary too long",
+      "stationaryFor": "In the same place for {{duration}}.",
+      "stoppedFor": "Stopped for {{duration}}",
+      "acknowledge": "Acknowledge",
+      "acknowledging": "Acknowledging…",
+      "ackFailed": "Could not acknowledge the alert. Try again.",
+      "speed": "Speed",
+      "speedValue": "{{speed}} km/h",
+      "lastUpdated": "Last updated",
+      "coordinates": "Coordinates",
+      "accuracy": "Accurate to {{metres}} m",
+      "noLocation": "Location unavailable",
+      "recentFixes": "Recent positions",
+      "loadingFixes": "Loading positions…",
+      "noFixes": "No positions recorded yet",
+      "openGoogleMaps": "Open in Google Maps",
+      "call": "Call {{phone}}",
+      "emptyMatching": "No drivers match the search",
+      "emptyNone": "No drivers reporting",
+      "emptyNoneHint": "Drivers appear here once their app reports a location.",
+      "emptyFilter": "No drivers in this view",
+      "duration": "{{hours}} h {{minutes}} min"
+    },
+    "map": {
+      "nativeUnavailable": "The map is not available in this version of the app.",
+      "configUnavailable": "Map configuration is unavailable.",
+      "listStillWorks": "The driver list, details and Google Maps links below still work.",
+      "loading": "Loading map…",
+      "loadFailed": "The map could not be loaded.",
+      "loadFailedBody": "Check the connection. The driver list below is unaffected.",
+      "retry": "Retry map",
+      "noDrivers": "No drivers in this view",
+      "noPosition": "Location unavailable",
+      "noPositionBody": "No driver in this view has reported a position.",
+      "fit": "Fit map to vehicles",
+      "legend": {
+        "moving": "Moving",
+        "stopped": "Stopped / falling behind",
+        "alert": "Not reporting / alert"
+      }
+    },
+    "inbox": {
+      "connectedAs": "Reading {{mailbox}}",
+      "notConnected": "No mailbox is connected",
+      "checkNow": "Check now",
+      "checking": "Checking the mailbox…",
+      "syncFailed": "The mailbox could not be checked. Try again shortly.",
+      "syncFiled_one": "Filed {{count}} new message.",
+      "syncFiled_other": "Filed {{count}} new messages.",
+      "syncNothingNew": "Nothing new.",
+      "lastCheckFailed": "The last check failed: {{reason}}",
+      "search": "Search sender or subject",
+      "all": "All",
+      "status": {
+        "UNREAD": "Unread",
+        "READ": "Read",
+        "ARCHIVED": "Archived"
+      },
+      "class": {
+        "VEHICLE_DOCUMENT": "Vehicle papers",
+        "FUEL": "Fuel",
+        "MAINTENANCE": "Maintenance / service",
+        "FINANCE": "Finance",
+        "SALARY_PAYMENT": "Salary / payment",
+        "COMPLIANCE": "Compliance",
+        "VENDOR": "Vendor",
+        "CUSTOMER": "Customer",
+        "GENERAL": "General",
+        "SPAM": "Junk",
+        "UNCLASSIFIED": "Not sorted"
+      },
+      "skip": {
+        "suspicious_extension": "Refused: this kind of file is not accepted",
+        "unsupported_type": "Refused: not a document or photo",
+        "too_large": "Refused: larger than the office keeps",
+        "empty": "Refused: the file was empty",
+        "download_failed": "Not saved yet: the download failed and will be tried again"
+      },
+      "notStored": "Not stored",
+      "new": "New",
+      "noSubject": "(no subject)",
+      "noBody": "This message had no readable text.",
+      "message": "Message",
+      "detailFailed": "This message could not be loaded.",
+      "readingRetrying": "Reading this mail failed. It will be tried again automatically.",
+      "reading": "What was read",
+      "confidence": "{{percent}}% sure",
+      "attachments": "Attached ({{count}})",
+      "markRead": "Mark read",
+      "markUnread": "Mark unread",
+      "archive": "Archive",
+      "statusFailed": "This message could not be updated. Try again.",
+      "empty": "The inbox is empty.",
+      "emptyMatching": "No mail matches this."
+    },
     "vehicleStatus": {
       "ACTIVE": "Active",
       "MAINTENANCE": "In workshop",

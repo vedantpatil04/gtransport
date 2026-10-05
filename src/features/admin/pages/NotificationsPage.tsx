@@ -12,7 +12,7 @@ import { useApp } from '@/store';
 import type { NotificationKind } from '@/types';
 import { PageHeader, Panel } from '../components/ui';
 import { isApiConfigured } from '@/features/api/mode';
-import { NotLiveState } from '../components/states';
+import { AttentionList } from '../components/LiveNotifications';
 
 type Filter = 'all' | 'unread' | 'documents' | 'payments' | 'fleet';
 const GROUP: Record<Exclude<Filter, 'all' | 'unread'>, NotificationKind[]> = {
@@ -101,8 +101,19 @@ function NotificationsDemo() {
   );
 }
 
-/** Real mode shows no sample records: this module's live data arrives in a later phase. */
-export function NotificationsPage() {
+/** Real mode: what needs the office now, from the live API — the header bell's list in full. */
+function NotificationsLive() {
   const { t } = useTranslation();
-  return isApiConfigured() ? <NotLiveState title={t('admin.nav.notifications')} body={t('admin.real.notificationsBody')} /> : <NotificationsDemo />;
+  return (
+    <div data-testid="notifications-live">
+      <PageHeader title={t('admin.notifications.title')} description={t('admin.notifications.live.subtitle')} />
+      <Panel title={t('admin.notifications.live.attention')}>
+        <AttentionList />
+      </Panel>
+    </div>
+  );
+}
+
+export function NotificationsPage() {
+  return isApiConfigured() ? <NotificationsLive /> : <NotificationsDemo />;
 }

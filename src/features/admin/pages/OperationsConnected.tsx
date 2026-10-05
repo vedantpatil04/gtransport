@@ -183,7 +183,7 @@ export function OperationsConnected() {
           {records.data && (
             <div className="flex items-center justify-between border-b px-4 py-2 text-sm">
               <span className="text-muted-foreground">{t('admin.common.records', { count: records.data.count })}</span>
-              <span className="figure font-semibold">{inr(Number(records.data.total))}</span>
+              <span className="figure font-semibold">{inr(Number(records.data.total), true)}</span>
             </div>
           )}
 
@@ -218,7 +218,7 @@ export function OperationsConnected() {
                       </TD>
                       <TD className="text-muted-foreground">{record.driver?.fullName ?? t('admin.opsApi.office')}</TD>
                       <TD className="max-w-[200px] truncate text-muted-foreground">{record.vendorName ?? record.description ?? '—'}</TD>
-                      <TD className="figure text-right font-semibold">{inr(Number(record.amount))}</TD>
+                      <TD className="figure text-right font-semibold">{inr(Number(record.amount), true)}</TD>
                       <TD className="text-center">
                         {record.receiptFileId ? (
                           <button type="button" onClick={() => setReceipt(record)} aria-label={t('admin.fuelApi.openReceipt')} className="inline-flex size-9 items-center justify-center rounded-md hover:bg-muted">
@@ -317,7 +317,7 @@ export function OperationsConnected() {
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
                           <Plate reg={row.vehicle.registrationNumber} size="xs" />
-                          <span className="figure text-sm font-semibold">{inr(Number(row.amount))}</span>
+                          <span className="figure text-sm font-semibold">{inr(Number(row.amount), true)}</span>
                         </span>
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {row.vendorName ?? t('admin.receiptAi.noVendor')}
@@ -350,7 +350,7 @@ export function OperationsConnected() {
                 {byVehicle.data?.map((row) => (
                   <li key={row.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
                     <Plate reg={row.label} size="xs" />
-                    <span className="figure font-semibold">{inr(Number(row.amount))}</span>
+                    <span className="figure font-semibold">{inr(Number(row.amount), true)}</span>
                   </li>
                 ))}
               </ul>
@@ -374,7 +374,7 @@ export function OperationsConnected() {
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {policy.expiryDate ? t('admin.opsApi.expires', { date: fmtDate(policy.expiryDate) }) : '—'}
-                        {policy.premium ? ` · ${inr(Number(policy.premium))}` : ''}
+                        {policy.premium ? ` · ${inr(Number(policy.premium), true)}` : ''}
                       </p>
                     </div>
                   </li>

@@ -76,9 +76,9 @@ function DashboardDemo() {
             </span>
           }
         />
-        <StatCard label={t('admin.dashboard.otherToday')} value={inr(overview.other)} icon={ReceiptIndianRupee} to="/admin/expenses" sub={t('admin.dashboard.entries', { count: overview.otherCount })} />
-        <StatCard label={t('admin.dashboard.paymentsToday')} value={inr(overview.paid)} icon={Wallet} tone="success" to="/admin/payments" sub={t('admin.dashboard.paidCount', { count: overview.paidCount })} />
-        <StatCard label={t('admin.dashboard.pending')} value={inr(overview.pending)} icon={Hourglass} tone="warning" to="/admin/payments?status=pending" sub={t('admin.dashboard.pendingSub', { count: overview.pendingCount })} />
+        <StatCard label={t('admin.dashboard.otherToday')} value={inr(overview.other)} icon={ReceiptIndianRupee} to="/admin/finance/expenses" sub={t('admin.dashboard.entries', { count: overview.otherCount })} />
+        <StatCard label={t('admin.dashboard.paymentsToday')} value={inr(overview.paid)} icon={Wallet} tone="success" to="/admin/finance/payments" sub={t('admin.dashboard.paidCount', { count: overview.paidCount })} />
+        <StatCard label={t('admin.dashboard.pending')} value={inr(overview.pending)} icon={Hourglass} tone="warning" to="/admin/finance/payments?status=pending" sub={t('admin.dashboard.pendingSub', { count: overview.pendingCount })} />
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[1.6fr_1fr]">
@@ -123,7 +123,7 @@ function DashboardDemo() {
                 <AttentionRow key={d.id} icon={TriangleAlert} tone="warning" to={`/admin/documents?doc=${d.id}`} title={t('expiry.docInDays', { doc: t(`enum.docType.${d.type}`), count: docStatus(d).days ?? 0 })} sub={docOwnerLabel(d, vehicles, drivers)} />
               ))}
               {failed.map((p) => (
-                <AttentionRow key={p.id} icon={CircleX} tone="danger" to={`/admin/payments?payment=${p.id}`} title={t('admin.dashboard.paymentFailed', { amount: inr(p.amount) })} sub={`${driverName(p.driverId)?.name ?? ''} · ${t(`enum.paymentType.${p.type}`)}`} />
+                <AttentionRow key={p.id} icon={CircleX} tone="danger" to={`/admin/finance/payments?payment=${p.id}`} title={t('admin.dashboard.paymentFailed', { amount: inr(p.amount) })} sub={`${driverName(p.driverId)?.name ?? ''} · ${t(`enum.paymentType.${p.type}`)}`} />
               ))}
               {offline.map((f) => (
                 <AttentionRow key={f.driver.id} icon={WifiOff} tone="danger" to={`/admin/fleet?driver=${f.driver.id}`} title={t('admin.dashboard.driverOffline', { name: f.driver.name })} sub={`${f.vehicle?.reg ?? ''} · ${relTime(f.pos.updatedAt, i18n.language)}`} />

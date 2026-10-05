@@ -4,11 +4,13 @@ import { withProjectBuildGradle, type ConfigPlugin } from '@expo/config-plugins'
 /**
  * Gangamata Transport — driver app configuration.
  *
- * The API URL comes from the environment so development, staging and production can point at
- * different backends without code changes; nothing secret is stored here. EAS build profiles
- * supply EXPO_PUBLIC_API_URL per environment.
+ * The API URL comes from the environment (EXPO_PUBLIC_API_URL) so a build can point at a
+ * different backend without code changes; nothing secret is stored here. Without it, every build
+ * — including a development build served by Metro — talks to the production API on Render.
+ * Metro only serves the JavaScript bundle; it is never the backend, so there is no emulator or
+ * LAN default. Keep in step with PRODUCTION_API_URL in src/lib/config.ts.
  */
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://gtransport-kxbe.onrender.com';
 
 /**
  * The MapLibre style the office Fleet map draws (tile source, fonts, look). Configuration, not

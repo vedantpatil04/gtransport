@@ -1,5 +1,11 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import en from '../../../i18n/locales/en.json';
+import hi from '../../../i18n/locales/hi.json';
+import kn from '../../../i18n/locales/kn.json';
+import mr from '../../../i18n/locales/mr.json';
+import ta from '../../../i18n/locales/ta.json';
+import te from '../../../i18n/locales/te.json';
 import type { OfficeFleetLocation } from '../../../lib/api/office';
 import { cameraTarget, countByFilter, fleetStatus, googleMapsUrl, hoursAndMinutes, matchesFilter, validPosition } from '../model';
 
@@ -44,9 +50,28 @@ describe('fleetStatus', () => {
   });
 
   it('follows the server status for offline, permission and disabled-location drivers', () => {
-    expect(fleetStatus(row({ status: 'OFFLINE' })).label).toBe('Offline');
-    expect(fleetStatus(row({ status: 'PERMISSION_DENIED' })).label).toBe('Permission denied');
-    expect(fleetStatus(row({ status: 'LOCATION_DISABLED' })).label).toBe('Location off');
+    expect(fleetStatus(row({ status: 'OFFLINE' })).labelKey).toBe('office.fleet.status.offline');
+    expect(fleetStatus(row({ status: 'PERMISSION_DENIED' })).labelKey).toBe('office.fleet.status.permissionDenied');
+    expect(fleetStatus(row({ status: 'LOCATION_DISABLED' })).labelKey).toBe('office.fleet.status.locationOff');
+  });
+
+  it('labels every status from the translations, never from English text in code', () => {
+    const rows = [
+      row({ alert }),
+      row({ status: 'OFFLINE' }),
+      row({ status: 'PERMISSION_DENIED' }),
+      row({ status: 'LOCATION_DISABLED' }),
+      row({ status: 'STALE', stale: true }),
+      row(),
+      row({ position: { ...at(16, 74), speedKmh: 0 } }),
+    ];
+    for (const locale of [en, hi, kn, mr, ta, te]) {
+      for (const r of rows) {
+        const path = fleetStatus(r).labelKey.split('.');
+        const text = path.reduce<unknown>((node, part) => (node as Record<string, unknown> | undefined)?.[part], locale);
+        expect(typeof text).toBe('string');
+      }
+    }
   });
 
   it('never calls a stale fix moving, whatever its old speed', () => {
@@ -124,9 +149,10 @@ describe('formatting', () => {
     expect(googleMapsUrl({ latitude: 15.849951, longitude: 74.497612 })).toBe('https://www.google.com/maps/search/?api=1&query=15.849951,74.497612');
   });
 
-  it('writes durations as hours and minutes', () => {
-    expect(hoursAndMinutes(305)).toBe('5h 5m');
-    expect(hoursAndMinutes(0)).toBe('0h 0m');
+  it('splits durations into hours and minutes for the translated text', () => {
+    expect(hoursAndMinutes(305)).toEqual({ hours: 5, minutes: 5 });
+    expect(hoursAndMinutes(0)).toEqual({ hours: 0, minutes: 0 });
+    expect(hoursAndMinutes(-3)).toEqual({ hours: 0, minutes: 0 });
   });
 });
 

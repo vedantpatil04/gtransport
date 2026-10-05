@@ -1,5 +1,4 @@
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 
 export type AppEnvironment = 'development' | 'staging' | 'production';
 
@@ -11,27 +10,19 @@ interface Extra {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
 
-function resolveDefaultApiUrl(): string {
-  if (
-    Platform.OS === 'web' &&
-    typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ) {
-    return 'http://localhost:3000';
-  }
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-  if (extra.apiUrl) {
-    return extra.apiUrl;
-  }
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:3000';
-  }
-  return 'http://localhost:3000';
+/**
+ * The production Gangamata Transport API on Render — the one backend the app and the office
+ * console share. Mirrors the default in app.config.ts. Metro only serves the JavaScript bundle
+ * during development; it is never the API, so there is no emulator or LAN fallback.
+ */
+export const PRODUCTION_API_URL = 'https://gtransport-kxbe.onrender.com';
+
+/** EXPO_PUBLIC_API_URL when a build sets one, else the value baked in by app.config.ts, else production. */
+function resolveApiUrl(): string {
+  return process.env.EXPO_PUBLIC_API_URL || extra.apiUrl || PRODUCTION_API_URL;
 }
 
-export const API_URL: string = resolveDefaultApiUrl().replace(/\/+$/, '');
+export const API_URL: string = resolveApiUrl().replace(/\/+$/, '');
 
 export const APP_ENV: AppEnvironment = extra.appEnv ?? 'development';
 

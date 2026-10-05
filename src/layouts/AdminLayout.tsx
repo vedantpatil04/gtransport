@@ -9,8 +9,9 @@ import { DropdownMenu, DropdownMenuCheckItem, DropdownMenuContent, DropdownMenuI
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useAdminNav, useCanOpen } from '@/features/admin/access';
 import { ChangePasswordDialog, ForcedPasswordChange } from '@/features/admin/components/ChangePassword';
-import { useAdminBadges } from '@/features/admin/useAdminBadges';
+import { AttentionProvider, useAdminBadges } from '@/features/admin/useAdminBadges';
 import { GlobalSearch } from '@/features/admin/components/GlobalSearch';
+import { LiveNotificationsPopover } from '@/features/admin/components/LiveNotifications';
 import { NotificationsPopover } from '@/features/admin/components/NotificationsPopover';
 import { CalculatorPanel } from '@/features/calculator/CalculatorPanel';
 import { AdminLogin } from '@/features/admin/pages/AdminLogin';
@@ -85,7 +86,7 @@ export function AdminLayout() {
   // A temporary password must be replaced before anything else; the API enforces the same.
   if (connected && mustChangePassword) return <ForcedPasswordChange />;
 
-  return (
+  const shell = (
     <div className="min-h-dvh bg-background">
       {!connected && (
         <div className="sticky top-0 z-40">
@@ -115,6 +116,9 @@ export function AdminLayout() {
       </Sheet>
     </div>
   );
+
+  // Real mode reads what needs attention once, for the sidebar badges and the header bell alike.
+  return connected ? <AttentionProvider>{shell}</AttentionProvider> : shell;
 }
 
 function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
@@ -399,8 +403,8 @@ function Topbar({ onSearch, onCalc }: { onSearch: () => void; onCalc: () => void
         <Button variant="ghost" size="icon" onClick={onCalc} aria-label={t('admin.top.calculator')} title={t('admin.top.calculator')} data-testid="header-calculator">
           <Calculator />
         </Button>
-        {/* Notifications have no live source yet; real mode shows no sample unread count. */}
-        {!connected && <NotificationsPopover />}
+        {/* Real mode: live counts of what needs attention. Demo: the prototype's sample feed. */}
+        {connected ? <LiveNotificationsPopover /> : <NotificationsPopover />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label={t('admin.top.language')} title={t('admin.top.language')} data-testid="admin-language">

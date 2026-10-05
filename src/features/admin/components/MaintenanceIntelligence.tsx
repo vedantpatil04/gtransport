@@ -74,7 +74,7 @@ export function FleetMaintenancePanel() {
               <p className="text-[11px] text-muted-foreground">{t('admin.maintenance.verifiedServices', { days: data.windowDays })}</p>
             </div>
             <div>
-              <p className="figure text-base font-semibold">{inr(Number(data.verifiedSpend))}</p>
+              <p className="figure text-base font-semibold">{inr(Number(data.verifiedSpend), true)}</p>
               <p className="text-[11px] text-muted-foreground">{t('admin.maintenance.verifiedSpend')}</p>
             </div>
             <div>

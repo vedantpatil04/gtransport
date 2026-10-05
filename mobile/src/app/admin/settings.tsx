@@ -1,5 +1,7 @@
-import OfficeSettings from '../office/settings';
+import { Redirect } from 'expo-router';
+import { officePath } from '../../features/office/modules';
 
-export default function AdminSettingsScreen() {
-  return <OfficeSettings />;
+/** An older address: the office Settings screen lives under /office, with the office tabs around it. */
+export default function AdminSettingsRedirect() {
+  return <Redirect href={officePath('settings')} />;
 }

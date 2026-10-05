@@ -248,11 +248,12 @@ describe('Office Live Fleet', () => {
     );
     await renderFleet();
 
-    expect(screen.getByText('ALL (3)')).toBeTruthy();
-    expect(screen.getByText('ACTIVE (1)')).toBeTruthy();
-    expect(screen.getByText('STALE (1)')).toBeTruthy();
-    expect(screen.getByText('OFFLINE (1)')).toBeTruthy();
-    expect(screen.getByText('ALERTING (1)')).toBeTruthy();
+    // The same words as the office web console's Live Fleet filters.
+    expect(screen.getByText('All (3)')).toBeTruthy();
+    expect(screen.getByText('Reporting (1)')).toBeTruthy();
+    expect(screen.getByText('Falling behind (1)')).toBeTruthy();
+    expect(screen.getByText('Not reporting (1)')).toBeTruthy();
+    expect(screen.getByText('Stopped too long (1)')).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('fleet-filter-stale'));
     expect(screen.queryByTestId('fleet-driver-d1')).toBeNull();
@@ -274,12 +275,12 @@ describe('Office Live Fleet', () => {
 
     expect(screen.getByTestId('fleet-marker-d1').props.accessibilityLabel).toBe('Anil Jadhav, MH-09-XY-4821, Moving');
     expect(screen.getByTestId('fleet-driver-status-d1')).toHaveTextContent(/^Moving · DRV-001 · 52 km\/h$/);
-    expect(screen.getByTestId('fleet-marker-d2').props.accessibilityLabel).toBe('Suresh Patil, KA-25-MN-0917, Alerting');
-    expect(screen.getByTestId('fleet-driver-status-d2')).toHaveTextContent(/^Alerting · DRV-002$/);
+    expect(screen.getByTestId('fleet-marker-d2').props.accessibilityLabel).toBe('Suresh Patil, KA-25-MN-0917, Stopped too long');
+    expect(screen.getByTestId('fleet-driver-status-d2')).toHaveTextContent(/^Stopped too long · DRV-002$/);
 
     await fireEvent.press(screen.getByTestId('maplibre-marker-driver-d2'));
     const detail = await screen.findByTestId('fleet-driver-detail');
-    expect(within(detail).getByText('Alerting')).toBeTruthy();
+    expect(within(detail).getByText('Stopped too long')).toBeTruthy();
   });
 
   it('opens the driver detail from a marker with real name, vehicle, time and coordinates', async () => {
@@ -291,7 +292,8 @@ describe('Office Live Fleet', () => {
     expect(within(detail).getByText('Anil Jadhav')).toBeTruthy();
     expect(within(detail).getByText('MH-09-XY-4821')).toBeTruthy();
     expect(within(detail).getByTestId('fleet-detail-coordinates')).toHaveTextContent('16.69812, 74.24391');
-    expect(within(detail).getByTestId('fleet-detail-last-updated')).toHaveTextContent(/ago$/);
+    // A relative time from the fix itself (captured moments ago in this fixture), in the reader's language.
+    expect(within(detail).getByTestId('fleet-detail-last-updated')).toHaveTextContent(/^(Just now|\d+ (min|hours?|days?) ago)$/);
     expect(within(detail).getByText('52 km/h')).toBeTruthy();
     await waitFor(() => expect(api.driverHistory).toHaveBeenCalledWith('mock-token', 'd1', { limit: 5 }));
   });
@@ -318,7 +320,7 @@ describe('Office Live Fleet', () => {
     await renderFleet();
 
     await fireEvent.press(screen.getByTestId('fleet-driver-d2'));
-    expect(await screen.findByTestId('fleet-detail-alert')).toHaveTextContent(/5h 5m/);
+    expect(await screen.findByTestId('fleet-detail-alert')).toHaveTextContent(/5 h 5 min/);
     await fireEvent.press(screen.getByTestId('fleet-acknowledge'));
 
     expect(api.acknowledgeAlert).toHaveBeenCalledWith('mock-token', 'alert-7', expect.any(String));

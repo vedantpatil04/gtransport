@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Archive, CalendarDays, Droplets, FileSpreadsheet, FileText, Fuel, Gauge, ImageIcon, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { Archive, CalendarDays, Droplets, FileSpreadsheet, FileText, Fuel, Gauge, ImageIcon, MoreHorizontal, Pencil, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Plate } from '@/components/Plate';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { FilterBar, PageHeader, Panel, SearchInput, StatCard, Table, TD, TH, TR 
 import { ErrorState, TableLoading } from '../components/states';
 import { ReceiptViewer } from '../components/ReceiptViewer';
 import { ArchiveDialog } from '../components/ArchiveDialog';
+import { FuelEditDialog } from '../../fuel/FuelEditDialog';
 
 /** Financial years offered in the statement: the current one and the five before it. */
 function financialYearOptions(): { code: string; label: string }[] {
@@ -52,6 +53,7 @@ export function FuelConnected() {
   const [pageIndex, setPageIndex] = useState(0);
   const [receipt, setReceipt] = useState<ApiFuelEntry | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ApiFuelEntry | null>(null);
+  const [editing, setEditing] = useState<ApiFuelEntry | null>(null);
   const [exporting, setExporting] = useState<'pdf' | 'xlsx' | null>(null);
 
   const stationSearch = useDebounced(station);
@@ -310,7 +312,7 @@ export function FuelConnected() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-sm">
             <span className="text-muted-foreground">{t('admin.common.records', { count: totals.entries })}</span>
             <span className="figure font-semibold" data-testid="fuel-totals">
-              {inr(Number(totals.amount))} · {t('units.litresShort', { value: num(Number(totals.litres), 1) })}
+              {inr(Number(totals.amount), true)} · {t('units.litresShort', { value: num(Number(totals.litres), 1) })}
               {totals.averageRate ? ` · ₹${totals.averageRate}/L` : ''}
             </span>
           </div>
@@ -350,7 +352,7 @@ export function FuelConnected() {
                     </TD>
                     <TD className="figure text-right">{num(Number(entry.litres), 2)}</TD>
                     <TD className="figure text-right text-muted-foreground">{entry.ratePerLitre ? `₹${entry.ratePerLitre}` : '—'}</TD>
-                    <TD className="figure text-right font-semibold">{inr(Number(entry.amount))}</TD>
+                    <TD className="figure text-right font-semibold">{inr(Number(entry.amount), true)}</TD>
                     <TD className="max-w-[220px] truncate text-muted-foreground">{entry.fuelStation}</TD>
                     <TD className="text-center">
                       {entry.receiptFileId ? (
@@ -371,10 +373,16 @@ export function FuelConnected() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
                             {entry.status === 'ACTIVE' ? (
-                              <DropdownMenuItem destructive onSelect={() => setArchiveTarget(entry)}>
-                                <Archive />
-                                {t('admin.fuelApi.archive')}
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onSelect={() => setEditing(entry)} data-testid="fuel-edit">
+                                  <Pencil />
+                                  {t('common.edit')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem destructive onSelect={() => setArchiveTarget(entry)}>
+                                  <Archive />
+                                  {t('admin.fuelApi.archive')}
+                                </DropdownMenuItem>
+                              </>
                             ) : (
                               <DropdownMenuItem onSelect={() => void restore(entry)}>
                                 <RotateCcw />
@@ -429,6 +437,15 @@ export function FuelConnected() {
         title={t('admin.fuelApi.confirmArchive')}
         onOpenChange={(open) => !open && setArchiveTarget(null)}
         onConfirm={confirmArchive}
+      />
+
+      <FuelEditDialog
+        entry={editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+        onSaved={() => {
+          statement.reload();
+          summary.reload();
+        }}
       />
     </div>
   );

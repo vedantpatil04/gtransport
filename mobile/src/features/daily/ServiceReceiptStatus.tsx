@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppText, Card, Loading } from '../../components/ui';
 import { useSession } from '../../lib/auth/session-store';
 import { displayDate } from '../../lib/dates';
+import { rupees } from '../../lib/format';
 import { serviceReceiptsApi, type DriverReceiptState, type DriverServiceReceipt } from '../../lib/api/receipts';
 import { colors, radius, spacing } from '../../theme/tokens';
 
@@ -62,7 +63,7 @@ export function ServiceReceiptStatus() {
         return (
           <Card key={receipt.id} style={[styles.card, { borderLeftColor: tone.dot }]} testID={`service-receipt-${receipt.id}`}>
             <View style={styles.flex}>
-              <AppText variant="h2">₹{Number(receipt.amount).toLocaleString('en-IN')}</AppText>
+              <AppText variant="h2">{rupees(receipt.amount)}</AppText>
               <AppText tone="muted" numberOfLines={1}>
                 {receipt.vendorName ?? receipt.vehicleRegistration}
                 {receipt.serviceDate ? ` · ${displayDate(receipt.serviceDate, i18n.language)}` : ''}

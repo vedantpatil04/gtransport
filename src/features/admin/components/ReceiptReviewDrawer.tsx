@@ -269,7 +269,7 @@ export function ReceiptReviewDrawer({
       {input}
     </Field>
   );
-  const money = (value: string | number) => inr(Number(value));
+  const money = (value: string | number) => inr(Number(value), true);
   const plain = (value: string | number) => String(value);
   const km = (value: string | number) => `${Number(value).toLocaleString('en-IN')} km`;
   const date = (value: string | number) => fmtDate(String(value), i18n.language);

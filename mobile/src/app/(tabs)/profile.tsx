@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChangePasswordCard } from '../../components/ChangePasswordCard';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { AppText, Card, Loading, Plate, Row } from '../../components/ui';
 import { LocationStatusCard } from '../../features/location/LocationStatusCard';
@@ -10,7 +11,7 @@ import { useSession } from '../../lib/auth/session-store';
 import { isEnabled as notificationsEnabled, setEnabled as setNotificationsEnabled } from '../../lib/notifications/notifications';
 import { colors, radius, spacing, TOUCH_TARGET } from '../../theme/tokens';
 
-/** Driver profile: real account data, language, notifications, location, help and logout. */
+/** Driver profile: real account data, language, notifications, location, password, help and log out. */
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -103,6 +104,8 @@ export default function ProfileScreen() {
           <Card>
             <LocationStatusCard />
           </Card>
+
+          <ChangePasswordCard />
 
           <Card>
             <AppText variant="h2">{t('profile.help')}</AppText>

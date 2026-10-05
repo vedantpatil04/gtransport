@@ -68,14 +68,14 @@ export function searchAll(query: string, s: Pick<AppState, 'drivers' | 'vehicles
     {
       key: 'expenses',
       total: expenses.length,
-      items: expenses.slice(0, LIMIT).map((e) => ({ id: e.id, title: `${inr(e.amount)} · ${t(`enum.category.${e.category}`)}`, sub: `${dName(e.driverId)} · ${e.note} · ${fmtDayMonth(e.date, lang)}`, plate: reg(e.vehicleId), to: `/admin/expenses?expense=${e.id}` })),
-      viewAll: `/admin/expenses?${scope}`,
+      items: expenses.slice(0, LIMIT).map((e) => ({ id: e.id, title: `${inr(e.amount)} · ${t(`enum.category.${e.category}`)}`, sub: `${dName(e.driverId)} · ${e.note} · ${fmtDayMonth(e.date, lang)}`, plate: reg(e.vehicleId), to: `/admin/finance/expenses?expense=${e.id}` })),
+      viewAll: `/admin/finance/expenses?${scope}`,
     },
     {
       key: 'payments',
       total: payments.length,
-      items: payments.slice(0, LIMIT).map((p) => ({ id: p.id, title: `${inr(p.amount)} · ${t(`enum.paymentType.${p.type}`)}`, sub: `${dName(p.driverId)} · ${t(`enum.paymentStatus.${p.status}`)}${p.reference ? ` · ${p.reference}` : ''}`, to: `/admin/payments?payment=${p.id}` })),
-      viewAll: `/admin/payments?${scope}`,
+      items: payments.slice(0, LIMIT).map((p) => ({ id: p.id, title: `${inr(p.amount)} · ${t(`enum.paymentType.${p.type}`)}`, sub: `${dName(p.driverId)} · ${t(`enum.paymentStatus.${p.status}`)}${p.reference ? ` · ${p.reference}` : ''}`, to: `/admin/finance/payments?payment=${p.id}` })),
+      viewAll: `/admin/finance/payments?${scope}`,
     },
     {
       key: 'documents',

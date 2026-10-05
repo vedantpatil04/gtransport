@@ -346,8 +346,8 @@ export function createSeed(now = new Date()): DemoData {
   });
   const pendingDoc = documents.find((d) => d.verification === 'pending')!;
   note('admin', 'doc_uploaded', { doc: pendingDoc.type, owner: vehicles.find((v) => v.id === pendingDoc.ownerId)!.reg, driver: drivers[3].name, docId: pendingDoc.id }, pendingDoc.uploadedAt, false, `/admin/documents?doc=${pendingDoc.id}`);
-  payments.filter((p) => p.status === 'failed').forEach((p) => note('admin', 'payment_failed', { driver: drivers.find((d) => d.id === p.driverId)!.name, amount: p.amount, type: p.type }, p.updatedAt, true, `/admin/payments?payment=${p.id}`));
-  payments.filter((p) => p.status === 'pending').forEach((p) => note('admin', 'payment_pending', { driver: drivers.find((d) => d.id === p.driverId)!.name, amount: p.amount, type: p.type }, p.createdAt, false, `/admin/payments?payment=${p.id}`));
+  payments.filter((p) => p.status === 'failed').forEach((p) => note('admin', 'payment_failed', { driver: drivers.find((d) => d.id === p.driverId)!.name, amount: p.amount, type: p.type }, p.updatedAt, true, `/admin/finance/payments?payment=${p.id}`));
+  payments.filter((p) => p.status === 'pending').forEach((p) => note('admin', 'payment_pending', { driver: drivers.find((d) => d.id === p.driverId)!.name, amount: p.amount, type: p.type }, p.createdAt, false, `/admin/finance/payments?payment=${p.id}`));
   note('admin', 'driver_offline', { driver: drivers[2].name, vehicle: vehicles[2].reg }, drivers[2].sim.lastSeen!, false, `/admin/fleet?driver=${drivers[2].id}`);
   note('admin', 'driver_offline', { driver: drivers[18].name, vehicle: vehicles[18].reg }, drivers[18].sim.lastSeen!, true, `/admin/fleet?driver=${drivers[18].id}`);
 
