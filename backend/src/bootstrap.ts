@@ -28,7 +28,21 @@ export function configureApp(app: INestApplication, config: AppConfigService): v
         return callback(null, true);
       }
       const normalisedOrigin = requestOrigin.replace(/\/+$/, '');
-      if (config.http.corsOrigins.includes(normalisedOrigin)) {
+      const hostOnly = normalisedOrigin.replace(/^https?:\/\//, '');
+      const isAllowed = config.http.corsOrigins.some((allowed) => {
+        if (allowed === '*' || allowed === normalisedOrigin) return true;
+        if (allowed === hostOnly || `https://${allowed}` === normalisedOrigin || `http://${allowed}` === normalisedOrigin) {
+          return true;
+        }
+        if (allowed.startsWith('*.')) {
+          const domain = allowed.slice(2);
+          if (hostOnly === domain || hostOnly.endsWith(`.${domain}`)) {
+            return true;
+          }
+        }
+        return false;
+      });
+      if (isAllowed) {
         return callback(null, true);
       }
       // Origin not permitted

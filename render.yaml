@@ -15,7 +15,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: 22
+        value: "22"
       - key: HOST
         value: 0.0.0.0
       - key: TRUST_PROXY
@@ -32,12 +32,21 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 12h
-      # Set your production Vercel frontend URL in the Render Dashboard (e.g. https://gangamata-admin.vercel.app)
+      # Set your production Vercel frontend URL in the Render Dashboard (e.g. https://gangamata.vercel.app,https://gangamata-admin.vercel.app)
       - key: CORS_ORIGINS
         sync: false
       - key: AI_PROVIDER
         value: ollama
+      # File storage: set to 'cloudinary' in Render Dashboard for persistent storage across deploys
       - key: FILE_STORAGE_PROVIDER
         value: local
       - key: FILE_STORAGE_LOCAL_ROOT
         value: /tmp/storage
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: gangamata
