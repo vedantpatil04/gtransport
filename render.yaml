@@ -32,16 +32,15 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 12h
-      # Set your production Vercel frontend URL in the Render Dashboard (e.g. https://gtransportt.vercel.app)
+      # Production Vercel frontend URL
       - key: CORS_ORIGINS
-        sync: false
+        value: https://gtransportt.vercel.app
+      # AI Provider: 'dify' (cloud) or 'ollama' (external host). Note: 127.0.0.1 is not reachable on Render.
       - key: AI_PROVIDER
-        value: ollama
-      # File storage: set to 'cloudinary' in Render Dashboard for persistent storage across deploys
+        sync: false
+      # File storage: Cloudinary for durable persistent storage across restarts and deploys
       - key: FILE_STORAGE_PROVIDER
-        value: local
-      - key: FILE_STORAGE_LOCAL_ROOT
-        value: /tmp/storage
+        value: cloudinary
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
