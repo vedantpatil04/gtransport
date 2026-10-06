@@ -5,7 +5,16 @@
  * stays in demo mode and never calls any of this. See src/features/api/mode.ts.
  */
 
-export const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
+const resolveApiBaseUrl = (): string => {
+  const envMap = import.meta.env as Record<string, string | undefined>;
+  const raw: string = (envMap.VITE_API_URL || envMap.EXPO_PUBLIC_API_URL || '').trim();
+  if (!raw) return '';
+  const parts: string[] = raw.split(',').map((p: string): string => p.trim()).filter(Boolean);
+  const chosen: string = parts.find((p: string): boolean => p.startsWith('https://')) ?? parts[parts.length - 1] ?? '';
+  return chosen.replace(/\/+$/, '');
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 /** Shape of the API's error envelope. */
 interface ApiErrorBody {

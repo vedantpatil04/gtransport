@@ -12,6 +12,7 @@ const VENDOR_CHUNKS: Record<string, RegExp> = {
 };
 
 export default defineConfig({
+  envPrefix: ['VITE_', 'EXPO_PUBLIC_'],
   plugins: [react()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   // MapLibre's web worker is imported as a URL (features/map/MapLibreMap.tsx) and loaded as an ES module.

@@ -54,7 +54,7 @@ export function configureApp(app: INestApplication, config: AppConfigService): v
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'Accept', 'Accept-Language', 'Origin', 'X-Requested-With'],
     // Downloads (report exports, attachments) name their file in Content-Disposition; a browser
     // only lets the page read it when it is exposed.
     exposedHeaders: ['Content-Disposition', 'X-Request-Id', 'X-Report-Rows'],
