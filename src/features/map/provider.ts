@@ -78,7 +78,10 @@ export type MapStyleConfig =
  * needs a key, it must be that provider's browser-safe, domain-restricted kind, and a private
  * server key never belongs here.
  */
-export function resolveMapStyle(raw: string | undefined = import.meta.env.VITE_MAP_STYLE_URL as string | undefined): MapStyleConfig {
+export function resolveMapStyle(
+  raw: string | undefined = (import.meta.env.VITE_MAP_STYLE_URL ||
+    (import.meta.env as Record<string, string | undefined>).EXPO_PUBLIC_MAP_STYLE_URL) as string | undefined,
+): MapStyleConfig {
   const value = raw?.trim();
   if (!value) return { status: 'unavailable', reason: 'missing' };
 
