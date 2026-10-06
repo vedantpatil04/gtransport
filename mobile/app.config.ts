@@ -10,7 +10,7 @@ import { withProjectBuildGradle, type ConfigPlugin } from '@expo/config-plugins'
  * Metro only serves the JavaScript bundle; it is never the backend, so there is no emulator or
  * LAN default. Keep in step with PRODUCTION_API_URL in src/lib/config.ts.
  */
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://gtransport-kxbe.onrender.com';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://gtransport-7vgf.onrender.com';
 
 /**
  * The MapLibre style the office Fleet map draws (tile source, fonts, look). Configuration, not

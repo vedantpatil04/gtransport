@@ -29,7 +29,11 @@ export function configureApp(app: INestApplication, config: AppConfigService): v
       }
       const normalisedOrigin = requestOrigin.replace(/\/+$/, '');
       const hostOnly = normalisedOrigin.replace(/^https?:\/\//, '');
-      const isAllowed = config.http.corsOrigins.some((allowed) => {
+      const allowedOrigins = [
+        ...config.http.corsOrigins,
+        'https://gtransportt.vercel.app',
+      ];
+      const isAllowed = allowedOrigins.some((allowed) => {
         if (allowed === '*' || allowed === normalisedOrigin) return true;
         if (allowed === hostOnly || `https://${allowed}` === normalisedOrigin || `http://${allowed}` === normalisedOrigin) {
           return true;

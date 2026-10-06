@@ -10,11 +10,11 @@ code, no migration and no dependency.
 Nothing to install or migrate. Two configuration points to check once:
 
 - **Office console (Vercel).** Production builds now take the API from the committed
-  [`.env.production`](.env.production): `https://gtransport-kxbe.onrender.com`. A `VITE_API_URL`
+  [`.env.production`](.env.production): `https://gtransport-7vgf.onrender.com`. A `VITE_API_URL`
   set in the Vercel project overrides it — make sure it is that URL, or remove it. The console no
   longer falls back to the prototype's sample data in a production build; only
   `npm run build:demo` builds the sample-data demo. The Render service's `CORS_ORIGINS` must list
-  the console's origin (`https://gangamata.vercel.app` today, the official domain later).
+  the console's origin (`https://gtransportt.vercel.app` today, the official domain later).
 - **Driver app.** Every build — including a development build served by Metro — now defaults to
   the same production API; `EXPO_PUBLIC_API_URL` can still override it. There is no `localhost`,
   `10.0.2.2` or LAN fallback any more. If your local `mobile/.env` or `mobile/.env.local` sets

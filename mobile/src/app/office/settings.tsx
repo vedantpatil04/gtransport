@@ -8,7 +8,7 @@ import { useSession } from '../../lib/auth/session-store';
 import { API_URL, APP_ENV } from '../../lib/config';
 import { colors, radius, spacing, TOUCH_TARGET } from '../../theme/tokens';
 
-/** The API's host name, e.g. "gtransport-kxbe.onrender.com" — enough to tell which server this is. */
+/** The API's host name, e.g. "gtransport-7vgf.onrender.com" — enough to tell which server this is. */
 function serverHost(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
 }

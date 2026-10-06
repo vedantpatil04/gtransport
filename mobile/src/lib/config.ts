@@ -15,7 +15,7 @@ const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
  * console share. Mirrors the default in app.config.ts. Metro only serves the JavaScript bundle
  * during development; it is never the API, so there is no emulator or LAN fallback.
  */
-export const PRODUCTION_API_URL = 'https://gtransport-kxbe.onrender.com';
+export const PRODUCTION_API_URL = 'https://gtransport-7vgf.onrender.com';
 
 /** EXPO_PUBLIC_API_URL when a build sets one, else the value baked in by app.config.ts, else production. */
 function resolveApiUrl(): string {

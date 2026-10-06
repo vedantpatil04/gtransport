@@ -62,8 +62,8 @@ describe('production API configuration', () => {
   const read = (file: string) => readFileSync(join(__dirname, file), 'utf8');
 
   it('defaults every build — Metro development builds included — to the production API on Render', () => {
-    expect(read('../config.ts')).toContain("PRODUCTION_API_URL = 'https://gtransport-kxbe.onrender.com'");
-    expect(read('../../../app.config.ts')).toContain("process.env.EXPO_PUBLIC_API_URL || 'https://gtransport-kxbe.onrender.com'");
+    expect(read('../config.ts')).toContain("PRODUCTION_API_URL = 'https://gtransport-7vgf.onrender.com'");
+    expect(read('../../../app.config.ts')).toContain("process.env.EXPO_PUBLIC_API_URL || 'https://gtransport-7vgf.onrender.com'");
   });
 
   it('has no localhost, emulator or LAN backend fallback', () => {
@@ -81,7 +81,7 @@ describe('production API configuration', () => {
       delete process.env.EXPO_PUBLIC_API_URL;
       try {
         const config = require('../config') as typeof import('../config');
-        expect(config.API_URL).toBe('https://gtransport-kxbe.onrender.com');
+        expect(config.API_URL).toBe('https://gtransport-7vgf.onrender.com');
       } finally {
         if (saved !== undefined) process.env.EXPO_PUBLIC_API_URL = saved;
       }

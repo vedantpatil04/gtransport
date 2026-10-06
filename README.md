@@ -4,9 +4,9 @@ One product with two clients on one backend:
 
 | Client | Who | Where |
 |---|---|---|
-| **Office console** (this folder, React + Vite) | Super admin, admin, manager, accounting | Vercel — https://gangamata.vercel.app (official domain later) |
+| **Office console** (this folder, React + Vite) | Super admin, admin, manager, accounting | Vercel — https://gtransportt.vercel.app (official domain later) |
 | **Driver app** ([`mobile/`](mobile), Expo / React Native) | Drivers (Android APK); office roles get a phone-sized office view | Android |
-| **API** ([`backend/`](backend), NestJS) | Both clients — one auth/RBAC system | Render — https://gtransport-kxbe.onrender.com, data in Supabase PostgreSQL, files in Cloudinary |
+| **API** ([`backend/`](backend), NestJS) | Both clients — one auth/RBAC system | Render — https://gtransport-7vgf.onrender.com, data in Supabase PostgreSQL, files in Cloudinary |
 
 Production builds of both clients talk to the Render API: the console through the committed
 [`.env.production`](.env.production), the driver app through its default in
