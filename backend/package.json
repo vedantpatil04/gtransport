@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "start": "node dist/main",
+    "start:prod": "node dist/main.js",
     "build": "nest build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\"",
