@@ -6,7 +6,7 @@ services:
     name: gangamata-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm ci && npm run db:generate && npm run build
+    buildCommand: npm ci --include=dev && npm run db:generate && npm run build
     preDeployCommand: npm run db:deploy
     startCommand: npm run start
     healthCheckPath: /health
