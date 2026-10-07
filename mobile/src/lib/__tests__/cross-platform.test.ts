@@ -69,7 +69,7 @@ describe('production API configuration', () => {
   it('has no localhost, emulator or LAN backend fallback', () => {
     // Any URL pointing at a developer's machine, an emulator alias or a private LAN address.
     const localUrl = /\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)/;
-    for (const file of ['../config.ts', '../../../app.config.ts', '../../../.env.example']) {
+    for (const file of ['../config.ts', '../../../app.config.ts', '../../../.env.example', '../../../../.env.example']) {
       expect(read(file)).not.toMatch(localUrl);
     }
   });
