@@ -15,4 +15,10 @@ export const accountApi = {
   /** Returns a fresh session: the change ends every other one. */
   changePassword: (token: string, currentPassword: string, newPassword: string) =>
     apiRequest<LoginResponse>('/auth/change-password', { method: 'POST', token, body: { currentPassword, newPassword } }),
+
+  /**
+   * A one-time, minute-long code that opens the office console already signed in (office roles
+   * only). Never retried: each call replaces the account's previous code.
+   */
+  webHandoff: (token: string) => apiRequest<{ code: string; expiresAt: string }>('/auth/web-handoff', { method: 'POST', token }),
 };

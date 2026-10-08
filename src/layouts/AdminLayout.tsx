@@ -28,6 +28,7 @@ export function AdminLayout() {
   const connected = isApiConfigured();
   const token = useSession((s) => s.token);
   const mustChangePassword = useSession((s) => Boolean(s.user?.mustChangePassword));
+  const handoffPending = useSession((s) => s.handoffPending);
   const demoSignedIn = useApp((s) => s.session.admin);
   const signedIn = connected ? Boolean(token) : demoSignedIn;
 
@@ -74,6 +75,15 @@ export function AdminLayout() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // Opened from the phone app: neither the sign-in form nor a previous session flashes up while
+  // the app's one-time code is exchanged.
+  if (connected && handoffPending)
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background" role="status" aria-label={t('common.loading')} data-testid="handoff-pending">
+        <LogoMark className="h-12 animate-pulse" />
+      </div>
+    );
 
   if (!signedIn)
     return (

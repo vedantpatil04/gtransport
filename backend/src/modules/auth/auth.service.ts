@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserStatus } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 import { AppConfigService } from '../../config/app-config.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { ApiErrorCode } from '../../common/http/api-error';
@@ -8,6 +8,10 @@ import { passwordProblem } from '../users/credentials';
 import { UsersService, type AccountProfile, type UserWithProfile } from '../users/users.service';
 import type { AuthenticatedUser, JwtPayload } from './authenticated-user';
 import { PasswordHasher } from './password-hasher';
+import { WebHandoffStore } from './web-handoff.store';
+
+/** Roles that use the office console (and so may be handed into it from the phone app). */
+const CONSOLE_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTING];
 
 /** A real hash to compare against when no user matches, so failures take similar time. */
 const DUMMY_HASH = 'scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
@@ -36,6 +40,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
     private readonly config: AppConfigService,
+    private readonly handoffs: WebHandoffStore,
   ) {}
 
   async login(identifier: string, password: string, context: RequestContext): Promise<LoginResult> {
@@ -129,6 +134,58 @@ export class AuthService {
       ...context,
     });
     return this.issue(updated);
+  }
+
+  /**
+   * A one-time code with which the phone app opens the office console already signed in. Office
+   * roles only: drivers have no console. The caller's token is already verified by the guard.
+   */
+  async createWebHandoff(actor: AuthenticatedUser, context: RequestContext): Promise<{ code: string; expiresAt: string }> {
+    if (!CONSOLE_ROLES.includes(actor.role)) throw new ForbiddenException('Your role does not permit this action.');
+    const session = await this.users.findSessionUser(actor.id);
+    if (!session) throw new UnauthorizedException('The account is no longer active.');
+    const { code, expiresAt } = this.handoffs.issue({ id: actor.id, companyId: actor.companyId, sessionVersion: session.sessionVersion });
+    await this.audit.record({
+      action: 'auth.web_handoff_issued',
+      entityType: 'User',
+      entityId: actor.id,
+      companyId: actor.companyId,
+      actorUserId: actor.id,
+      actorRole: actor.role,
+      ...context,
+    });
+    return { code, expiresAt: expiresAt.toISOString() };
+  }
+
+  /**
+   * Trades a handoff code for an ordinary console session — the same response as sign-in, so the
+   * console stores it exactly as it stores a login. The code is spent on first use, and refused
+   * if the account changed (role, status, password) since it was issued.
+   */
+  async exchangeWebHandoff(code: string, context: RequestContext): Promise<LoginResult> {
+    const pending = this.handoffs.consume(code);
+    const session = pending ? await this.users.findSessionUser(pending.userId) : null;
+    const valid =
+      pending &&
+      session &&
+      session.user.companyId === pending.companyId &&
+      session.sessionVersion === pending.sessionVersion &&
+      !session.mustChangePassword &&
+      CONSOLE_ROLES.includes(session.user.role);
+    const user = valid ? await this.users.findWithProfile(pending.userId) : null;
+    if (!user) throw new UnauthorizedException('This sign-in link has expired. Please sign in again.');
+
+    const result = await this.issue(user);
+    await this.audit.record({
+      action: 'auth.web_handoff',
+      entityType: 'User',
+      entityId: user.id,
+      companyId: user.companyId,
+      actorUserId: user.id,
+      actorRole: user.role,
+      ...context,
+    });
+    return result;
   }
 
   private async issue(user: UserWithProfile): Promise<LoginResult> {

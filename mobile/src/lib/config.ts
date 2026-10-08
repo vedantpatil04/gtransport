@@ -4,6 +4,7 @@ export type AppEnvironment = 'development' | 'staging' | 'production';
 
 interface Extra {
   apiUrl?: string;
+  adminWebUrl?: string;
   appEnv?: AppEnvironment;
   mapStyleUrl?: string;
 }
@@ -23,6 +24,20 @@ function resolveApiUrl(): string {
 }
 
 export const API_URL: string = resolveApiUrl().replace(/\/+$/, '');
+
+/**
+ * The production office console on Vercel. Office roles see exactly this site inside the app (see
+ * features/console): the same console, sign-in and reports as in Chrome — never a second copy.
+ */
+export const PRODUCTION_ADMIN_WEB_URL = 'https://gtransportt.vercel.app';
+
+/** An override is honoured only over HTTPS; anything else falls back to production. */
+function resolveAdminWebUrl(): string {
+  const configured = (process.env.EXPO_PUBLIC_ADMIN_WEB_URL || extra.adminWebUrl || '').trim();
+  return (configured.startsWith('https://') ? configured : PRODUCTION_ADMIN_WEB_URL).replace(/\/+$/, '');
+}
+
+export const ADMIN_WEB_URL: string = resolveAdminWebUrl();
 
 export const APP_ENV: AppEnvironment = extra.appEnv ?? 'development';
 

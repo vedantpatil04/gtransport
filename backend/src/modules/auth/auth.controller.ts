@@ -7,6 +7,7 @@ import type { AuthenticatedUser } from './authenticated-user';
 import { AllowPendingPasswordChange, CurrentUser, Public } from './decorators';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { WebHandoffExchangeDto } from './dto/web-handoff.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -31,6 +32,21 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   changePassword(@CurrentUser() user: AuthenticatedUser, @Body() body: ChangePasswordDto, @Req() request: Request): Promise<LoginResult> {
     return this.auth.changePassword(user, body.currentPassword, body.newPassword, context(request));
+  }
+
+  /** A one-time, minute-long code the phone app uses to open the office console signed in. */
+  @Post('web-handoff')
+  @HttpCode(HttpStatus.OK)
+  createWebHandoff(@CurrentUser() user: AuthenticatedUser, @Req() request: Request): Promise<{ code: string; expiresAt: string }> {
+    return this.auth.createWebHandoff(user, context(request));
+  }
+
+  /** Spends a handoff code for an ordinary console session (the same response as sign-in). */
+  @Public()
+  @Post('web-handoff/exchange')
+  @HttpCode(HttpStatus.OK)
+  exchangeWebHandoff(@Body() body: WebHandoffExchangeDto, @Req() request: Request): Promise<LoginResult> {
+    return this.auth.exchangeWebHandoff(body.code, context(request));
   }
 }
 

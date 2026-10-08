@@ -34,7 +34,14 @@ interface SessionState {
   expiresAt: string | null;
   /** Set when a session ends on its own (expired, revoked), so sign-in can say why. */
   endedMessage: boolean;
+  /** A handoff from the phone app is being exchanged; nothing is shown until it settles. */
+  handoffPending: boolean;
   signIn: (identifier: string, password: string) => Promise<ApiSessionUser>;
+  /**
+   * Signs in with a one-time code from the phone app (see features/api/handoff.ts). Whatever
+   * session this browser held before is dropped first: the phone's account is the one wanted.
+   */
+  signInWithHandoff: (code: string) => Promise<ApiSessionUser>;
   signOut: () => void;
   /** Called when a request comes back 401: the stored token is no longer usable. */
   expire: () => void;
@@ -68,6 +75,7 @@ export const useSession = create<SessionState>()(
     (set, get) => ({
       ...EMPTY,
       endedMessage: false,
+      handoffPending: false,
       signIn: async (identifier, password) => {
         const result = await apiRequest<LoginResponse>('/auth/login', {
           method: 'POST',
@@ -77,6 +85,18 @@ export const useSession = create<SessionState>()(
         if (!isOfficeRole(result.user.role)) throw new NotOfficeAccountError();
         set({ token: result.accessToken, user: result.user, expiresAt: result.expiresAt, endedMessage: false });
         return result.user;
+      },
+      signInWithHandoff: async (code) => {
+        set({ ...EMPTY, endedMessage: false, handoffPending: true });
+        try {
+          const result = await apiRequest<LoginResponse>('/auth/web-handoff/exchange', { method: 'POST', body: { code } });
+          if (!isOfficeRole(result.user.role)) throw new NotOfficeAccountError();
+          set({ token: result.accessToken, user: result.user, expiresAt: result.expiresAt, handoffPending: false });
+          return result.user;
+        } catch (error) {
+          set({ ...EMPTY, endedMessage: true, handoffPending: false });
+          throw error;
+        }
       },
       signOut: () => set({ ...EMPTY, endedMessage: false }),
       expire: () => {

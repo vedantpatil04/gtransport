@@ -167,3 +167,16 @@ jest.mock('@maplibre/maplibre-react-native', () => {
     React.createElement(Pressable, { testID: `maplibre-marker-${id}`, ...props }, children);
   return { __esModule: true, Map, Camera, Marker, __camera: mockCamera };
 });
+
+// The office console WebView. A host view stands in for it, carrying the props the screen passed
+// (address, navigation policy, message handler) so tests can drive them; reload/goBack are recorded.
+jest.mock('react-native-webview', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const mockWebView = { reload: jest.fn(), goBack: jest.fn() };
+  const WebView = ({ ref, ...props }) => {
+    React.useImperativeHandle(ref, () => mockWebView, []);
+    return React.createElement(View, props);
+  };
+  return { __esModule: true, WebView, default: WebView, __webView: mockWebView };
+});

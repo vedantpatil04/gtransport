@@ -87,6 +87,48 @@ describe('accounts & RBAC (e2e)', () => {
     });
   });
 
+  describe('web console handoff (phone app → office console)', () => {
+    const exchange = (code: string) => api().post(`${V}/auth/web-handoff/exchange`).send({ code });
+
+    it('hands every office role into the console with an ordinary, one-time session', async () => {
+      for (const role of ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'ACCOUNTING'] as const) {
+        const issued = await as(tokens[role]).post('/auth/web-handoff').expect(200);
+        expect(issued.body.code).toMatch(/^[A-Za-z0-9_-]{43}$/);
+        expect(Date.parse(issued.body.expiresAt) - Date.now()).toBeLessThanOrEqual(60_000);
+
+        const session = await exchange(issued.body.code).expect(200);
+        expect(session.body.user).toMatchObject({ role, mustChangePassword: false });
+        expect(session.body.accessToken).not.toBe(tokens[role]);
+        await as(session.body.accessToken).get('/auth/me').expect(200);
+        // Spent on first use.
+        await exchange(issued.body.code).expect(401);
+      }
+    });
+
+    it('refuses drivers, anonymous callers and unknown codes', async () => {
+      await as(tokens.DRIVER).post('/auth/web-handoff').expect(403);
+      await api().post(`${V}/auth/web-handoff`).expect(401);
+      await exchange('A'.repeat(43)).expect(401);
+      await exchange('short').expect(400);
+    });
+
+    it('voids a pending code when the account changes before it is used', async () => {
+      const p = await person('MANAGER');
+      const token = await tokenFor(p.email);
+      const issued = await as(token).post('/auth/web-handoff').expect(200);
+      await prisma.user.update({ where: { id: p.user.id }, data: { sessionVersion: { increment: 1 } } });
+      await exchange(issued.body.code).expect(401);
+    });
+
+    it('records the handoff in the audit log', async () => {
+      const p = await person('ACCOUNTING');
+      const issued = await as(await tokenFor(p.email)).post('/auth/web-handoff').expect(200);
+      await exchange(issued.body.code).expect(200);
+      const actions = (await prisma.auditLog.findMany({ where: { entityId: p.user.id } })).map((a) => a.action);
+      expect(actions).toEqual(expect.arrayContaining(['auth.web_handoff_issued', 'auth.web_handoff']));
+    });
+  });
+
   describe('account lifecycle', () => {
     let employeeId: string;
     let email: string;

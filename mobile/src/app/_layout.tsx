@@ -58,6 +58,8 @@ export default function RootLayout() {
           <AuthGate>
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="console" />
+              <Stack.Screen name="unsupported-role" />
               <Stack.Screen name="office" />
               <Stack.Screen name="admin" />
               <Stack.Screen name="(auth)/login" />

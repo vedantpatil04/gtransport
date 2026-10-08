@@ -567,22 +567,43 @@
       "exportNote": "PDF, Excel and CSV reports are prepared on the server from Reports in the office web console."
     }
   },
-    "receipts": {
-      "title": "Service bills you sent",
-      "loading": "Checking your bills…",
-      "state": {
-        "uploaded": "Sent",
-        "processing": "Being read",
-        "needsReview": "With the office",
-        "verified": "Checked",
-        "failed": "Not read"
-      },
-      "hint": {
-        "uploaded": "The office has your bill.",
-        "processing": "The bill is being read. Nothing needed from you.",
-        "needsReview": "The office is checking it. Nothing needed from you.",
-        "verified": "The office has checked and confirmed this.",
-        "failed": "The photo could not be read, so the office will enter it by hand. Your expense is recorded."
-      }
+  "receipts": {
+    "title": "Service bills you sent",
+    "loading": "Checking your bills…",
+    "state": {
+      "uploaded": "Sent",
+      "processing": "Being read",
+      "needsReview": "With the office",
+      "verified": "Checked",
+      "failed": "Not read"
+    },
+    "hint": {
+      "uploaded": "The office has your bill.",
+      "processing": "The bill is being read. Nothing needed from you.",
+      "needsReview": "The office is checking it. Nothing needed from you.",
+      "verified": "The office has checked and confirmed this.",
+      "failed": "The photo could not be read, so the office will enter it by hand. Your expense is recorded."
     }
+  },
+  "console": {
+    "connecting": "Opening the office console…",
+    "offlineTitle": "No internet connection",
+    "offlineBody": "The office console needs the internet. Connect and try again.",
+    "failedTitle": "The office console could not be opened",
+    "failedBody": "Please try again in a moment.",
+    "forbiddenTitle": "This account cannot open the office console",
+    "forbiddenBody": "Sign out, then sign in with an office account.",
+    "offlineBanner": "You are offline. Nothing here can load or save until you reconnect.",
+    "backOnline": "Back online.",
+    "reload": "Reload",
+    "signOut": "Sign out",
+    "chooseFolderTitle": "Choose where to save files",
+    "chooseFolderBody": "Pick a folder for reports and attachments — for example, create a \"Gangamata\" folder inside Downloads. You will only be asked once.",
+    "saved": "Saved {{name}}",
+    "saveFailed": "The file could not be saved. Please try again.",
+    "downloading": "Downloading…",
+    "noDownloadPermission": "Allow storage access to download this file.",
+    "unsupportedTitle": "This account type is not supported in the app",
+    "unsupportedBody": "You are signed in, but the app does not know what to show for this account. Please contact your office."
+  }
 }

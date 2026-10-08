@@ -13,6 +13,12 @@ import { withProjectBuildGradle, type ConfigPlugin } from '@expo/config-plugins'
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://gtransport-7vgf.onrender.com';
 
 /**
+ * The office console that office roles see inside the app — the production Vercel site, the same
+ * one opened in Chrome. Keep in step with PRODUCTION_ADMIN_WEB_URL in src/lib/config.ts.
+ */
+const ADMIN_WEB_URL = process.env.EXPO_PUBLIC_ADMIN_WEB_URL || 'https://gtransportt.vercel.app';
+
+/**
  * The MapLibre style the office Fleet map draws (tile source, fonts, look). Configuration, not
  * code: pointing a build at a self-hosted or contracted tile server is an environment change.
  * Deliberately no default — without it the Fleet screen says the map is not configured.
@@ -129,6 +135,7 @@ const config: ExpoConfig = {
 
   extra: {
     apiUrl: API_URL,
+    adminWebUrl: ADMIN_WEB_URL,
     /** development | staging | production — drives non-secret behaviour such as logging. */
     appEnv: process.env.EXPO_PUBLIC_APP_ENV ?? 'development',
     mapStyleUrl: MAP_STYLE_URL,
