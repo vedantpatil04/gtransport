@@ -685,7 +685,10 @@
       "noResults": "No records match these filters",
       "pageOf": "Page {{page}} of {{total}}",
       "records_one": "{{count}} record",
-      "records_other": "{{count}} records"
+      "records_other": "{{count}} records",
+      "download": "Download",
+      "saved": "Saved",
+      "exportPdf": "Export PDF"
     },
     "range": {
       "today": "Today",
@@ -1739,12 +1742,14 @@
         "UPI": "UPI",
         "BANK_TRANSFER": "Bank transfer",
         "CASH": "Cash",
-        "OTHER": "Other"
+        "OTHER": "Other",
+        "CHEQUE": "Cheque"
       },
       "paymentProvider": {
         "MANUAL": "Recorded manually",
         "RAZORPAY": "Razorpay",
-        "RAZORPAYX": "RazorpayX"
+        "RAZORPAYX": "RazorpayX",
+        "PHONEPE": "PhonePe"
       },
       "advanceType": {
         "SALARY_ADVANCE": "Salary advance",
@@ -2299,7 +2304,8 @@
       "recovered": "Recovered",
       "salariesEmpty": "No salaries for this month.",
       "advancesEmpty": "No advances recorded.",
-      "recoveredFrom": "Recovered {{amount}} in advances"
+      "recoveredFrom": "Recovered {{amount}} in advances",
+      "filteredTotalsShort": "Totals (expense / income)"
     },
     "paymentsApi": {
       "awaitingApproval": "Awaiting approval",
@@ -2378,8 +2384,27 @@
         "failed": "Failed",
         "reversed": "Reversed by bank",
         "status_review_required": "Held for status check",
-        "webhook": "RazorpayX update"
-      }
+        "webhook": "RazorpayX update",
+        "proof_attached": "Proof attached",
+        "proof_replaced": "Proof replaced",
+        "notes_updated": "Notes updated"
+      },
+      "remarks": "Remarks",
+      "search": "Search employee, reference…",
+      "allMethods": "All methods",
+      "proof": "Proof of payment",
+      "proofHint": "Optional: a photo, scan or PDF of the bank advice, receipt or cheque (up to 15 MB).",
+      "uploadProof": "Upload proof",
+      "replaceProof": "Replace",
+      "viewProof": "Preview",
+      "noProof": "No proof attached yet.",
+      "proofAttached": "Proof of payment attached",
+      "proofReplaced": "Proof replaced — the earlier file is kept on record",
+      "proofFailed": "Could not open the proof of payment.",
+      "proofUploaded": "Uploaded {{when}}",
+      "proofNoPreview": "This file cannot be previewed here. Use Download to open it.",
+      "editNotes": "Edit notes",
+      "editNotesHint": "Change the description or remarks. Amount, payee, method and status cannot be edited."
     },
     "accounts": {
       "title": "Account access",
@@ -2583,6 +2608,67 @@
         "overdue": "Overdue",
         "upcoming": "Due soon",
         "scheduled": "Scheduled"
+      }
+    },
+    "dashboardLive": {
+      "operationalSpend": "Operational spend",
+      "operationalSub": "Fuel, vehicle expenses and tyre insurance",
+      "ledgerSub": "All ledger expenses, payroll included",
+      "viewDetails": "View details",
+      "show": "Show",
+      "docs": {
+        "attention": "Needs attention",
+        "missing": "Missing",
+        "soon": "Expiring soon",
+        "expired": "Expired",
+        "pending": "Pending verification"
+      },
+      "paymentGroup": {
+        "all": "All statuses",
+        "pending": "Pending",
+        "processing": "Processing",
+        "paid": "Paid",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      }
+    },
+    "ledgerEdit": {
+      "add": "Add entry",
+      "addTitle": "Add ledger entry",
+      "addHint": "Record income or an expense kept outside the other modules — a bank charge, a customer receipt, a cost paid by hand.",
+      "editTitle": "Edit ledger entry",
+      "editHint": "Changes to the amount, date, type, employee or vehicle are posted as a correction and a new line, so the ledger keeps its history.",
+      "edit": "Edit",
+      "open": "Open entry",
+      "reverse": "Reverse",
+      "restore": "Restore",
+      "active": "Active",
+      "isIncome": "Recorded as income",
+      "isExpense": "Recorded as an expense",
+      "amountInvalid": "Enter an amount greater than zero, with at most two decimals.",
+      "noMethod": "Not specified",
+      "noVehicle": "No vehicle",
+      "referenceHint": "UTR, cheque no., invoice no.",
+      "reason": "Reason for the change (optional)",
+      "reasonHint": "Saved with the audit history.",
+      "createdToast": "Ledger entry added",
+      "savedToast": "Ledger entry updated",
+      "reversedToast": "Entry reversed — it no longer counts in totals",
+      "restoredToast": "Entry restored",
+      "reverseTitle": "Reverse this entry?",
+      "reverseHint": "A correcting line takes it out of the totals. The entry and its history stay on record and it can be restored.",
+      "reverseReason": "Reason",
+      "reversedBecause": "Reversed: {{reason}}",
+      "lines": "Ledger lines",
+      "linesHint": "Every line this entry has produced. Corrections cancel earlier lines; nothing is deleted.",
+      "history": "Change history",
+      "system": "System",
+      "changedLink": "changed",
+      "event": {
+        "created": "Created",
+        "updated": "Edited",
+        "reversed": "Reversed",
+        "restored": "Restored"
       }
     }
   },

@@ -1,10 +1,13 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import type { Response } from 'express';
 import { PaginationQuery } from '../../common/pagination/pagination';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { PAYROLL_ROLES } from '../auth/roles';
-import { CancelPaymentDto, CreatePaymentDto, PaymentQueryDto, PayoutAccountDto, RecordManualDto } from './dto/payments.dto';
+import {
+  CancelPaymentDto, CreatePaymentDto, PaymentProofDto, PaymentQueryDto, PayoutAccountDto, RecordManualDto, UpdatePaymentNotesDto,
+} from './dto/payments.dto';
 import { presentDriverPayment, presentPayment } from './payments.presenter';
 import { PaymentsService } from './payments.service';
 import { PayoutAccountsService } from './payout-accounts.service';
@@ -66,6 +69,32 @@ export class PaymentsController {
   @Roles(...PAYROLL_ROLES)
   async get(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
     return presentPayment(await this.payments.find(user.companyId, id));
+  }
+
+  /** Description and remarks only; nothing financial about a payment is editable. */
+  @Patch(':id')
+  @Roles(...PAYROLL_ROLES)
+  async updateNotes(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePaymentNotesDto) {
+    return presentPayment(await this.payments.updateNotes(user, id, dto));
+  }
+
+  /** Attach or replace the proof of payment (uploaded first through POST /files/documents). */
+  @Post(':id/proof')
+  @HttpCode(HttpStatus.OK)
+  @Roles(...PAYROLL_ROLES)
+  async attachProof(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: PaymentProofDto) {
+    return presentPayment(await this.payments.attachProof(user, id, dto.fileId));
+  }
+
+  /** The proof itself — payroll roles only, unlike the general file route. */
+  @Get(':id/proof')
+  @Roles(...PAYROLL_ROLES)
+  async proof(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response): Promise<void> {
+    const file = await this.payments.readProof(user.companyId, id);
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.filename)}"`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(Buffer.from(file.bytes));
   }
 
   @Get(':id/history')

@@ -1,21 +1,21 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, CircleCheckBig, FileSpreadsheet, Hourglass, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/input';
+import { Input, NativeSelect } from '@/components/ui/input';
 import { paymentsApi } from '@/features/api/resources';
 import type { ApiPayment, ApiPaymentStatus } from '@/features/api/types';
-import { useApiResource } from '@/features/api/useApiResource';
-import { CreatePaymentDialog } from '@/features/finance/FinanceDialogs';
+import { useApiResource, useDebounced } from '@/features/api/useApiResource';
+import { CreatePaymentDialog, METHODS } from '@/features/finance/FinanceDialogs';
 import { PaymentDrawer } from '@/features/finance/PaymentDrawer';
 import { CursorPager, money, PaymentStatusBadge, paiseToRupees, toPaise, useCursorPages } from '@/features/finance/shared';
 import { todayISO } from '@/lib/dates';
 import { exportXlsx } from '@/lib/exporters';
 import { fmtDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { FilterBar, PageHeader, Panel, StatCard, Table, TD, TH, TR } from '../components/ui';
+import { FilterBar, PageHeader, Panel, SearchInput, StatCard, Table, TD, TH, TR } from '../components/ui';
 import { ErrorState, TableLoading } from '../components/states';
 
 const TABS: (ApiPaymentStatus | 'all')[] = ['all', 'PENDING_APPROVAL', 'APPROVED', 'PROCESSING', 'STATUS_REVIEW_REQUIRED', 'PAID', 'FAILED', 'CANCELLED', 'REVERSED'];
@@ -25,21 +25,39 @@ export function PaymentsConnected() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const [type, setType] = useState('');
+  const [method, setMethod] = useState('');
+  const [q, setQ] = useState('');
+  const search = useDebounced(q);
   const [create, setCreate] = useState(false);
   const [exporting, setExporting] = useState(false);
   const status = (params.get('status') as ApiPaymentStatus | null) ?? 'all';
   const openId = params.get('id');
+  // The period lives in the address, so a dashboard card can open this list already filtered.
+  const from = params.get('from') ?? '';
+  const to = params.get('to') ?? '';
 
+  // Built from the latest address (kept in a ref: react-router hands updaters this render's
+  // params), so two quick changes — from, then to — never overwrite each other.
+  const latestParams = useRef(params);
+  latestParams.current = params;
   const setParam = (key: string, value: string | null) => {
-    const next = new URLSearchParams(params);
+    const next = new URLSearchParams(latestParams.current);
     if (value && value !== 'all') next.set(key, value);
     else next.delete(key);
+    latestParams.current = next;
     setParams(next, { replace: true });
   };
 
   const config = useApiResource(() => paymentsApi.config(), []);
   const summary = useApiResource(() => paymentsApi.summary(), []);
-  const query = { status: status === 'all' ? undefined : status, type: type || undefined };
+  const query = {
+    status: status === 'all' ? undefined : status,
+    type: type || undefined,
+    method: method || undefined,
+    from: from || undefined,
+    to: to || undefined,
+    q: search.trim() || undefined,
+  };
   const filterKey = JSON.stringify(query);
   const pages = useCursorPages(filterKey);
   const list = useApiResource(() => paymentsApi.list({ ...query, limit: PAGE_SIZE, cursor: pages.cursor }), [filterKey, pages.cursor]);
@@ -100,7 +118,7 @@ export function PaymentsConnected() {
         title={t('admin.payments.title')}
         description={t('admin.payments.subtitle')}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={exportData} disabled={exporting || (list.data?.data.length ?? 0) === 0}>
               <FileSpreadsheet />
               {t('admin.common.exportExcel')}
@@ -158,13 +176,33 @@ export function PaymentsConnected() {
             ))}
           </div>
 
-          <FilterBar active={Boolean(type)} onClear={() => setType('')}>
+          <FilterBar
+            active={Boolean(type || method || q || from || to)}
+            onClear={() => {
+              setType('');
+              setMethod('');
+              setQ('');
+              const next = new URLSearchParams(params);
+              next.delete('from');
+              next.delete('to');
+              setParams(next, { replace: true });
+            }}
+          >
+            <SearchInput value={q} onChange={setQ} placeholder={t('admin.paymentsApi.search')} className="w-full sm:w-64" />
             <NativeSelect value={type} onChange={(e) => setType(e.target.value)} className="w-auto min-w-[150px]" aria-label={t('admin.common.type')}>
               <option value="">{t('admin.payments.allTypes')}</option>
               {(['SALARY', 'ADVANCE', 'ALLOWANCE', 'OTHER'] as const).map((k) => (
                 <option key={k} value={k}>{t(`admin.enum.paymentType.${k}`)}</option>
               ))}
             </NativeSelect>
+            <NativeSelect value={method} onChange={(e) => setMethod(e.target.value)} className="w-auto min-w-[150px]" aria-label={t('admin.payments.method')}>
+              <option value="">{t('admin.paymentsApi.allMethods')}</option>
+              {METHODS.map((m) => (
+                <option key={m} value={m}>{t(`admin.enum.paymentMethod.${m}`)}</option>
+              ))}
+            </NativeSelect>
+            <Input type="date" value={from} max={to || undefined} onChange={(e) => setParam('from', e.target.value || null)} className="w-auto" aria-label={t('admin.reportsApi.period.from')} />
+            <Input type="date" value={to} min={from || undefined} onChange={(e) => setParam('to', e.target.value || null)} className="w-auto" aria-label={t('admin.reportsApi.period.to')} />
           </FilterBar>
 
           {list.loading ? (

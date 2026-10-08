@@ -19,6 +19,7 @@ import { reportContext, reportHead } from './report-context';
 import { DEFAULT_EXPIRY_WINDOW, EXPIRY_WINDOWS } from './report-maths';
 import { MAX_RANGE_DAYS, REPORT_PRESETS } from './report-range';
 import { ComplianceReportService } from './services/compliance-report.service';
+import { DashboardService } from './services/dashboard.service';
 import { DriverReportService } from './services/driver-report.service';
 import { ExpenseReportService } from './services/expense-report.service';
 import { FinanceReportService } from './services/finance-report.service';
@@ -52,6 +53,7 @@ export class ReportsController {
     private readonly compliance: ComplianceReportService,
     private readonly location: LocationReportService,
     private readonly exporter: ReportExportService,
+    private readonly dashboard: DashboardService,
   ) {}
 
   /** What this role may open, and the calendar options the screens offer. */
@@ -74,6 +76,24 @@ export class ReportsController {
       defaultExpiryWindow: DEFAULT_EXPIRY_WINDOW,
       exportLimits: EXPORT_LIMITS,
     };
+  }
+
+  // ───────────────────────────── Dashboard cards ─────────────────────────────
+  // Each dashboard card picks its own period (today, yesterday, this week, this month, this
+  // financial year, or custom days) and asks for just its figure. Aggregates only, no rows.
+
+  @Get('dashboard/spend')
+  @Roles(...REPORT_ROLES.overview)
+  async dashboardSpend(@CurrentUser() user: AuthenticatedUser, @Query() query: OverviewReportQuery) {
+    const ctx = reportContext(user, query);
+    return { range: reportHead('overview', ctx, query).range, ...(await this.dashboard.spend(ctx)) };
+  }
+
+  @Get('dashboard/payments')
+  @Roles(...REPORT_ROLES.finance)
+  async dashboardPayments(@CurrentUser() user: AuthenticatedUser, @Query() query: OverviewReportQuery) {
+    const ctx = reportContext(user, query);
+    return { range: reportHead('finance', ctx, query).range, ...(await this.dashboard.payments(ctx)) };
   }
 
   // ───────────────────────────── Overview ─────────────────────────────

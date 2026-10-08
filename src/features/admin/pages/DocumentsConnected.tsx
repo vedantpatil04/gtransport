@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CircleDashed, Clock, ShieldAlert, ShieldCheck, TriangleAlert, Upload } from 'lucide-react';
 import { Plate } from '@/components/Plate';
@@ -27,8 +28,10 @@ export function DocumentsConnected() {
   const [type, setType] = useState('');
   const [vehicleId, setVehicleId] = useState('');
   const [driverId, setDriverId] = useState('');
-  const [status, setStatus] = useState('');
-  const [verificationStatus, setVerificationStatus] = useState('');
+  // A dashboard card can open this screen already filtered (?status=EXPIRED, ?verification=PENDING).
+  const [params] = useSearchParams();
+  const [status, setStatus] = useState(() => params.get('status') ?? '');
+  const [verificationStatus, setVerificationStatus] = useState(() => params.get('verification') ?? '');
   const [expiryFrom, setExpiryFrom] = useState('');
   const [expiryTo, setExpiryTo] = useState('');
   const [cursors, setCursors] = useState<(string | undefined)[]>([undefined]);

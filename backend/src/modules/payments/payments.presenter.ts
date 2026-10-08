@@ -21,6 +21,11 @@ export function presentPayment(p: PaymentRow) {
     paymentReference: p.paymentReference,
     recipientSummary: p.recipientSummary,
     failureReason: p.failureReason,
+    remarks: p.remarks,
+    /** Metadata only; the bytes come from GET /payments/:id/proof (payroll roles). */
+    proof: p.proofFile
+      ? { fileId: p.proofFile.id, filename: p.proofFile.originalFilename, mimeType: p.proofFile.mimeType, sizeBytes: Number(p.proofFile.sizeBytes), uploadedAt: iso(p.proofFile.createdAt) }
+      : null,
     submittedAt: iso(p.submittedAt),
     approvedAt: iso(p.approvedAt),
     sentAt: iso(p.sentAt),

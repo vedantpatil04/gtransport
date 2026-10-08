@@ -9,11 +9,12 @@ import { requireDriverScope } from '../auth/access-scope';
 import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { LedgerService } from '../finance/ledger.service';
 import { monthStart, todayInIndia } from '../../common/dates/financial-year';
-import { pastOrTodayDate } from '../../common/dates/request-dates';
+import { businessDate, pastOrTodayDate } from '../../common/dates/request-dates';
 import {
   PAYOUT_PROVIDER, PayoutOutcomeUnknownError, PayoutRejectedError,
   type PayoutProvider, type PayoutResult, type ProviderPayoutStatus,
 } from './payment-providers';
+import { FilesService } from '../files/files.service';
 import { assertTransition, canTransition } from './payment-state';
 
 type Tx = Prisma.TransactionClient;
@@ -35,6 +36,9 @@ export const PAYMENT_VIEW = {
   paymentReference: true,
   recipientSummary: true,
   failureReason: true,
+  remarks: true,
+  proofFileId: true,
+  proofFile: { select: { id: true, originalFilename: true, mimeType: true, sizeBytes: true, createdAt: true } },
   submittedAt: true,
   approvedAt: true,
   sentAt: true,
@@ -74,6 +78,7 @@ export interface CreatePaymentInput {
   advanceId?: string;
   amount?: number;
   description?: string;
+  remarks?: string;
 }
 
 /**
@@ -92,6 +97,7 @@ export class PaymentsService {
     private readonly audit: AuditService,
     private readonly ledger: LedgerService,
     @Inject(PAYOUT_PROVIDER) private readonly provider: PayoutProvider,
+    private readonly files: FilesService,
   ) {}
 
   get payoutsEnabled(): boolean {
@@ -106,8 +112,10 @@ export class PaymentsService {
    */
   async create(user: AuthenticatedUser, input: CreatePaymentInput): Promise<PaymentRow> {
     if (input.provider === PaymentProvider.RAZORPAY) throw new BadRequestException('Razorpay collects customer payments; use RazorpayX for payouts.');
-    if (input.provider === PaymentProvider.RAZORPAYX && input.method === PaymentMethod.CASH) {
-      throw new BadRequestException('Cash payments are recorded manually, not sent through RazorpayX.');
+    // Reserved for a future integration: never pretend a PhonePe payout can happen.
+    if (input.provider === PaymentProvider.PHONEPE) throw new BadRequestException('PhonePe payouts are not configured. Record the payment manually.');
+    if (input.provider === PaymentProvider.RAZORPAYX && (input.method === PaymentMethod.CASH || input.method === PaymentMethod.CHEQUE)) {
+      throw new BadRequestException('Cash and cheque payments are recorded manually, not sent through RazorpayX.');
     }
 
     const employee = await this.prisma.employee.findFirst({ where: { id: input.employeeId, companyId: user.companyId, deletedAt: null }, select: { id: true } });
@@ -129,6 +137,7 @@ export class PaymentsService {
             salaryRecordId: input.salaryRecordId ?? null,
             advanceId: input.advanceId ?? null,
             description: input.description?.trim() || source.description,
+            remarks: input.remarks?.trim() || null,
             submittedAt: new Date(),
             createdById: user.id,
             updatedById: user.id,
@@ -177,12 +186,76 @@ export class PaymentsService {
   }
 
   /** The office paid outside the system (cash, its own bank). Never used for RazorpayX payments. */
-  async recordManual(user: AuthenticatedUser, id: string, input: { reference?: string; paidOn?: string }): Promise<PaymentRow> {
+  async recordManual(
+    user: AuthenticatedUser,
+    id: string,
+    input: { reference?: string; paidOn?: string; proofFileId?: string; remarks?: string },
+  ): Promise<PaymentRow> {
     const existing = await this.find(user.companyId, id);
     if (existing.provider !== PaymentProvider.MANUAL) throw new BadRequestException('RazorpayX payments are confirmed by RazorpayX, not recorded by hand.');
+    if (input.proofFileId) await this.files.assertUsable(user.companyId, input.proofFileId);
     // A business date, not in the future; noon UTC keeps it on the same calendar day in IST.
     const paidAt = input.paidOn ? new Date(pastOrTodayDate(input.paidOn).getTime() + 12 * 60 * 60 * 1000) : new Date();
-    return this.officeTransition(user, id, PaymentStatus.PAID, 'payment.paid_manually', { paidAt, paymentReference: input.reference?.trim() || null }, true);
+    return this.officeTransition(
+      user,
+      id,
+      PaymentStatus.PAID,
+      'payment.paid_manually',
+      {
+        paidAt,
+        paymentReference: input.reference?.trim() || null,
+        ...(input.proofFileId ? { proofFile: { connect: { id: input.proofFileId } } } : {}),
+        ...(input.remarks?.trim() ? { remarks: input.remarks.trim() } : {}),
+      },
+      true,
+      input.proofFileId ? { proofFileId: input.proofFileId } : {},
+    );
+  }
+
+  // ───────────────────────────── Proof & notes ─────────────────────────────
+
+  /**
+   * Attaches or replaces the proof of payment (bank screenshot, receipt, cheque scan). The file
+   * itself was stored first (POST /files/documents); a replaced file is never deleted, and the
+   * audit record keeps both ids, so the original proof can always be found.
+   */
+  async attachProof(user: AuthenticatedUser, id: string, fileId: string): Promise<PaymentRow> {
+    const existing = await this.find(user.companyId, id);
+    if (existing.status === PaymentStatus.CANCELLED) throw new ConflictException('A cancelled payment cannot take a proof of payment.');
+    await this.files.assertUsable(user.companyId, fileId);
+    if (existing.proofFileId === fileId) return existing;
+    const payment = await this.prisma.paymentRecord.update({
+      where: { id: existing.id },
+      data: { proofFileId: fileId, updatedById: user.id },
+      select: PAYMENT_VIEW,
+    });
+    await this.record(user, existing.proofFileId ? 'payment.proof_replaced' : 'payment.proof_attached', payment, { previousProofFileId: existing.proofFileId, proofFileId: fileId });
+    return payment;
+  }
+
+  /** The stored proof, for payroll roles only (the controller enforces the role). */
+  async readProof(companyId: string, id: string) {
+    const payment = await this.find(companyId, id);
+    if (!payment.proofFileId) throw new NotFoundException('This payment has no proof attached.');
+    return this.files.read(companyId, payment.proofFileId);
+  }
+
+  /** Description and remarks only. Amount, payee, method and status never change this way. */
+  async updateNotes(user: AuthenticatedUser, id: string, input: { description?: string; remarks?: string }): Promise<PaymentRow> {
+    const existing = await this.find(user.companyId, id);
+    const description = input.description === undefined ? existing.description : input.description.trim() || null;
+    const remarks = input.remarks === undefined ? existing.remarks : input.remarks.trim() || null;
+    if (description === existing.description && remarks === existing.remarks) return existing;
+    const payment = await this.prisma.paymentRecord.update({
+      where: { id: existing.id },
+      data: { description, remarks, updatedById: user.id },
+      select: PAYMENT_VIEW,
+    });
+    await this.record(user, 'payment.notes_updated', payment, {
+      before: { description: existing.description, remarks: existing.remarks },
+      after: { description, remarks },
+    });
+    return payment;
   }
 
   // ───────────────────────────── Send (RazorpayX) ─────────────────────────────
@@ -347,9 +420,24 @@ export class PaymentsService {
 
   // ───────────────────────────── Reading ─────────────────────────────
 
-  async list(companyId: string, query: { status?: PaymentStatus; employeeId?: string; type?: PaymentType; limit: number; cursor?: string }): Promise<Page<PaymentRow>> {
+  async list(
+    companyId: string,
+    query: { status?: PaymentStatus; employeeId?: string; type?: PaymentType; method?: PaymentMethod; from?: string; to?: string; q?: string; limit: number; cursor?: string },
+  ): Promise<Page<PaymentRow>> {
+    const q = query.q?.trim();
+    const contains = q ? { contains: q, mode: Prisma.QueryMode.insensitive } : undefined;
     const rows = await this.prisma.paymentRecord.findMany({
-      where: { companyId, ...(query.status ? { status: query.status } : {}), ...(query.employeeId ? { employeeId: query.employeeId } : {}), ...(query.type ? { type: query.type } : {}) },
+      where: {
+        companyId,
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.employeeId ? { employeeId: query.employeeId } : {}),
+        ...(query.type ? { type: query.type } : {}),
+        ...(query.method ? { method: query.method } : {}),
+        ...(query.from || query.to ? { createdAt: istInstantRange(query.from, query.to) } : {}),
+        ...(contains
+          ? { OR: [{ employee: { fullName: contains } }, { employee: { employeeCode: contains } }, { paymentReference: contains }, { description: contains }] }
+          : {}),
+      },
       select: PAYMENT_VIEW,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
@@ -410,20 +498,23 @@ export class PaymentsService {
     action: string,
     data: Prisma.PaymentRecordUpdateInput,
     settle = false,
+    auditExtra: Record<string, unknown> = {},
   ): Promise<PaymentRow> {
     const existing = await this.find(user.companyId, id);
     assertTransition(existing.status, to, 'OFFICE');
     const payment = await this.prisma.$transaction(async (tx) => {
       // Conditional on the status we checked, so a concurrent change cannot be overwritten.
-      const result = await tx.paymentRecord.updateMany({ where: { id, companyId: user.companyId, status: existing.status }, data: { ...(data as Prisma.PaymentRecordUpdateManyMutationInput), status: to, updatedById: user.id } });
+      const { proofFile, ...scalar } = data;
+      const result = await tx.paymentRecord.updateMany({ where: { id, companyId: user.companyId, status: existing.status }, data: { ...(scalar as Prisma.PaymentRecordUpdateManyMutationInput), status: to, updatedById: user.id } });
       if (result.count === 0) throw new ConflictException('This payment changed while you were working on it. Reload and try again.');
+      if (proofFile) await tx.paymentRecord.update({ where: { id }, data: { proofFile } });
       const row = await tx.paymentRecord.findUniqueOrThrow({ where: { id }, select: PAYMENT_VIEW });
       if (settle) await this.settleSource(tx, row);
       const eventType = EVENT_FOR[to];
       if (eventType) await this.event(tx, row, eventType);
       return row;
     });
-    await this.record(user, action, payment, { from: existing.status, to });
+    await this.record(user, action, payment, { from: existing.status, to, ...auditExtra });
     return payment;
   }
 
@@ -472,3 +563,15 @@ export function summarise(account: { method: PaymentMethod; accountNumberLast4: 
 }
 
 const dateOnly = (d: Date) => new Date(d.toISOString().slice(0, 10) + 'T00:00:00.000Z');
+
+/**
+ * Inclusive IST calendar days as instants: from 00:00 IST on `from` to the end of `to`.
+ * (00:00 IST is 18:30 UTC the day before.)
+ */
+export function istInstantRange(from?: string, to?: string): { gte?: Date; lt?: Date } {
+  const IST = 5.5 * 60 * 60 * 1000;
+  const start = from ? new Date(businessDate(from).getTime() - IST) : undefined;
+  const end = to ? new Date(businessDate(to).getTime() - IST + 24 * 60 * 60 * 1000) : undefined;
+  if (start && end && start >= end) throw new BadRequestException('"from" must be on or before "to".');
+  return { ...(start ? { gte: start } : {}), ...(end ? { lt: end } : {}) };
+}

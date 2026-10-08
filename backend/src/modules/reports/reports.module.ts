@@ -9,6 +9,7 @@ import { FinanceReportService } from './services/finance-report.service';
 import { FuelReportService } from './services/fuel-report.service';
 import { LocationReportService } from './services/location-report.service';
 import { MaintenanceReportService } from './services/maintenance-report.service';
+import { DashboardService } from './services/dashboard.service';
 import { OverviewReportService } from './services/overview-report.service';
 import { ReportLookups } from './services/report-lookups';
 import { TyreReportService } from './services/tyre-report.service';
@@ -28,6 +29,7 @@ import { VehicleReportService } from './services/vehicle-report.service';
   controllers: [ReportsController],
   providers: [
     ReportLookups,
+    DashboardService,
     OverviewReportService,
     FuelReportService,
     VehicleReportService,

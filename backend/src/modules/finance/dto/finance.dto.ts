@@ -1,7 +1,7 @@
 import { Transform, Type } from 'class-transformer';
-import { AdvanceStatus, AdvanceType, LedgerDirection, LedgerEntryType, SalaryStatus } from '@prisma/client';
+import { AdvanceStatus, AdvanceType, LedgerDirection, LedgerEntryType, PaymentMethod, SalaryStatus } from '@prisma/client';
 import {
-  ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min,
+  ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min,
 } from 'class-validator';
 import { PaginationQuery } from '../../../common/pagination/pagination';
 
@@ -65,4 +65,42 @@ export class AdvanceQueryDto extends PaginationQuery {
 export class PayInstalmentDto {
   @Matches(ISO_DATE, { message: 'paidOn must be a date (YYYY-MM-DD)' }) paidOn!: string;
   @IsOptional() @IsString() @MaxLength(100) reference?: string;
+}
+
+/**
+ * Types the office may enter by hand. Salaries, advances and EMIs are left out on purpose: each
+ * has its own record, lifecycle and payment, and a hand-made line would double-count them.
+ */
+export const MANUAL_LEDGER_TYPES = [
+  LedgerEntryType.FUEL, LedgerEntryType.RTO, LedgerEntryType.TYRE, LedgerEntryType.TYRE_INSURANCE, LedgerEntryType.MAINTENANCE,
+  LedgerEntryType.ALLOWANCE, LedgerEntryType.OTHER_PAYMENT, LedgerEntryType.CUSTOMER_PAYMENT, LedgerEntryType.OTHER_INCOME, LedgerEntryType.OTHER_EXPENSE,
+] as const;
+export type ManualLedgerType = (typeof MANUAL_LEDGER_TYPES)[number];
+const MANUAL_TYPE_MESSAGE = `type must be one of: ${MANUAL_LEDGER_TYPES.join(', ')} (salaries, advances and EMIs have their own screens)`;
+
+export class CreateManualLedgerEntryDto {
+  @Matches(ISO_DATE, { message: 'transactionDate must be a date (YYYY-MM-DD)' }) transactionDate!: string;
+  @IsIn(MANUAL_LEDGER_TYPES, { message: MANUAL_TYPE_MESSAGE }) type!: ManualLedgerType;
+  @apply(Rupees(0.01)) amount!: number;
+  @IsString() @IsNotEmpty({ message: 'a description is required' }) @MaxLength(300) description!: string;
+  @IsOptional() @IsUUID('7') employeeId?: string;
+  @IsOptional() @IsUUID('7') vehicleId?: string;
+  @IsOptional() @IsEnum(PaymentMethod) paymentMethod?: PaymentMethod;
+  @IsOptional() @IsString() @MaxLength(100) reference?: string;
+  @IsOptional() @IsString() @MaxLength(1000) remarks?: string;
+}
+
+/** Every field optional; `null` clears an optional link or note. */
+export class UpdateManualLedgerEntryDto {
+  @IsOptional() @Matches(ISO_DATE, { message: 'transactionDate must be a date (YYYY-MM-DD)' }) transactionDate?: string;
+  @IsOptional() @IsIn(MANUAL_LEDGER_TYPES, { message: MANUAL_TYPE_MESSAGE }) type?: ManualLedgerType;
+  @IsOptional() @apply(Rupees(0.01)) amount?: number;
+  @IsOptional() @IsString() @IsNotEmpty({ message: 'a description is required' }) @MaxLength(300) description?: string;
+  @IsOptional() @IsUUID('7') employeeId?: string | null;
+  @IsOptional() @IsUUID('7') vehicleId?: string | null;
+  @IsOptional() @IsEnum(PaymentMethod) paymentMethod?: PaymentMethod | null;
+  @IsOptional() @IsString() @MaxLength(100) reference?: string | null;
+  @IsOptional() @IsString() @MaxLength(1000) remarks?: string | null;
+  /** Why the entry changed — kept with the audit record. */
+  @IsOptional() @IsString() @MaxLength(300) reason?: string;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Check, RefreshCw, Send, X } from 'lucide-react';
+import { AlertTriangle, Check, Pencil, RefreshCw, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { DetailList } from '../admin/components/ui';
 import { ErrorState, InlineBusy, TableLoading } from '../admin/components/states';
 import { ReasonDialog, RecordManualDialog } from './FinanceDialogs';
+import { PaymentNotesDialog, PaymentProof } from './PaymentProof';
 import { money, PaymentStatusBadge } from './shared';
 
 type Busy = 'approve' | 'send' | 'check' | null;
@@ -31,6 +32,7 @@ export function PaymentDrawer({
   const [confirmSend, setConfirmSend] = useState(false);
   const [recording, setRecording] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(false);
 
   const payment = useApiResource<ApiPayment>(() => paymentsApi.get(paymentId!), [paymentId], Boolean(paymentId));
   const history = useApiResource<ApiPaymentHistory>(() => paymentsApi.history(paymentId!), [paymentId], Boolean(paymentId));
@@ -153,9 +155,17 @@ export function PaymentDrawer({
                     ] as [string, React.ReactNode][])
                   : []),
                 [t('admin.paymentsApi.description'), p.description ?? '—'],
+                [t('admin.paymentsApi.remarks'), p.remarks ? <span className="whitespace-pre-line">{p.remarks}</span> : '—'],
                 [t('admin.payments.createdOn'), fmtDate(p.createdAt.slice(0, 10))],
+                ...(p.paidAt ? ([[t('admin.paymentsApi.paidOn'), fmtDate(p.paidAt.slice(0, 10))]] as [string, React.ReactNode][]) : []),
               ]}
             />
+            <Button variant="outline" size="sm" onClick={() => setEditingNotes(true)}>
+              <Pencil />
+              {t('admin.paymentsApi.editNotes')}
+            </Button>
+
+            <PaymentProof payment={p} onChanged={refresh} />
 
             <div>
               <h3 className="mb-3 text-sm font-semibold">{t('admin.paymentsApi.timeline')}</h3>
@@ -204,6 +214,7 @@ export function PaymentDrawer({
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          <PaymentNotesDialog payment={p} open={editingNotes} onOpenChange={setEditingNotes} onSaved={() => { setEditingNotes(false); refresh(); }} />
           <RecordManualDialog payment={p} open={recording} onOpenChange={setRecording} onDone={() => { setRecording(false); refresh(); }} />
           <ReasonDialog
             open={cancelling}
@@ -226,6 +237,7 @@ export function PaymentDrawer({
 
 const EVENT_KEYS = new Set([
   'created', 'approved', 'cancelled', 'payout_requested', 'outcome_unknown', 'paid_manually', 'processing', 'paid', 'failed', 'reversed', 'status_review_required',
+  'proof_attached', 'proof_replaced', 'notes_updated',
 ]);
 
 /** Audit actions and provider webhooks, merged into one oldest-first timeline. */

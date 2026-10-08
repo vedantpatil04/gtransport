@@ -264,8 +264,9 @@ export interface ApiComplianceSummaryRow {
 
 export type ApiPaymentStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'PROCESSING' | 'STATUS_REVIEW_REQUIRED' | 'PAID' | 'FAILED' | 'CANCELLED' | 'REVERSED';
 export type ApiPaymentType = 'SALARY' | 'ADVANCE' | 'ALLOWANCE' | 'OTHER';
-export type ApiPaymentMethod = 'UPI' | 'BANK_TRANSFER' | 'CASH' | 'OTHER';
-export type ApiPaymentProvider = 'MANUAL' | 'RAZORPAY' | 'RAZORPAYX';
+export type ApiPaymentMethod = 'UPI' | 'BANK_TRANSFER' | 'CASH' | 'CHEQUE' | 'OTHER';
+/** PHONEPE is reserved: the API refuses it until a PhonePe integration is configured. */
+export type ApiPaymentProvider = 'MANUAL' | 'RAZORPAY' | 'RAZORPAYX' | 'PHONEPE';
 export type ApiAdvanceType = 'SALARY_ADVANCE' | 'FUEL_ADVANCE' | 'TRIP_ADVANCE' | 'OTHER_ADVANCE';
 export type ApiLedgerType =
   | 'FUEL' | 'RTO' | 'TYRE' | 'TYRE_INSURANCE' | 'MAINTENANCE' | 'SALARY' | 'ADVANCE' | 'ALLOWANCE'
@@ -297,6 +298,40 @@ export interface ApiLedgerEntry {
   payment: (ApiPaymentRef & { provider: ApiPaymentProvider }) | null;
   employee: ApiPersonRef | null;
   vehicle: { id: string; registrationNumber: string } | null;
+  /** Set for lines from a hand-kept entry: its current details and whether it can be edited. */
+  manual?: { id: string; editable: boolean; paymentMethod: ApiPaymentMethod | null; reference: string | null; remarks: string | null } | null;
+}
+
+/** Ledger types the office may enter by hand (salaries, advances and EMIs have their own screens). */
+export const MANUAL_LEDGER_TYPES = [
+  'FUEL', 'RTO', 'TYRE', 'TYRE_INSURANCE', 'MAINTENANCE', 'ALLOWANCE', 'OTHER_PAYMENT', 'CUSTOMER_PAYMENT', 'OTHER_INCOME', 'OTHER_EXPENSE',
+] as const satisfies readonly ApiLedgerType[];
+export type ApiManualLedgerType = (typeof MANUAL_LEDGER_TYPES)[number];
+
+export interface ApiManualLedgerEntry {
+  id: string;
+  date: string;
+  type: ApiManualLedgerType;
+  direction: 'INCOME' | 'EXPENSE';
+  amount: string;
+  description: string;
+  employee: ApiPersonRef | null;
+  vehicle: { id: string; registrationNumber: string } | null;
+  paymentMethod: ApiPaymentMethod | null;
+  reference: string | null;
+  remarks: string | null;
+  status: 'ACTIVE' | 'ARCHIVED';
+  archivedAt: string | null;
+  archiveReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiManualLedgerDetail extends ApiManualLedgerEntry {
+  /** Every ledger line the entry produced, oldest first (originals, reversals, re-posts). */
+  lines: ApiLedgerEntry[];
+  /** Who changed what and when, oldest first. */
+  history: { id: string; action: string; at: string; actor: string | null; role: string | null; changes: Record<string, unknown> | null; metadata: Record<string, unknown> | null }[];
 }
 
 export interface ApiLedgerTotals {
@@ -379,6 +414,9 @@ export interface ApiPayment {
   paymentReference: string | null;
   recipientSummary: string | null;
   failureReason: string | null;
+  remarks?: string | null;
+  /** Proof of payment metadata; the file itself comes from paymentsApi.proofUrl. */
+  proof?: { fileId: string; filename: string; mimeType: string; sizeBytes: number; uploadedAt: string | null } | null;
   submittedAt: string | null;
   approvedAt: string | null;
   sentAt: string | null;

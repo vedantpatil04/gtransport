@@ -297,6 +297,7 @@ enum PaymentMethod {
   UPI
   BANK_TRANSFER
   CASH
+  CHEQUE
   OTHER
 
   @@map("payment_method")
@@ -307,6 +308,8 @@ enum PaymentProvider {
   MANUAL
   RAZORPAY
   RAZORPAYX
+  /// PhonePe payouts: reserved for a future integration; refused until a provider is configured.
+  PHONEPE
 
   @@map("payment_provider")
 }
@@ -572,28 +575,29 @@ model Company {
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
 
-  users              User[]
-  fuelEntries        FuelEntry[]
-  vehicleExpenses    VehicleExpense[]
-  ledgerEntries      FinanceLedgerEntry[]
-  salaryRecords      SalaryRecord[]
-  advances           Advance[]
-  payments           PaymentRecord[]
-  employees          Employee[]
-  drivers            Driver[]
-  vehicles           Vehicle[]
-  documents          Document[]
-  storedFiles        StoredFile[]
-  auditLogs          AuditLog[]
-  locationAlerts     FleetLocationAlert[]
-  receiptAIJobs      ServiceReceiptAIJob[]
-  receiptAIResults   ServiceReceiptAIResult[]
-  emailSyncCursors   EmailSyncCursor[]
-  inboxMessages      InboxMessage[]
-  inboxAttachments   InboxAttachment[]
-  inboxAIResults     InboxAIResult[]
-  mailboxConnections MailboxConnection[]
-  inboxSuggestions   InboxSuggestion[]
+  users               User[]
+  fuelEntries         FuelEntry[]
+  vehicleExpenses     VehicleExpense[]
+  manualLedgerEntries ManualLedgerEntry[]
+  ledgerEntries       FinanceLedgerEntry[]
+  salaryRecords       SalaryRecord[]
+  advances            Advance[]
+  payments            PaymentRecord[]
+  employees           Employee[]
+  drivers             Driver[]
+  vehicles            Vehicle[]
+  documents           Document[]
+  storedFiles         StoredFile[]
+  auditLogs           AuditLog[]
+  locationAlerts      FleetLocationAlert[]
+  receiptAIJobs       ServiceReceiptAIJob[]
+  receiptAIResults    ServiceReceiptAIResult[]
+  emailSyncCursors    EmailSyncCursor[]
+  inboxMessages       InboxMessage[]
+  inboxAttachments    InboxAttachment[]
+  inboxAIResults      InboxAIResult[]
+  mailboxConnections  MailboxConnection[]
+  inboxSuggestions    InboxSuggestion[]
 
   @@map("companies")
 }
@@ -663,14 +667,15 @@ model Employee {
   createdById       String?          @map("created_by_id") @db.Uuid
   updatedById       String?          @map("updated_by_id") @db.Uuid
 
-  company       Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  user          User?
-  driver        Driver?
-  documents     Document[]
-  salaryRecords SalaryRecord[]
-  advances      Advance[]
-  payments      PaymentRecord[]
-  payoutAccount EmployeePayoutAccount?
+  company             Company                @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user                User?
+  driver              Driver?
+  documents           Document[]
+  salaryRecords       SalaryRecord[]
+  advances            Advance[]
+  payments            PaymentRecord[]
+  manualLedgerEntries ManualLedgerEntry[]
+  payoutAccount       EmployeePayoutAccount?
 
   @@unique([companyId, employeeCode])
   @@index([companyId, status])
@@ -745,13 +750,14 @@ model Vehicle {
   createdById         String?          @map("created_by_id") @db.Uuid
   updatedById         String?          @map("updated_by_id") @db.Uuid
 
-  company           Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  currentAssignment VehicleAssignment?  @relation("VehicleCurrentAssignment", fields: [currentAssignmentId], references: [id], onDelete: Restrict)
-  assignments       VehicleAssignment[] @relation("VehicleAssignments")
-  fuelEntries       FuelEntry[]
-  vehicleExpenses   VehicleExpense[]
-  financing         VehicleFinancing?
-  documents         Document[]
+  company             Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  currentAssignment   VehicleAssignment?  @relation("VehicleCurrentAssignment", fields: [currentAssignmentId], references: [id], onDelete: Restrict)
+  assignments         VehicleAssignment[] @relation("VehicleAssignments")
+  fuelEntries         FuelEntry[]
+  vehicleExpenses     VehicleExpense[]
+  manualLedgerEntries ManualLedgerEntry[]
+  financing           VehicleFinancing?
+  documents           Document[]
 
   @@unique([companyId, registrationNumber])
   /// Lets other tables reference a vehicle together with its tenant (composite FK).
@@ -999,6 +1005,40 @@ model FinanceLedgerEntry {
   @@map("finance_ledger_entries")
 }
 
+/// A ledger entry the office keeps by hand: a bank charge, a customer receipt, a cost paid outside
+/// the other modules. This row is the editable source; the ledger mirrors it append-only through
+/// LedgerService.syncSource (source type MANUAL), so an edit becomes a reversal plus a new line and
+/// nothing financial is ever erased. Archiving reverses it out of the totals and keeps the record.
+model ManualLedgerEntry {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  companyId       String          @map("company_id") @db.Uuid
+  transactionDate DateTime        @map("transaction_date") @db.Date
+  type            LedgerEntryType
+  direction       LedgerDirection
+  amount          Decimal         @db.Decimal(14, 2)
+  description     String
+  employeeId      String?         @map("employee_id") @db.Uuid
+  vehicleId       String?         @map("vehicle_id") @db.Uuid
+  paymentMethod   PaymentMethod?  @map("payment_method")
+  /// Bank UTR, cheque number, invoice number — whatever identifies the money movement.
+  reference       String?
+  remarks         String?
+  status          RecordStatus    @default(ACTIVE)
+  archivedAt      DateTime?       @map("archived_at") @db.Timestamptz(3)
+  archiveReason   String?         @map("archive_reason")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  createdById     String?         @map("created_by_id") @db.Uuid
+  updatedById     String?         @map("updated_by_id") @db.Uuid
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  vehicle  Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, transactionDate(sort: Desc)])
+  @@map("manual_ledger_entries")
+}
+
 /// One employee's salary for one month. Advances paid earlier are recovered here; the advance
 /// records themselves stay separate and point at the salary that recovered them.
 model SalaryRecord {
@@ -1091,6 +1131,11 @@ model PaymentRecord {
   /// same attempt must repeat the identical request even if the payee's details change later.
   providerFundAccountId String?         @map("provider_fund_account_id")
   failureReason         String?         @map("failure_reason")
+  /// The office's own notes on the payment (free text, not shown to the payee).
+  remarks               String?
+  /// Proof of payment (bank screenshot, receipt, cheque scan) in the configured storage. A
+  /// replaced proof is never deleted: the audit log keeps the earlier file's id.
+  proofFileId           String?         @map("proof_file_id") @db.Uuid
   submittedAt           DateTime?       @map("submitted_at") @db.Timestamptz(3)
   approvedAt            DateTime?       @map("approved_at") @db.Timestamptz(3)
   approvedById          String?         @map("approved_by_id") @db.Uuid
@@ -1108,6 +1153,7 @@ model PaymentRecord {
   employee      Employee               @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   salaryRecord  SalaryRecord?          @relation(fields: [salaryRecordId], references: [id], onDelete: Restrict)
   advance       Advance?               @relation(fields: [advanceId], references: [id], onDelete: Restrict)
+  proofFile     StoredFile?            @relation("PaymentProof", fields: [proofFileId], references: [id], onDelete: Restrict)
   ledgerEntries FinanceLedgerEntry[]
   events        PaymentProviderEvent[]
   financeEvents FinanceEvent[]
@@ -1232,6 +1278,7 @@ model StoredFile {
   expenseReceipts  VehicleExpense[]
   receiptAIJobs    ServiceReceiptAIJob[]
   inboxAttachments InboxAttachment[]
+  paymentProofs    PaymentRecord[]       @relation("PaymentProof")
 
   @@unique([provider, objectKey])
   @@index([companyId, createdAt])

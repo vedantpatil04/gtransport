@@ -60,9 +60,25 @@ function useLiveAttentionSource(): LiveAttention {
   const role = useSession((s) => s.user?.role);
   const payroll = canManageFinance(role);
   const [tick, setTick] = useState(0);
+  // A hidden tab asks nobody (the office leaves the console open all day); it catches up the
+  // moment it is shown again, so the badges are never stale on screen.
   useEffect(() => {
-    const id = window.setInterval(() => setTick((n) => n + 1), REFRESH_MS);
-    return () => window.clearInterval(id);
+    let missed = false;
+    const id = window.setInterval(() => {
+      if (document.hidden) missed = true;
+      else setTick((n) => n + 1);
+    }, REFRESH_MS);
+    const onVisibility = () => {
+      if (!document.hidden && missed) {
+        missed = false;
+        setTick((n) => n + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
   const compliance = useApiResource(() => documentsApi.summary(), [tick]);
   const payments = useApiResource(() => paymentsApi.summary(), [tick, payroll], payroll);

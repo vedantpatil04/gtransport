@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppConfigService } from '../../config/app-config.service';
+import { FilesModule } from '../files/files.module';
 import { FinanceModule } from '../finance/finance.module';
 import { PAYOUT_PROVIDER, type PayoutProvider } from './payment-providers';
 import { PaymentsController } from './payments.controller';
@@ -15,7 +16,7 @@ import { WebhooksService } from './webhooks.service';
  * and anything that would move money online refuses clearly.
  */
 @Module({
-  imports: [FinanceModule],
+  imports: [FinanceModule, FilesModule],
   controllers: [PaymentsController, WebhooksController],
   providers: [
     PaymentsService,

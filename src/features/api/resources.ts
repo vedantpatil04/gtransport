@@ -9,7 +9,7 @@ import type {
   ApiFleetAlert, ApiFleetAlertSummary, ApiFleetLocation, ApiFleetResponse, ApiPingPage,
   ApiInboxClassification, ApiInboxMessage, ApiInboxRow, ApiInboxStatus, ApiInboxStatusInfo, ApiInboxSummary,
   ApiInboxSyncOutcome, ApiMaintenanceSummary, ApiPendingReceipt, ApiReceiptAIStatus, ApiVehicleMaintenance,
-  ApiReceiptQueueStatus, ApiReceiptReview, ApiVerifyReceiptBody, ApiInboxSuggestion, ApiSuggestionStatus,
+  ApiReceiptQueueStatus, ApiReceiptReview, ApiVerifyReceiptBody, ApiInboxSuggestion, ApiSuggestionStatus, ApiManualLedgerEntry, ApiManualLedgerDetail, ApiManualLedgerType
 } from './types';
 import { API_BASE_URL } from '@/lib/api/client';
 import { useSession } from './session';
@@ -221,8 +221,26 @@ export interface LedgerFilters {
   cursor?: string;
 }
 
+export interface ManualLedgerInput {
+  transactionDate: string;
+  type: ApiManualLedgerType;
+  amount: number;
+  description: string;
+  employeeId?: string | null;
+  vehicleId?: string | null;
+  paymentMethod?: ApiPaymentMethod | null;
+  reference?: string | null;
+  remarks?: string | null;
+}
+
 export const financeApi = {
   ledger: (filters: LedgerFilters = {}) => authedRequest<Page<ApiLedgerEntry> & { totals: ApiLedgerTotals }>('/finance/ledger', { query: { ...filters } }),
+  createEntry: (body: ManualLedgerInput) => authedRequest<ApiManualLedgerEntry>('/finance/ledger/entries', { method: 'POST', body }),
+  entry: (id: string) => authedRequest<ApiManualLedgerDetail>(`/finance/ledger/entries/${id}`),
+  updateEntry: (id: string, body: Partial<ManualLedgerInput> & { reason?: string }) =>
+    authedRequest<ApiManualLedgerEntry>(`/finance/ledger/entries/${id}`, { method: 'PATCH', body }),
+  reverseEntry: (id: string, reason: string) => authedRequest<ApiManualLedgerEntry>(`/finance/ledger/entries/${id}/reverse`, { method: 'POST', body: { reason } }),
+  restoreEntry: (id: string) => authedRequest<ApiManualLedgerEntry>(`/finance/ledger/entries/${id}/restore`, { method: 'POST' }),
   summary: (fy?: string) => authedRequest<ApiFinanceSummary>('/finance/summary', { query: { fy } }),
   payrollSummary: (period?: string) => authedRequest<ApiPayrollSummary>('/finance/payroll-summary', { query: { period } }),
 
@@ -247,18 +265,31 @@ export const financeApi = {
 export const paymentsApi = {
   config: () => authedRequest<{ payoutsEnabled: boolean }>('/payments/config'),
   summary: () => authedRequest<ApiPaymentsSummary>('/payments/summary'),
-  list: (query: { status?: string; type?: string; employeeId?: string; limit?: number; cursor?: string } = {}) =>
+  list: (query: { status?: string; type?: string; method?: string; employeeId?: string; from?: string; to?: string; q?: string; limit?: number; cursor?: string } = {}) =>
     authedRequest<Page<ApiPayment>>('/payments', { query: { ...query } }),
   get: (id: string) => authedRequest<ApiPayment>(`/payments/${id}`),
   history: (id: string) => authedRequest<ApiPaymentHistory>(`/payments/${id}/history`),
   create: (body: {
     employeeId: string; type: ApiPaymentType; method: ApiPaymentMethod; provider: ApiPaymentProvider;
-    salaryRecordId?: string; advanceId?: string; amount?: number; description?: string;
+    salaryRecordId?: string; advanceId?: string; amount?: number; description?: string; remarks?: string;
   }) => authedRequest<ApiPayment>('/payments', { method: 'POST', body }),
+  updateNotes: (id: string, body: { description?: string; remarks?: string }) => authedRequest<ApiPayment>(`/payments/${id}`, { method: 'PATCH', body }),
+  /** Attaches or replaces the proof; upload the file first with uploadDocumentFile. */
+  attachProof: (id: string, fileId: string) => authedRequest<ApiPayment>(`/payments/${id}/proof`, { method: 'POST', body: { fileId } }),
+  /** The proof as an object URL (payroll roles only). Caller revokes it when done. */
+  proofUrl: async (id: string): Promise<{ url: string; mimeType: string }> => {
+    const token = useSession.getState().token;
+    const response = await fetch(`${API_BASE_URL}/api/v1/payments/${id}/proof`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (response.status === 401) useSession.getState().expire();
+    if (!response.ok) throw new Error('Could not open the proof of payment.');
+    const blob = await response.blob();
+    return { url: URL.createObjectURL(blob), mimeType: blob.type };
+  },
   approve: (id: string) => authedRequest<ApiPayment>(`/payments/${id}/approve`, { method: 'POST' }),
   send: (id: string) => authedRequest<ApiPaymentOutcome>(`/payments/${id}/send`, { method: 'POST' }),
   checkStatus: (id: string) => authedRequest<ApiPaymentOutcome>(`/payments/${id}/check-status`, { method: 'POST' }),
-  recordManual: (id: string, body: { reference?: string; paidOn?: string }) => authedRequest<ApiPayment>(`/payments/${id}/record-manual`, { method: 'POST', body }),
+  recordManual: (id: string, body: { reference?: string; paidOn?: string; proofFileId?: string; remarks?: string }) =>
+    authedRequest<ApiPayment>(`/payments/${id}/record-manual`, { method: 'POST', body }),
   cancel: (id: string, reason: string) => authedRequest<ApiPayment>(`/payments/${id}/cancel`, { method: 'POST', body: { reason } }),
   payoutAccount: (employeeId: string) => authedRequest<{ account: ApiPayoutAccount | null }>(`/payments/payout-accounts/${employeeId}`),
   savePayoutAccount: (employeeId: string, body: { method: ApiPaymentMethod; accountHolderName: string; ifsc?: string; accountNumber?: string; upiId?: string }) =>
@@ -418,3 +449,54 @@ export async function fetchInboxAttachment(messageId: string, attachmentId: stri
   const blob = await response.blob();
   return { url: URL.createObjectURL(blob), filename: match ? decodeURIComponent(match[1]) : 'attachment' };
 }
+
+// ─────────────────────────── Dashboard cards ───────────────────────────
+
+/** A card's period: one of the report presets, or explicit days for a custom range. */
+export interface DashboardPeriod {
+  preset: 'today' | 'yesterday' | 'this_week' | 'this_month' | 'this_fy' | 'custom';
+  from?: string;
+  to?: string;
+}
+
+export interface ApiDashboardSpend {
+  range: { preset: string; from: string; to: string; label: string };
+  fuel: { amount: string; litres: string; entries: number };
+  otherExpenses: { amount: string; records: number };
+  operationalTotal: string;
+  /** Payroll roles only: the ledger's expense side, payroll included. */
+  ledgerExpenses?: string;
+}
+
+export type ApiPaymentGroup = 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'reversed';
+
+export interface ApiDashboardPayments {
+  range: { preset: string; from: string; to: string; label: string };
+  created: Record<ApiPaymentGroup, { count: number; amount: string }>;
+  paidInPeriod: { count: number; amount: string };
+}
+
+const periodQuery = (period: DashboardPeriod) =>
+  period.preset === 'custom' ? { from: period.from, to: period.to } : { preset: period.preset };
+
+/**
+ * Cards that show the same period share one request: the same query asked again within a few
+ * seconds reuses the request already made, so the dashboard never fetches a figure twice.
+ * Nothing is kept beyond that — every reload of the page asks the API afresh.
+ */
+const inFlight = new Map<string, { at: number; promise: Promise<unknown> }>();
+function shared<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const hit = inFlight.get(key);
+  if (hit && Date.now() - hit.at < 5_000) return hit.promise as Promise<T>;
+  const promise = load();
+  inFlight.set(key, { at: Date.now(), promise });
+  promise.catch(() => inFlight.delete(key));
+  return promise;
+}
+
+export const dashboardApi = {
+  spend: (period: DashboardPeriod) =>
+    shared(`spend:${JSON.stringify(periodQuery(period))}`, () => authedRequest<ApiDashboardSpend>('/reports/dashboard/spend', { query: periodQuery(period) })),
+  payments: (period: DashboardPeriod) =>
+    shared(`payments:${JSON.stringify(periodQuery(period))}`, () => authedRequest<ApiDashboardPayments>('/reports/dashboard/payments', { query: periodQuery(period) })),
+};

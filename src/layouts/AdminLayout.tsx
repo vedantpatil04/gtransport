@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Calculator, Check, ChevronDown, ChevronRight, Ellipsis, KeyRound, Languages, LogOut, Moon, PanelLeftClose, PanelLeftOpen, Search, Settings, Sun } from 'lucide-react';
@@ -20,6 +20,7 @@ import { cn, initials } from '@/lib/utils';
 import { isApiConfigured } from '@/features/api/mode';
 import { useSession } from '@/features/api/session';
 import { useApp } from '@/store';
+import { PageLoading } from '@/components/PageLoading';
 
 const COLLAPSE_KEY = 'gangamata-sidebar-collapsed';
 
@@ -109,7 +110,9 @@ export function AdminLayout() {
           <Topbar onSearch={() => setSearchOpen(true)} onCalc={() => setCalcOpen(true)} />
           <main className={cn('min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7', !isTablet && 'pb-24')}>
             <div className="mx-auto max-w-[1440px] animate-in fade-in duration-200">
-              <Outlet />
+              <Suspense fallback={<PageLoading />}>
+                <Outlet />
+              </Suspense>
             </div>
           </main>
         </div>

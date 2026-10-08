@@ -1,4 +1,5 @@
 import type { LedgerRow } from './ledger.service';
+import type { ManualEntryRow } from './manual-ledger.service';
 import type { AdvanceRow, SalaryRow } from './payroll.service';
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -49,9 +50,12 @@ export function presentAdvance(a: AdvanceRow) {
 export interface LedgerParties {
   employees: Map<string, { id: string; fullName: string; employeeCode: string }>;
   vehicles: Map<string, { id: string; registrationNumber: string }>;
+  /** Current details of hand entries, keyed by entry id (the MANUAL lines' sourceId). */
+  manual?: Map<string, { id: string; status: string; description: string; paymentMethod: string | null; reference: string | null; remarks: string | null }>;
 }
 
 export function presentLedgerEntry(l: LedgerRow, parties: LedgerParties) {
+  const manual = l.sourceType === 'MANUAL' ? (parties.manual?.get(l.sourceId) ?? null) : null;
   return {
     id: l.id,
     date: day(l.transactionDate),
@@ -68,5 +72,30 @@ export function presentLedgerEntry(l: LedgerRow, parties: LedgerParties) {
     payment: l.paymentRecord,
     employee: l.employeeId ? parties.employees.get(l.employeeId) ?? null : null,
     vehicle: l.vehicleId ? parties.vehicles.get(l.vehicleId) ?? null : null,
+    /** For a hand entry: its current method, reference and notes, and whether it can still be edited. */
+    manual: manual
+      ? { id: manual.id, editable: manual.status === 'ACTIVE', paymentMethod: manual.paymentMethod, reference: manual.reference, remarks: manual.remarks }
+      : null,
+  };
+}
+
+export function presentManualEntry(e: ManualEntryRow) {
+  return {
+    id: e.id,
+    date: day(e.transactionDate),
+    type: e.type,
+    direction: e.direction,
+    amount: e.amount.toFixed(2),
+    description: e.description,
+    employee: e.employee ? { id: e.employee.id, fullName: e.employee.fullName, employeeCode: e.employee.employeeCode } : null,
+    vehicle: e.vehicle,
+    paymentMethod: e.paymentMethod,
+    reference: e.reference,
+    remarks: e.remarks,
+    status: e.status,
+    archivedAt: iso(e.archivedAt),
+    archiveReason: e.archiveReason,
+    createdAt: iso(e.createdAt),
+    updatedAt: iso(e.updatedAt),
   };
 }

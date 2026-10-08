@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { FieldError, Input, Label, NativeSelect } from '@/components/ui/input';
-import { financeApi, paymentsApi } from '@/features/api/resources';
+import { FieldError, Input, Label, NativeSelect, Textarea } from '@/components/ui/input';
+import { financeApi, paymentsApi, uploadDocumentFile } from '@/features/api/resources';
 import type {
   ApiAdvance, ApiAdvanceType, ApiEmployee, ApiPayment, ApiPaymentMethod, ApiPaymentProvider, ApiPaymentType, ApiPayoutAccount, ApiSalary,
 } from '@/features/api/types';
@@ -15,12 +15,16 @@ import { InlineBusy } from '../admin/components/states';
 import { currentPeriod, money, paiseToRupees, toPaise, useActiveEmployees } from './shared';
 
 const ADVANCE_TYPES: ApiAdvanceType[] = ['SALARY_ADVANCE', 'FUEL_ADVANCE', 'TRIP_ADVANCE', 'OTHER_ADVANCE'];
-const METHODS: ApiPaymentMethod[] = ['BANK_TRANSFER', 'UPI', 'CASH', 'OTHER'];
+export const METHODS: ApiPaymentMethod[] = ['BANK_TRANSFER', 'UPI', 'CASH', 'CHEQUE', 'OTHER'];
+/** Paid outside any provider, so always recorded by hand. */
+const OFFLINE_METHODS: ApiPaymentMethod[] = ['CASH', 'CHEQUE', 'OTHER'];
+/** What a proof of payment may be: a photo or scan, or a PDF (the API checks the bytes too). */
+export const PROOF_ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf';
 /** A salary or advance is free to pay when it has no payment, or only a cancelled/reversed one. */
 const isOpen = (payment: { status: string } | null) => !payment || payment.status === 'CANCELLED' || payment.status === 'REVERSED';
 
 /** Shared submit plumbing: busy flag, a form-level message, and per-field messages from the API. */
-function useSubmit() {
+export function useSubmit() {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,12 +52,12 @@ function useSubmit() {
   return { busy, error, fieldErrors, run, reset, setError };
 }
 
-function FormError({ message }: { message: string | null }) {
+export function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return <p className="rounded-md bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">{message}</p>;
 }
 
-function Footer({ busy, onCancel, label, disabled, destructive }: { busy: boolean; onCancel: () => void; label: string; disabled?: boolean; destructive?: boolean }) {
+export function Footer({ busy, onCancel, label, disabled, destructive }: { busy: boolean; onCancel: () => void; label: string; disabled?: boolean; destructive?: boolean }) {
   const { t } = useTranslation();
   return (
     <DialogFooter className="pt-2">
@@ -68,7 +72,7 @@ function Footer({ busy, onCancel, label, disabled, destructive }: { busy: boolea
   );
 }
 
-function EmployeeSelect({
+export function EmployeeSelect({
   id, value, onChange, disabled, error, employees: shared,
 }: { id: string; value: string; onChange: (v: string) => void; disabled?: boolean; error?: string; employees?: ApiResource<ApiEmployee[]> }) {
   const { t } = useTranslation();
@@ -463,6 +467,7 @@ export function CreatePaymentDialog({
   const [provider, setProvider] = useState<ApiPaymentProvider>('MANUAL');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [accountDialog, setAccountDialog] = useState(false);
   const form = useSubmit();
 
@@ -497,9 +502,9 @@ export function CreatePaymentDialog({
     open,
   );
 
-  // RazorpayX pays only by UPI or bank transfer; cash and "other" are always manual.
+  // RazorpayX pays only by UPI or bank transfer; cash, cheque and "other" are always manual.
   useEffect(() => {
-    if (method === 'CASH' || method === 'OTHER') setProvider('MANUAL');
+    if (OFFLINE_METHODS.includes(method)) setProvider('MANUAL');
   }, [method]);
 
   const recordAmount =
@@ -523,6 +528,7 @@ export function CreatePaymentDialog({
         ...(type === 'ADVANCE' ? { advanceId } : {}),
         ...(standalone ? { amount: Number(amount) } : {}),
         description: description.trim() || undefined,
+        remarks: remarks.trim() || undefined,
       });
       toast.success(t('admin.paymentsApi.createdToast'));
       onCreated(payment);
@@ -600,14 +606,14 @@ export function CreatePaymentDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pay-provider">{t('admin.paymentsApi.how')}</Label>
-              <NativeSelect id="pay-provider" value={provider} onChange={(e) => setProvider(e.target.value as ApiPaymentProvider)} disabled={!payoutsEnabled || method === 'CASH' || method === 'OTHER'}>
+              <NativeSelect id="pay-provider" value={provider} onChange={(e) => setProvider(e.target.value as ApiPaymentProvider)} disabled={!payoutsEnabled || OFFLINE_METHODS.includes(method)}>
                 <option value="MANUAL">{t('admin.paymentsApi.viaManual')}</option>
                 {payoutsEnabled && <option value="RAZORPAYX">{t('admin.paymentsApi.viaRazorpayX')}</option>}
               </NativeSelect>
             </div>
           </div>
           {!payoutsEnabled && <p className="text-xs text-muted-foreground">{t('admin.paymentsApi.payoutsOff')}</p>}
-          {payoutsEnabled && !online && (method === 'CASH' || method === 'OTHER') && <p className="text-xs text-muted-foreground">{t('admin.paymentsApi.onlineNeedsAccount')}</p>}
+          {payoutsEnabled && !online && OFFLINE_METHODS.includes(method) && <p className="text-xs text-muted-foreground">{t('admin.paymentsApi.onlineNeedsAccount')}</p>}
 
           {online && employeeId && (
             <div className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm">
@@ -633,6 +639,11 @@ export function CreatePaymentDialog({
             <Label htmlFor="pay-desc">{t('admin.paymentsApi.description')}</Label>
             <Input id="pay-desc" value={description} maxLength={200} onChange={(e) => setDescription(e.target.value)} />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pay-remarks">{t('admin.paymentsApi.remarks')}</Label>
+            <Textarea id="pay-remarks" value={remarks} maxLength={1000} rows={2} onChange={(e) => setRemarks(e.target.value)} />
+            <FieldError>{form.fieldErrors.remarks}</FieldError>
+          </div>
           <FormError message={form.error} />
           <Footer busy={form.busy} onCancel={() => onOpenChange(false)} label={t('admin.paymentsApi.new')} disabled={!ready} />
         </form>
@@ -656,11 +667,15 @@ export function RecordManualDialog({ payment, open, onOpenChange, onDone }: { pa
   const { t } = useTranslation();
   const [reference, setReference] = useState('');
   const [paidOn, setPaidOn] = useState(todayISO());
+  const [proof, setProof] = useState<File | null>(null);
+  const [remarks, setRemarks] = useState('');
   const form = useSubmit();
   useEffect(() => {
     if (!open) return;
     setReference('');
     setPaidOn(todayISO());
+    setProof(null);
+    setRemarks('');
     form.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -668,7 +683,9 @@ export function RecordManualDialog({ payment, open, onOpenChange, onDone }: { pa
   const submit = () =>
     form.run(async () => {
       if (!payment) return;
-      const updated = await paymentsApi.recordManual(payment.id, { reference: reference.trim() || undefined, paidOn });
+      // The proof is stored first; the payment then points at it. A failed upload records nothing.
+      const proofFileId = proof ? await uploadDocumentFile(proof) : undefined;
+      const updated = await paymentsApi.recordManual(payment.id, { reference: reference.trim() || undefined, paidOn, proofFileId, remarks: remarks.trim() || undefined });
       toast.success(t('admin.paymentsApi.recordedToast'));
       onDone(updated);
     });
@@ -690,6 +707,16 @@ export function RecordManualDialog({ payment, open, onOpenChange, onDone }: { pa
             <Label htmlFor="rm-date">{t('admin.paymentsApi.paidOn')}</Label>
             <Input id="rm-date" type="date" value={paidOn} max={todayISO()} onChange={(e) => setPaidOn(e.target.value)} />
             <FieldError>{form.fieldErrors.paidOn}</FieldError>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="rm-proof">{t('admin.paymentsApi.proof')}</Label>
+            <Input id="rm-proof" type="file" accept={PROOF_ACCEPT} onChange={(e) => setProof(e.target.files?.[0] ?? null)} />
+            <p className="text-xs text-muted-foreground">{t('admin.paymentsApi.proofHint')}</p>
+            <FieldError>{form.fieldErrors.proofFileId}</FieldError>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="rm-remarks">{t('admin.paymentsApi.remarks')}</Label>
+            <Textarea id="rm-remarks" value={remarks} maxLength={1000} rows={2} onChange={(e) => setRemarks(e.target.value)} />
           </div>
           <FormError message={form.error} />
           <Footer busy={form.busy} onCancel={() => onOpenChange(false)} label={t('admin.paymentsApi.recordPaid')} />

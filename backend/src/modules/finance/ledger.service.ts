@@ -151,7 +151,7 @@ export class LedgerService {
   }
 
   async list(companyId: string, query: LedgerQuery): Promise<Page<LedgerRow> & { totals: { income: string; expense: string; net: string } }> {
-    const where = this.where(companyId, query);
+    const where = await this.where(companyId, query);
     const [rows, byDirection] = await Promise.all([
       this.prisma.financeLedgerEntry.findMany({
         where,
@@ -212,9 +212,22 @@ export class LedgerService {
     };
   }
 
-  private where(companyId: string, query: LedgerQuery): Prisma.FinanceLedgerEntryWhereInput {
+  /**
+   * Search covers the line's description, the employee's name or code, the vehicle's number and a
+   * hand entry's reference or notes — resolved to ids first (each a bounded lookup), so the ledger
+   * query itself stays a plain indexed scan.
+   */
+  private async where(companyId: string, query: LedgerQuery): Promise<Prisma.FinanceLedgerEntryWhereInput> {
     const range = dateRangeFilter(query);
     const q = query.q?.trim();
+    const contains = q ? { contains: q, mode: Prisma.QueryMode.insensitive } : undefined;
+    const [employees, vehicles, manual] = q && contains
+      ? await Promise.all([
+          this.prisma.employee.findMany({ where: { companyId, OR: [{ fullName: contains }, { employeeCode: contains }] }, select: { id: true }, take: 200 }),
+          this.prisma.vehicle.findMany({ where: { companyId, registrationNumber: { contains: q.replace(/\s+/g, ' '), mode: Prisma.QueryMode.insensitive } }, select: { id: true }, take: 200 }),
+          this.prisma.manualLedgerEntry.findMany({ where: { companyId, OR: [{ reference: contains }, { remarks: contains }] }, select: { id: true }, take: 200 }),
+        ])
+      : [[], [], []];
     return {
       companyId,
       ...(range ? { transactionDate: range } : {}),
@@ -222,7 +235,16 @@ export class LedgerService {
       ...(query.direction ? { direction: query.direction } : {}),
       ...(query.vehicleId ? { vehicleId: query.vehicleId } : {}),
       ...(query.employeeId ? { employeeId: query.employeeId } : {}),
-      ...(q ? { description: { contains: q, mode: Prisma.QueryMode.insensitive } } : {}),
+      ...(contains
+        ? {
+            OR: [
+              { description: contains },
+              ...(employees.length ? [{ employeeId: { in: employees.map((e) => e.id) } }] : []),
+              ...(vehicles.length ? [{ vehicleId: { in: vehicles.map((v) => v.id) } }] : []),
+              ...(manual.length ? [{ sourceType: LedgerSourceType.MANUAL, sourceId: { in: manual.map((m) => m.id) } }] : []),
+            ],
+          }
+        : {}),
     };
   }
 }

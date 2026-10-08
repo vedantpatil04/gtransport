@@ -25,7 +25,7 @@ export class HealthController {
     return {
       name: 'Gangamata Transport API',
       status: 'online',
-      message: 'REST API server is running. Open http://localhost:5173 for the web application or http://localhost:8081 for mobile.',
+      message: 'REST API server is running. The office console and the phone app use it under /api/v1.',
       endpoints: {
         health: '/health',
         api: '/api/v1',

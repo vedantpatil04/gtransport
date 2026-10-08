@@ -1,36 +1,46 @@
+import { lazy, Suspense } from 'react';
+import { PageLoading } from '@/components/PageLoading';
 import { generatePath, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { DriverLayout } from '@/layouts/DriverLayout';
-import { DriverHome } from '@/features/driver/pages/DriverHome';
-import { AddFuel } from '@/features/driver/pages/AddFuel';
-import { Updates } from '@/features/driver/pages/Updates';
-import { DriverPayments, DriverPaymentDetail } from '@/features/driver/pages/Payments';
-import { DriverDocuments, DriverDocumentDetail } from '@/features/driver/pages/Documents';
-import { DriverProfile } from '@/features/driver/pages/Profile';
-import { DriverNotifications } from '@/features/driver/pages/DriverNotifications';
 import { AdminLayout } from '@/layouts/AdminLayout';
-import { Dashboard } from '@/features/admin/pages/Dashboard';
-import { Fleet } from '@/features/admin/pages/Fleet';
-import { EmployeesPage } from '@/features/admin/pages/EmployeesPage';
-import { DriversPage } from '@/features/admin/pages/DriversPage';
-import { DriverDetail } from '@/features/admin/pages/DriverDetail';
-import { VehiclesPage, VehicleDetail } from '@/features/admin/pages/VehiclesPage';
-import { FuelPage } from '@/features/admin/pages/FuelPage';
-import { LedgerPage } from '@/features/admin/pages/LedgerPage';
-import { SalariesAdvancesPage } from '@/features/admin/pages/SalariesAdvancesPage';
-import { ExpensesPage } from '@/features/admin/pages/ExpensesPage';
-import { PaymentsPage } from '@/features/admin/pages/PaymentsPage';
-import { DocumentsPage } from '@/features/admin/pages/DocumentsPage';
-import { ReportsPage } from '@/features/admin/pages/ReportsPage';
-import { InboxPage } from '@/features/admin/pages/InboxPage';
-import { CalculatorPage } from '@/features/admin/pages/CalculatorPage';
-import { NotificationsPage } from '@/features/admin/pages/NotificationsPage';
-import { SettingsPage } from '@/features/admin/pages/SettingsPage';
 import { useApp } from '@/store';
 import { isApiConfigured } from '@/features/api/mode';
 import { navFor, useAdminRole, useCanOpen } from '@/features/admin/access';
 import type { AdminNavKey } from '@/features/admin/nav';
 import { NoAccessState } from '@/features/admin/components/states';
 import { DriverAppNotice } from '@/features/driver/DriverAppNotice';
+
+/**
+ * Pages load when first opened, not with the app: the console's first paint (and the phone app's
+ * WebView) only pays for the screen being shown. Layouts stay eager — they are the shell.
+ */
+const DriverHome = lazy(() => import('@/features/driver/pages/DriverHome').then((m) => ({ default: m.DriverHome })));
+const AddFuel = lazy(() => import('@/features/driver/pages/AddFuel').then((m) => ({ default: m.AddFuel })));
+const Updates = lazy(() => import('@/features/driver/pages/Updates').then((m) => ({ default: m.Updates })));
+const DriverPayments = lazy(() => import('@/features/driver/pages/Payments').then((m) => ({ default: m.DriverPayments })));
+const DriverPaymentDetail = lazy(() => import('@/features/driver/pages/Payments').then((m) => ({ default: m.DriverPaymentDetail })));
+const DriverDocuments = lazy(() => import('@/features/driver/pages/Documents').then((m) => ({ default: m.DriverDocuments })));
+const DriverDocumentDetail = lazy(() => import('@/features/driver/pages/Documents').then((m) => ({ default: m.DriverDocumentDetail })));
+const DriverProfile = lazy(() => import('@/features/driver/pages/Profile').then((m) => ({ default: m.DriverProfile })));
+const DriverNotifications = lazy(() => import('@/features/driver/pages/DriverNotifications').then((m) => ({ default: m.DriverNotifications })));
+const Dashboard = lazy(() => import('@/features/admin/pages/Dashboard').then((m) => ({ default: m.Dashboard })));
+const Fleet = lazy(() => import('@/features/admin/pages/Fleet').then((m) => ({ default: m.Fleet })));
+const EmployeesPage = lazy(() => import('@/features/admin/pages/EmployeesPage').then((m) => ({ default: m.EmployeesPage })));
+const DriversPage = lazy(() => import('@/features/admin/pages/DriversPage').then((m) => ({ default: m.DriversPage })));
+const DriverDetail = lazy(() => import('@/features/admin/pages/DriverDetail').then((m) => ({ default: m.DriverDetail })));
+const VehiclesPage = lazy(() => import('@/features/admin/pages/VehiclesPage').then((m) => ({ default: m.VehiclesPage })));
+const VehicleDetail = lazy(() => import('@/features/admin/pages/VehiclesPage').then((m) => ({ default: m.VehicleDetail })));
+const FuelPage = lazy(() => import('@/features/admin/pages/FuelPage').then((m) => ({ default: m.FuelPage })));
+const LedgerPage = lazy(() => import('@/features/admin/pages/LedgerPage').then((m) => ({ default: m.LedgerPage })));
+const SalariesAdvancesPage = lazy(() => import('@/features/admin/pages/SalariesAdvancesPage').then((m) => ({ default: m.SalariesAdvancesPage })));
+const ExpensesPage = lazy(() => import('@/features/admin/pages/ExpensesPage').then((m) => ({ default: m.ExpensesPage })));
+const PaymentsPage = lazy(() => import('@/features/admin/pages/PaymentsPage').then((m) => ({ default: m.PaymentsPage })));
+const DocumentsPage = lazy(() => import('@/features/admin/pages/DocumentsPage').then((m) => ({ default: m.DocumentsPage })));
+const ReportsPage = lazy(() => import('@/features/admin/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
+const InboxPage = lazy(() => import('@/features/admin/pages/InboxPage').then((m) => ({ default: m.InboxPage })));
+const CalculatorPage = lazy(() => import('@/features/admin/pages/CalculatorPage').then((m) => ({ default: m.CalculatorPage })));
+const NotificationsPage = lazy(() => import('@/features/admin/pages/NotificationsPage').then((m) => ({ default: m.NotificationsPage })));
+const SettingsPage = lazy(() => import('@/features/admin/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 
 function RootRedirect() {
   const role = useApp((s) => s.role);
@@ -65,6 +75,7 @@ function FinanceIndex() {
 
 export function AppRoutes() {
   return (
+    <Suspense fallback={<PageLoading />}>
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       {isApiConfigured() ? (
@@ -128,5 +139,6 @@ export function AppRoutes() {
       </Route>
       <Route path="*" element={<RootRedirect />} />
     </Routes>
+    </Suspense>
   );
 }

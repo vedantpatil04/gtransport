@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { FinanceController } from './finance.controller';
 import { LedgerService } from './ledger.service';
+import { ManualLedgerService } from './manual-ledger.service';
 import { PayrollService } from './payroll.service';
 import { VehicleFinanceController } from './vehicle-finance.controller';
 import { VehicleFinanceService } from './vehicle-finance.service';
@@ -12,7 +13,7 @@ import { VehicleFinanceService } from './vehicle-finance.service';
  */
 @Module({
   controllers: [FinanceController, VehicleFinanceController],
-  providers: [LedgerService, PayrollService, VehicleFinanceService],
+  providers: [LedgerService, ManualLedgerService, PayrollService, VehicleFinanceService],
   exports: [LedgerService],
 })
 export class FinanceModule {}
