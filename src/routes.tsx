@@ -9,6 +9,8 @@ import { navFor, useAdminRole, useCanOpen } from '@/features/admin/access';
 import type { AdminNavKey } from '@/features/admin/nav';
 import { NoAccessState } from '@/features/admin/components/states';
 import { DriverAppNotice } from '@/features/driver/DriverAppNotice';
+import { inNativeApp } from '@/features/api/handoff';
+import { LandingPage } from '@/features/landing/LandingPage';
 
 /**
  * Pages load when first opened, not with the app: the console's first paint (and the phone app's
@@ -50,6 +52,17 @@ function RootRedirect() {
   return <Navigate to={lastRoute[role] || `/${role}`} replace />;
 }
 
+/**
+ * The public home page. The phone app opens its office console at this very address (`/#handoff=…`,
+ * see features/api/handoff), so inside the app "/" goes straight to the console exactly as it always
+ * did; only an ordinary browser sees the landing page. The prototype demo (no API) keeps its own entry.
+ */
+function Home() {
+  if (!isApiConfigured()) return <RootRedirect />;
+  if (inNativeApp()) return <Navigate to="/admin" replace />;
+  return <LandingPage />;
+}
+
 /** A screen the signed-in role may not open shows so; the API would refuse it anyway. */
 function RequireModule({ module, children }: { module: AdminNavKey; children: React.ReactElement }) {
   return useCanOpen(module) ? children : <NoAccessState />;
@@ -77,7 +90,7 @@ export function AppRoutes() {
   return (
     <Suspense fallback={<PageLoading />}>
     <Routes>
-      <Route path="/" element={<RootRedirect />} />
+      <Route path="/" element={<Home />} />
       {isApiConfigured() ? (
         <Route path="/driver/*" element={<DriverAppNotice />} />
       ) : (

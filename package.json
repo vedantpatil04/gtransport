@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "i18n:check": "node scripts/check-i18n.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:apk": "node scripts/verify-driver-apk.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -24,11 +24,14 @@ export function Logo({
   size = 'default',
   compact = false,
   className,
+  markSrc = '/branding/gangamata-mark.png',
 }: {
   tone?: 'dark' | 'light';
   size?: 'sm' | 'default' | 'lg';
   compact?: boolean;
   className?: string;
+  /** The same mark at another resolution, for pages where the full-size file is wasted bytes. */
+  markSrc?: string;
 }) {
   if (compact) {
     return <LogoMark className={className} />;
@@ -58,7 +61,7 @@ export function Logo({
   return (
     <div className={cn('inline-flex items-center gap-2.5', className)}>
       <img
-        src="/branding/gangamata-mark.png"
+        src={markSrc}
         alt="Gangamata Transport Mark"
         className={cn('w-auto shrink-0 object-contain drop-shadow-sm', markHeight)}
       />
