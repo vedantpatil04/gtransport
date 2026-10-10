@@ -8,6 +8,7 @@ dist-demo
 # Public production build settings (no secrets): see the file's header.
 !.env.production
 *.local
+*.apk
 .DS_Store
 Thumbs.db
 

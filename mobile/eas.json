@@ -24,6 +24,18 @@
         "EXPO_PUBLIC_API_URL": "https://gtransport-7vgf.onrender.com",
         "EXPO_PUBLIC_ADMIN_WEB_URL": "https://gtransportt.vercel.app"
       }
+    },
+    "client-apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "credentialsSource": "remote",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://gtransport-7vgf.onrender.com",
+        "EXPO_PUBLIC_ADMIN_WEB_URL": "https://gtransportt.vercel.app"
+      }
     }
   }
 }

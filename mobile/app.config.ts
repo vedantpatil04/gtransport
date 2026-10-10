@@ -57,6 +57,7 @@ const withAndroidSharedCppPlugin: ConfigPlugin = (config) => {
 const config: ExpoConfig = {
   name: 'Gangamata Transport',
   slug: 'gangamata-transport-driver',
+  owner: 'vedantrpatil',
   scheme: 'gangamata',
   version: '0.1.0',
   orientation: 'portrait',
@@ -134,6 +135,9 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true },
 
   extra: {
+    eas: {
+      projectId: '41e0e13a-8e71-405f-9e03-2f15952d6455',
+    },
     apiUrl: API_URL,
     adminWebUrl: ADMIN_WEB_URL,
     /** development | staging | production — drives non-secret behaviour such as logging. */

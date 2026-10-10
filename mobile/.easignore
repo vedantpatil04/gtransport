@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Generated native folders
+android/
+ios/
+**/android/
+**/ios/
+
+# Gradle and build outputs
+.gradle/
+**/.gradle/
+**/build/
+build/
+dist/
+**/dist/
+
+# Entire Backend & Documentation
+backend/
+**/backend/
+../backend/
+../docs/
+../docker/
+../.claude/
+
+# Expo caches & outputs
+.expo/
+**/.expo/
+web-build/
+expo-env.d.ts
+*.tsbuildinfo
+
+# Keystores & sensitive keys
+*.keystore
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+
+# Local environment files & secrets
+.env
+.env.*
+!.env.example
+.env*.local
+
+# OS & debug files
+.DS_Store
+Thumbs.db
+npm-debug.*
+yarn-debug.*
+yarn-error.*
