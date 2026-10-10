@@ -18,8 +18,9 @@ export const DRIVER_APP = {
   minAndroid: '7.0',
   sizeBytes: 146_532_684,
   sha256: '4def6f4d0b460c1fcc2cae7b0ce518324f587ed087f7194d0b1a366fed794107',
-  fileName: 'gangamata-transport.apk',
+  fileName: 'gangamata-driver-release.apk',
   downloadPath: '/downloads/gangamata-transport.apk',
+  releaseUrl: 'https://github.com/vedantpatil04/GangamataTransport/releases/download/driver-v0.1.0/gangamata-driver-release.apk',
 } as const;
 
 /** "139.7 MB" — megabytes as phones and file managers count them (1 MB = 1,048,576 bytes). */

@@ -2,7 +2,7 @@
   "redirects": [
     {
       "source": "/downloads/gangamata-transport.apk",
-      "destination": "https://github.com/vedantpatil04/gtransport/releases/download/driver-v0.1.0/gangamata-transport.apk",
+      "destination": "https://github.com/vedantpatil04/GangamataTransport/releases/download/driver-v0.1.0/gangamata-driver-release.apk",
       "permanent": false
     }
   ],

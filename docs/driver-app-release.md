@@ -6,7 +6,7 @@ Drivers install the app from the public home page, <https://gtransportt.vercel.a
 https://gtransportt.vercel.app/downloads/gangamata-transport.apk
 ```
 
-That address is a Vercel redirect (`vercel.json`) to a **GitHub Release asset** on the public repository `vedantpatil04/gtransport`. The file itself is stored there rather than on Vercel because it is 139.7 MB: Vercel's limit is 100 MB per upload, and GitHub refuses any file over 100 MB in git. Release assets allow up to 2 GB. Nothing else (no server, no storage account) is involved.
+That address is a Vercel redirect (`vercel.json`) to a **GitHub Release asset** on the public release repository `vedantpatil04/GangamataTransport`. The file itself is stored there rather than on Vercel because it is 139.7 MB: Vercel's limit is 100 MB per upload, and GitHub refuses any file over 100 MB in git. Release assets allow up to 2 GB. Nothing else (no server, no storage account) is involved.
 
 The file is **not** in git (`mobile/.gitignore` ignores `*.apk`).
 
@@ -14,7 +14,7 @@ The file is **not** in git (`mobile/.gitignore` ignores `*.apk`).
 
 | | |
 |---|---|
-| File | `gangamata-transport.apk` — 146,532,684 bytes (139.7 MB) |
+| File | `gangamata-driver-release.apk` — 146,532,684 bytes (139.7 MB) |
 | SHA-256 | `4def6f4d0b460c1fcc2cae7b0ce518324f587ed087f7194d0b1a366fed794107` |
 | Package / version | `in.gangamatatransport.driver` · 0.1.0 · versionCode 1 |
 | Android | 7.0 (API 24) and newer; arm64-v8a, armeabi-v7a, x86, x86_64 |
@@ -26,9 +26,9 @@ These are recorded in `src/features/landing/driverApp.ts`, which the home page s
 
 ## Publish a release
 
-1. On GitHub, open `vedantpatil04/gtransport` → **Releases** → **Draft a new release**.
+1. On GitHub, open `vedantpatil04/GangamataTransport` → **Releases** → **Draft a new release**.
 2. Tag **`driver-v0.1.0`** (create it on publish), title *Gangamata Transport Driver app 0.1.0*.
-3. Attach the file **named exactly `gangamata-transport.apk`** (the name is part of the address).
+3. Attach the file **named `gangamata-driver-release.apk`** (matching the release repository asset).
 4. Publish (a pre-release is fine; the address uses the tag, not "latest").
 5. Check it from your own computer:
 

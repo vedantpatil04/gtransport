@@ -48,7 +48,7 @@ describe('public home page', () => {
 
     const download = screen.getByTestId('landing-download');
     expect(download.getAttribute('href')).toBe('/downloads/gangamata-transport.apk');
-    expect(download.getAttribute('download')).toBe('gangamata-transport.apk');
+    expect(download.getAttribute('download')).toBe('gangamata-driver-release.apk');
     expect(download.textContent).toMatch(/Driver\? Download Android App/);
   });
 
@@ -144,7 +144,7 @@ describe('Vercel routing for the download', () => {
     expect(redirect).toBeDefined();
     const target = new URL(redirect!.destination);
     expect(target.origin).toBe('https://github.com');
-    expect(target.pathname).toMatch(/^\/vedantpatil04\/gtransport\/releases\/download\/driver-v[\d.]+\/gangamata-transport\.apk$/);
+    expect(target.pathname).toMatch(/^\/vedantpatil04\/GangamataTransport\/releases\/download\/driver-v[\d.]+\/gangamata-driver-release\.apk$/);
     // Temporary, so a new release (or another host) can replace it without browsers remembering the old one.
     expect(redirect!.permanent).toBe(false);
   });

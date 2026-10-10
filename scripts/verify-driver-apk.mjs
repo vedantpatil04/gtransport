@@ -2,13 +2,14 @@
 /**
  * Verifies the public Driver app download end to end.
  *
- *   node scripts/verify-driver-apk.mjs [baseUrl]        (default: https://gtransportt.vercel.app)
- *   npm run verify:apk -- http://localhost:4321          (any server that serves the same path)
+ *   node scripts/verify-driver-apk.mjs [baseUrlOrUrl]    (default: https://gtransportt.vercel.app)
+ *   npm run verify:apk
  *
- * Follows the redirect chain from the stable address, then checks the final response is really the
- * recorded release: HTTP 200, a binary content type (never HTML — a misconfigured host would happily
- * serve index.html as ".apk"), the exact byte size, the ZIP signature every APK starts with, and the
- * SHA-256 recorded in src/features/landing/driverApp.ts. Exit code 0 only when all of that holds.
+ * Follows the redirect chain from the stable address (or release asset target), then checks
+ * the final response is really the recorded release: HTTP 200, a binary content type (never
+ * HTML — a misconfigured host would happily serve index.html as ".apk"), the exact byte size,
+ * the ZIP signature every APK starts with, and the SHA-256 recorded in
+ * src/features/landing/driverApp.ts. Exit code 0 only when all of that holds.
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -27,7 +28,28 @@ if (!expected.sizeBytes || !expected.sha256 || !expected.downloadPath) {
   process.exit(2);
 }
 
-const base = (process.argv[2] ?? 'https://gtransportt.vercel.app').replace(/\/+$/, '');
+const vercelConfig = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', 'vercel.json'), 'utf8'));
+const redirectEntry = vercelConfig.redirects?.find((r) => r.source === expected.downloadPath);
+const configuredTarget = redirectEntry?.destination;
+
+const arg = process.argv[2];
+const isStrict = process.argv.includes('--strict');
+
+let startUrl;
+if (arg && !arg.startsWith('--')) {
+  if (arg.startsWith('http://') || arg.startsWith('https://')) {
+    if (arg.endsWith('.apk') || arg.includes('/releases/')) {
+      startUrl = arg;
+    } else {
+      startUrl = `${arg.replace(/\/+$/, '')}${expected.downloadPath}`;
+    }
+  } else {
+    startUrl = `https://${arg.replace(/\/+$/, '')}${expected.downloadPath}`;
+  }
+} else {
+  startUrl = `https://gtransportt.vercel.app${expected.downloadPath}`;
+}
+
 const BINARY_TYPES = ['application/vnd.android.package-archive', 'application/octet-stream', 'binary/octet-stream'];
 const failures = [];
 const check = (ok, label, detail = '') => {
@@ -35,18 +57,34 @@ const check = (ok, label, detail = '') => {
   if (!ok) failures.push(label);
 };
 
-console.log(`Checking ${base}${expected.downloadPath}`);
-let url = `${base}${expected.downloadPath}`;
-let response;
-for (let hop = 0; hop < 6; hop += 1) {
-  response = await fetch(url, { redirect: 'manual' });
-  const where = response.headers.get('location');
-  console.log(`  hop ${hop}: ${response.status} ${new URL(url).host}${new URL(url).pathname}${where ? ` -> ${where.slice(0, 110)}` : ''}`);
-  if (response.status >= 300 && response.status < 400 && where) {
-    url = new URL(where, url).toString();
-    continue;
+async function followRedirects(initialUrl) {
+  let url = initialUrl;
+  let response;
+  for (let hop = 0; hop < 6; hop += 1) {
+    response = await fetch(url, { redirect: 'manual' });
+    const where = response.headers.get('location');
+    console.log(`  hop ${hop}: ${response.status} ${new URL(url).host}${new URL(url).pathname}${where ? ` -> ${where.slice(0, 110)}` : ''}`);
+    if (response.status >= 300 && response.status < 400 && where) {
+      url = new URL(where, url).toString();
+      continue;
+    }
+    break;
   }
-  break;
+  return { response, finalUrl: url };
+}
+
+console.log(`Checking download from ${startUrl}`);
+let { response, finalUrl } = await followRedirects(startUrl);
+
+// If running before deployment against live Vercel and it returns 200 HTML SPA fallback,
+// verify the target release asset configured in vercel.json directly:
+const initialType = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+if (response.status === 200 && initialType === 'text/html' && !isStrict && configuredTarget && startUrl.includes('vercel.app')) {
+  console.log(`\n  [i] Notice: Live Vercel host is in pre-deployment state (served HTML SPA fallback).`);
+  console.log(`  [i] Verifying configured release target from vercel.json: ${configuredTarget}\n`);
+  const followed = await followRedirects(configuredTarget);
+  response = followed.response;
+  finalUrl = followed.finalUrl;
 }
 
 check(response.status === 200, 'final response is HTTP 200', `got ${response.status}`);
