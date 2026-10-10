@@ -314,14 +314,8 @@ export class DocumentsService {
     verificationStatus: DocumentVerificationStatus,
   ): Promise<{ document: DocumentRow; created: boolean }> {
     if (details.clientSubmissionId) {
-      const replay = await this.prisma.document.findUnique({
-        where: { companyId_clientSubmissionId: { companyId: user.companyId, clientSubmissionId: details.clientSubmissionId } },
-        select: { ...DOCUMENT_VIEW },
-      });
-      if (replay) {
-        if (replay.createdById !== user.id) throw new ForbiddenException('That submission belongs to someone else.');
-        return { document: replay, created: false };
-      }
+      const replay = await this.findReplay(user, details.clientSubmissionId);
+      if (replay) return { document: replay, created: false };
     }
 
     if (details.fileId) await this.assertFileUsable(user, details.fileId);
@@ -330,65 +324,78 @@ export class DocumentsService {
     if (issueDate && expiryDate && issueDate > expiryDate) throw new BadRequestException('The issue date must be on or before the expiry date.');
     const isVerified = verificationStatus === DocumentVerificationStatus.VERIFIED;
 
-    const { document, previous } = await this.prisma.$transaction(async (tx) => {
-      // "Other" documents coexist; every other type has exactly one current version per owner.
-      const previousDoc =
-        owner.type === DocumentType.OTHER
-          ? null
-          : await tx.document.findFirst({
-              where: {
-                companyId: user.companyId,
-                type: owner.type,
-                state: DocumentState.CURRENT,
-                deletedAt: null,
-                ...(owner.vehicleId ? { vehicleId: owner.vehicleId } : { employeeId: owner.employeeId }),
-              },
-              select: { id: true, fileId: true, expiryDate: true },
-            });
+    let saved: { document: DocumentRow; previous: { id: string; fileId: string | null; expiryDate: Date | null } | null };
+    try {
+      saved = await this.prisma.$transaction(async (tx) => {
+        // "Other" documents coexist; every other type has exactly one current version per owner.
+        const previousDoc =
+          owner.type === DocumentType.OTHER
+            ? null
+            : await tx.document.findFirst({
+                where: {
+                  companyId: user.companyId,
+                  type: owner.type,
+                  state: DocumentState.CURRENT,
+                  deletedAt: null,
+                  ...(owner.vehicleId ? { vehicleId: owner.vehicleId } : { employeeId: owner.employeeId }),
+                },
+                select: { id: true, fileId: true, expiryDate: true },
+              });
 
-      const now = new Date();
-      if (previousDoc) {
-        await tx.document.update({ where: { id: previousDoc.id }, data: { state: DocumentState.SUPERSEDED, supersededAt: now, updatedById: user.id } });
-      }
+        const now = new Date();
+        if (previousDoc) {
+          await tx.document.update({ where: { id: previousDoc.id }, data: { state: DocumentState.SUPERSEDED, supersededAt: now, updatedById: user.id } });
+        }
 
-      const created = await tx.document.create({
-        data: {
-          companyId: user.companyId,
-          type: owner.type,
-          ownerType: owner.ownerType,
-          vehicleId: owner.vehicleId,
-          employeeId: owner.employeeId,
-          customName: details.customName?.trim() || null,
-          documentNumber: details.documentNumber?.trim() || null,
-          issuer: details.issuer?.trim() || null,
-          issueDate,
-          expiryDate,
-          amount: details.amount ?? null,
-          fileId: details.fileId ?? null,
-          notes: details.notes?.trim() || null,
-          clientSubmissionId: details.clientSubmissionId ?? null,
-          verificationStatus,
-          ...(isVerified ? { verifiedAt: now, verifiedById: user.id } : {}),
-          createdById: user.id,
-          updatedById: user.id,
-        },
-        select: DOCUMENT_VIEW,
+        const created = await tx.document.create({
+          data: {
+            companyId: user.companyId,
+            type: owner.type,
+            ownerType: owner.ownerType,
+            vehicleId: owner.vehicleId,
+            employeeId: owner.employeeId,
+            customName: details.customName?.trim() || null,
+            documentNumber: details.documentNumber?.trim() || null,
+            issuer: details.issuer?.trim() || null,
+            issueDate,
+            expiryDate,
+            amount: details.amount ?? null,
+            fileId: details.fileId ?? null,
+            notes: details.notes?.trim() || null,
+            clientSubmissionId: details.clientSubmissionId ?? null,
+            verificationStatus,
+            ...(isVerified ? { verifiedAt: now, verifiedById: user.id } : {}),
+            createdById: user.id,
+            updatedById: user.id,
+          },
+          select: DOCUMENT_VIEW,
+        });
+
+        if (previousDoc) {
+          await tx.document.update({ where: { id: previousDoc.id }, data: { supersededById: created.id } });
+        }
+        // A tyre-insurance premium is money spent: it goes into the finance ledger with the policy.
+        // (A superseded policy's premium stays in the ledger — it was genuinely paid.)
+        if (created.type === DocumentType.TYRE_INSURANCE) {
+          await this.ledger.syncSource(
+            tx,
+            { companyId: user.companyId, sourceType: LedgerSourceType.DOCUMENT, sourceId: created.id, actorId: user.id },
+            premiumPosting({ ...created, archived: false }),
+          );
+        }
+        return { document: created, previous: previousDoc };
       });
-
-      if (previousDoc) {
-        await tx.document.update({ where: { id: previousDoc.id }, data: { supersededById: created.id } });
+    } catch (error) {
+      // Two sends of the same submission overlapped (a double tap, or a phone retrying while the first
+      // request was still running on a slow server): the unique key let one in and stopped the other.
+      // The second is a repeat, so it gets the document the first stored — not a conflict error.
+      if (details.clientSubmissionId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const replay = await this.findReplay(user, details.clientSubmissionId);
+        if (replay) return { document: replay, created: false };
       }
-      // A tyre-insurance premium is money spent: it goes into the finance ledger with the policy.
-      // (A superseded policy's premium stays in the ledger — it was genuinely paid.)
-      if (created.type === DocumentType.TYRE_INSURANCE) {
-        await this.ledger.syncSource(
-          tx,
-          { companyId: user.companyId, sourceType: LedgerSourceType.DOCUMENT, sourceId: created.id, actorId: user.id },
-          premiumPosting({ ...created, archived: false }),
-        );
-      }
-      return { document: created, previous: previousDoc };
-    });
+      throw error;
+    }
+    const { document, previous } = saved;
 
     await this.record(user, previous ? 'document.replaced' : 'document.uploaded', document, {
       fileId: document.fileId,
@@ -401,6 +408,17 @@ export class DocumentsService {
   }
 
   // ───────────────────────────── Helpers ─────────────────────────────
+
+  /** The document an earlier send of this submission stored, if there is one — and only for the person who sent it. */
+  private async findReplay(user: AuthenticatedUser, clientSubmissionId: string): Promise<DocumentRow | null> {
+    const replay = await this.prisma.document.findUnique({
+      where: { companyId_clientSubmissionId: { companyId: user.companyId, clientSubmissionId } },
+      select: { ...DOCUMENT_VIEW },
+    });
+    if (!replay) return null;
+    if (replay.createdById !== user.id) throw new ForbiddenException('That submission belongs to someone else.');
+    return replay;
+  }
 
   private matrix(types: DocumentType[], current: DocumentRow[]): ComplianceItem[] {
     const today = todayInIndia();

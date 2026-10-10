@@ -5,13 +5,15 @@ import { Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, View }
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { AppText, Card, ErrorView, Loading } from '../../components/ui';
-import { discardEntry, KIND, toPendingEntry, type PendingEntry } from '../../features/daily/submissions';
+import { PendingEntryCard } from '../../features/daily/PendingEntryCard';
+import { KIND } from '../../features/daily/submissions';
+import { usePendingEntries } from '../../features/daily/usePendingEntries';
 import { ApiError } from '../../lib/api/client';
 import { fuelApi, receiptSource } from '../../lib/api/operations';
 import { useSession } from '../../lib/auth/session-store';
 import { daysAgoIso, displayDate, monthStartIso, todayIso } from '../../lib/dates';
 import { quantity, rupees } from '../../lib/format';
-import { offlineQueue } from '../../lib/offline/queue';
+import { requestSync } from '../../lib/offline/sync';
 import { colors, radius, spacing, TOUCH_TARGET } from '../../theme/tokens';
 import type { FuelEntry, FuelTotals } from '../../types/domain';
 
@@ -33,7 +35,7 @@ export default function FuelHistoryScreen() {
   const [range, setRange] = useState<Range>('today');
   const [entries, setEntries] = useState<FuelEntry[] | null>(null);
   const [totals, setTotals] = useState<FuelTotals | null>(null);
-  const [pending, setPending] = useState<PendingEntry[]>([]);
+  const pending = usePendingEntries(KIND.fuel);
   const [error, setError] = useState<ApiError | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [receipt, setReceipt] = useState<FuelEntry | null>(null);
@@ -55,18 +57,9 @@ export default function FuelHistoryScreen() {
     void load();
   }, [load]);
 
-  // Entries still on the phone, updated live as the queue syncs.
-  useEffect(
-    () =>
-      offlineQueue.subscribe((items) =>
-        setPending(items.map(toPendingEntry).filter((entry): entry is PendingEntry => entry?.kind === KIND.fuel)),
-      ),
-    [],
-  );
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await offlineQueue.drain();
+    await requestSync('manual');
     await load();
     setRefreshing(false);
   };
@@ -110,24 +103,7 @@ export default function FuelHistoryScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={colors.primary} />}
         >
           {pending.map((entry) => (
-            <Card key={entry.id} style={[styles.entry, entry.state === 'REJECTED' ? styles.rejected : styles.pending]}>
-              <View style={styles.entryRow}>
-                <View style={styles.flexText}>
-                  <AppText variant="h2">{rupees(entry.amount)}</AppText>
-                  <AppText tone="muted" numberOfLines={1}>
-                    {entry.label} · {displayDate(entry.date, i18n.language)}
-                  </AppText>
-                </View>
-                <AppText variant="label" tone={entry.state === 'REJECTED' ? 'danger' : 'warning'}>
-                  {entry.state === 'REJECTED' ? t('daily.rejected') : t('daily.pendingSync')}
-                </AppText>
-              </View>
-              {entry.state === 'REJECTED' ? (
-                <Pressable accessibilityRole="button" onPress={() => void discardEntry(entry.id)} style={styles.discard}>
-                  <AppText tone="danger">{t('daily.discard')}</AppText>
-                </Pressable>
-              ) : null}
-            </Card>
+            <PendingEntryCard key={entry.id} entry={entry} />
           ))}
 
           {totals ? (
@@ -216,9 +192,6 @@ const styles = StyleSheet.create({
   totals: { gap: spacing.xs },
   entry: { gap: spacing.sm },
   entryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  pending: { borderLeftWidth: 4, borderLeftColor: colors.warning },
-  rejected: { borderLeftWidth: 4, borderLeftColor: colors.danger },
-  discard: { minHeight: TOUCH_TARGET, justifyContent: 'center' },
   receiptButton: { minHeight: TOUCH_TARGET, justifyContent: 'center', paddingHorizontal: spacing.sm },
   empty: { textAlign: 'center', marginTop: spacing.xl },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },

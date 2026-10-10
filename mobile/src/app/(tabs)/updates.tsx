@@ -1,14 +1,12 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { AppText, Card } from '../../components/ui';
+import { PendingEntryCard } from '../../features/daily/PendingEntryCard';
 import { ServiceReceiptStatus } from '../../features/daily/ServiceReceiptStatus';
-import { toPendingEntry, type PendingEntry } from '../../features/daily/submissions';
-import { displayDate } from '../../lib/dates';
-import { offlineQueue } from '../../lib/offline/queue';
+import { usePendingEntries } from '../../features/daily/usePendingEntries';
 import { colors, radius, shadow, spacing, TOUCH_TARGET } from '../../theme/tokens';
 
 /**
@@ -24,15 +22,10 @@ const SECONDARY = [
 ] as const;
 
 export default function UpdatesScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [pending, setPending] = useState<PendingEntry[]>([]);
-
-  useEffect(
-    () => offlineQueue.subscribe((items) => setPending(items.map(toPendingEntry).filter((entry): entry is PendingEntry => entry !== null))),
-    [],
-  );
+  const pending = usePendingEntries();
 
   return (
     <View style={styles.flex}>
@@ -87,17 +80,7 @@ export default function UpdatesScreen() {
           <View style={{ gap: spacing.sm }}>
             <AppText variant="h2">{t('daily.recentEntries')}</AppText>
             {pending.map((entry) => (
-              <Card key={entry.id} style={styles.pendingCard}>
-                <View style={styles.flexText}>
-                  <AppText variant="h2">₹{entry.amount.toLocaleString('en-IN')}</AppText>
-                  <AppText tone="muted" numberOfLines={1}>
-                    {displayDate(entry.date, i18n.language)}
-                  </AppText>
-                </View>
-                <AppText variant="label" tone={entry.state === 'REJECTED' ? 'danger' : 'warning'}>
-                  {entry.state === 'REJECTED' ? t('daily.rejected') : t('daily.pendingSync')}
-                </AppText>
-              </Card>
+              <PendingEntryCard key={entry.id} entry={entry} />
             ))}
           </View>
         ) : null}
@@ -140,5 +123,4 @@ const styles = StyleSheet.create({
   },
   tileLabel: { textAlign: 'center' },
   historyLink: { minHeight: TOUCH_TARGET, justifyContent: 'center', alignSelf: 'flex-start' },
-  pendingCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderLeftWidth: 4, borderLeftColor: colors.warning },
 });

@@ -1,6 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,9 +17,37 @@ import { colors, radius, spacing, TOUCH_TARGET } from '../../theme/tokens';
 const TYPES: DocumentType[] = ['RC', 'INSURANCE', 'PUC', 'TYRE_INSURANCE', 'DRIVING_LICENCE'];
 
 /**
+ * What to tell the driver when saving failed. Every message says what is true and what to do next —
+ * and that the file and the details they typed are still here. Server refusals (a wrong file type,
+ * no vehicle assigned) are shown as the server worded them.
+ */
+export function describeUploadFailure(error: unknown, t: TFunction): string {
+  if (error instanceof ApiError) {
+    const reference = error.requestId ? ` ${t('daily.reference', { id: error.requestId.slice(0, 8) })}` : '';
+    switch (error.kind) {
+      case 'file':
+        return t('docs.fileMissing');
+      case 'network':
+        return t('docs.errNetwork');
+      case 'timeout':
+        return t('docs.errTimeout');
+      case 'server':
+        return `${t('docs.errServer')}${reference}`;
+      default:
+        return `${error.message || t('docs.uploadFailed')}${reference}`;
+    }
+  }
+  return error instanceof Error && error.message ? error.message : t('docs.uploadFailed');
+}
+
+/**
  * Upload or replace one document. The original is sent exactly as captured — official documents
  * are never compressed. The owner (vehicle or driver) is set by the server, and the office
  * verifies it afterwards; the driver never marks their own document as verified.
+ *
+ * Saving is two steps — the file to storage, then the document record that points at it — and the
+ * driver sees "Uploaded" only after both. If the second step fails the file is already stored, so
+ * "Try again" re-sends only the record; with the same submission id the server records it once.
  */
 export default function UploadDocumentScreen() {
   const { t } = useTranslation();
@@ -30,6 +59,8 @@ export default function UploadDocumentScreen() {
 
   const [submissionId] = useState(() => randomUUID());
   const [file, setFile] = useState<LocalReceipt | null>(null);
+  /** The stored file's id once step one has succeeded, so a retry does not upload it again. */
+  const [uploadedFileId, setUploadedFileId] = useState<string | null>(null);
   const [expiryDate, setExpiryDate] = useState<string | null>(null);
   const [documentNumber, setDocumentNumber] = useState('');
   const [progress, setProgress] = useState<number | null>(null);
@@ -41,7 +72,9 @@ export default function UploadDocumentScreen() {
     if (result.status === 'ok') {
       discardReceipt(file?.uri);
       setFile(result.receipt);
+      setUploadedFileId(null);
       setMessage(null);
+      setState('idle');
     }
   };
 
@@ -52,7 +85,8 @@ export default function UploadDocumentScreen() {
     setMessage(null);
     setProgress(0);
     try {
-      const fileId = await uploadDocumentFile(token, file, setProgress);
+      const fileId = uploadedFileId ?? (await uploadDocumentFile(token, file, setProgress));
+      setUploadedFileId(fileId);
       await documentsApi.save(token, {
         type,
         fileId,
@@ -63,15 +97,9 @@ export default function UploadDocumentScreen() {
       discardReceipt(file.uri);
       setState('done');
     } catch (error) {
-      // Everything entered stays on screen, so "Try again" repeats the same upload.
+      // Everything entered stays on screen, so "Try again" repeats only what is still missing.
       setState('failed');
-      const userMessage =
-        error instanceof ApiError && error.message
-          ? error.message
-          : error instanceof Error && error.message
-            ? error.message
-            : t('docs.uploadFailed');
-      setMessage(userMessage);
+      setMessage(describeUploadFailure(error, t));
     } finally {
       setProgress(null);
     }

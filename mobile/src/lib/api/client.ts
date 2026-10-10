@@ -4,7 +4,17 @@ import { API_URL, REQUEST_TIMEOUT_MS } from '../config';
  * The single place that talks to the Gangamata API. Components never call fetch directly.
  */
 
-export type ApiErrorKind = 'network' | 'timeout' | 'unauthorized' | 'forbidden' | 'notFound' | 'validation' | 'server' | 'unknown';
+export type ApiErrorKind =
+  | 'network'
+  | 'timeout'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'notFound'
+  | 'validation'
+  | 'server'
+  /** The file the driver chose can no longer be read on this phone (cleared cache, moved or deleted). */
+  | 'file'
+  | 'unknown';
 
 export class ApiError extends Error {
   constructor(
@@ -41,6 +51,8 @@ export interface RequestOptions {
   token?: string | null;
   /** Extra attempts for retryable failures. Only safe for idempotent requests. */
   retries?: number;
+  /** Per-attempt time limit; defaults to REQUEST_TIMEOUT_MS. */
+  timeoutMs?: number;
   signal?: AbortSignal;
 }
 
@@ -50,16 +62,25 @@ export const setUnauthorizedHandler = (handler: (() => void) | null): void => {
   onUnauthorized = handler;
 };
 
+/** For requests made outside apiRequest (file uploads) that were refused for lack of a valid session. */
+export const reportUnauthorized = (): void => onUnauthorized?.();
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, retries = method === 'GET' ? 2 : 0, signal } = options;
+  const { method = 'GET', body, token, retries = method === 'GET' ? 2 : 0, timeoutMs = REQUEST_TIMEOUT_MS, signal } = options;
 
   let lastError: ApiError | null = null;
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    // expo/fetch (the global fetch in this SDK) reports an abort under its own error name, so the
+    // time limit is tracked here rather than inferred from the error.
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
     const abortFromCaller = () => controller.abort();
     signal?.addEventListener('abort', abortFromCaller);
 
@@ -112,9 +133,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     } catch (cause) {
       if (cause instanceof ApiError) throw cause;
 
-      const aborted = (cause as { name?: string })?.name === 'AbortError';
       // A caller-triggered abort is not a failure to report.
-      if (aborted && signal?.aborted) throw cause;
+      if (signal?.aborted && !timedOut) throw cause;
+      const aborted = timedOut || (cause as { name?: string })?.name === 'AbortError';
 
       const error = aborted
         ? new ApiError('timeout', 0, 'The server is taking too long to respond.')

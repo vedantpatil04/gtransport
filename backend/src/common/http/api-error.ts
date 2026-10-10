@@ -7,6 +7,8 @@ export const ApiErrorCode = {
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+  /** Too many failed sign-in attempts; wait and try again. */
+  RATE_LIMITED: 'RATE_LIMITED',
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   /** Signed in with a temporary password: only a password change is allowed until it is set. */
@@ -45,6 +47,7 @@ const CODE_BY_STATUS: Record<number, ApiErrorCode> = {
   404: ApiErrorCode.NOT_FOUND,
   409: ApiErrorCode.CONFLICT,
   413: ApiErrorCode.PAYLOAD_TOO_LARGE,
+  429: ApiErrorCode.RATE_LIMITED,
   503: ApiErrorCode.SERVICE_UNAVAILABLE,
 };
 

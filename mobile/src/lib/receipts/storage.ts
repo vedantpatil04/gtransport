@@ -1,5 +1,6 @@
 import { randomUUID } from 'expo-crypto';
 import { File } from 'expo-file-system';
+import { ApiError } from '../api/client';
 
 /**
  * Prepares a captured or selected receipt for upload.
@@ -39,3 +40,22 @@ export function discardReceipt(uri: string | null | undefined): void {
   }
 }
 
+
+/**
+ * Throws a clear, retry-able-by-choosing-again error when a kept photo or file has gone from the
+ * phone (Android clears cache folders; a file can be moved or deleted). Without this the upload
+ * fails deep inside the network layer with a message that blames the connection.
+ *
+ * Only file:// paths can be checked cheaply. Anything else (or an environment where the file API is
+ * unavailable) is left to the upload itself, so a check can never block a file that would have sent.
+ */
+export function assertLocalFileExists(uri: string): void {
+  if (!uri.startsWith('file:')) return;
+  let exists = true;
+  try {
+    exists = new File(uri).exists;
+  } catch {
+    return;
+  }
+  if (!exists) throw new ApiError('file', 0, 'The photo or file is no longer on this phone.');
+}

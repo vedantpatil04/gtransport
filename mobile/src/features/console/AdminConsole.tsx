@@ -8,6 +8,7 @@ import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTyp
 import { AppText, Loading, PrimaryButton } from '../../components/ui';
 import { accountApi } from '../../lib/api/account';
 import { ApiError } from '../../lib/api/client';
+import { wakeApi } from '../../lib/api/warmup';
 import { useSession } from '../../lib/auth/session-store';
 import { colors, spacing, TOUCH_TARGET } from '../../theme/tokens';
 import { saveConsoleFile } from './downloads';
@@ -25,7 +26,16 @@ import { consoleEntryUrl, decideNavigation, DOWNLOAD_BRIDGE_SCRIPT, parseConsole
  * app returns to its own sign-in — never to the driver app.
  */
 
-type Phase = 'connecting' | 'open' | 'offline' | 'failed' | 'forbidden';
+/**
+ * unreachable: the phone is online but the API did not answer in time — in practice a sleeping
+ * instance still waking up. Not "offline", and not a fault in the console.
+ */
+type Phase = 'connecting' | 'open' | 'offline' | 'failed' | 'forbidden' | 'unreachable';
+
+/** Free-tier hosting puts the API to sleep after about 15 minutes idle; poll a little more often than that while the console is in use. */
+const KEEP_AWAKE_EVERY_MS = 9 * 60_000;
+/** After this long on "opening", say why it is slow instead of leaving a bare spinner. */
+const SLOW_AFTER_MS = 6_000;
 
 /**
  * What actually went wrong, shown under the friendly message so a failure can be diagnosed from a
@@ -60,19 +70,27 @@ export function AdminConsole() {
   const [online, setOnline] = useState(true);
   const [reconnected, setReconnected] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
+  const [waking, setWaking] = useState(false);
 
-  /** A fresh code every time: a code is spent by its first use, and lives only a minute. */
+  /**
+   * A fresh code every time: a code is spent by its first use, and lives only a minute — so the API
+   * is woken first (a cold start takes up to a minute) and the code is asked for only once it is up.
+   */
   const connect = useCallback(async () => {
     setPhase('connecting');
     setLoadFailed(false);
     setDetail(null);
     setReconnected(false);
+    setWaking(false);
     if (!token) return;
     if (!reachable(await NetInfo.fetch())) {
       setPhase('offline');
       return;
     }
+    const slow = setTimeout(() => setWaking(true), SLOW_AFTER_MS);
     try {
+      await wakeApi();
+      setWaking(false);
       const { code } = await accountApi.webHandoff(token);
       setEntryUrl(consoleEntryUrl(code));
       setAttempt((n) => n + 1);
@@ -82,10 +100,23 @@ export function AdminConsole() {
       // A 401 has already ended the session centrally: the sign-in screen explains it.
       if (error instanceof ApiError && error.kind === 'unauthorized') return;
       if (error instanceof ApiError && error.kind === 'forbidden') setPhase('forbidden');
-      else if (error instanceof ApiError && (error.kind === 'network' || error.kind === 'timeout')) setPhase('offline');
-      else setPhase('failed');
+      else if (error instanceof ApiError && (error.kind === 'network' || error.kind === 'timeout')) {
+        // Only really offline if the phone says so; otherwise the server just has not answered yet.
+        setPhase(reachable(await NetInfo.fetch()) ? 'unreachable' : 'offline');
+      } else setPhase('failed');
+    } finally {
+      clearTimeout(slow);
+      setWaking(false);
     }
   }, [token]);
+
+  // While the console is open, touch the API now and then so it does not fall asleep under someone
+  // who is working — the next report or payment would otherwise wait a minute for it to wake.
+  useEffect(() => {
+    if (phase !== 'open') return;
+    const timer = setInterval(() => void wakeApi(20_000), KEEP_AWAKE_EVERY_MS);
+    return () => clearInterval(timer);
+  }, [phase]);
 
   useEffect(() => {
     void connect();
@@ -181,13 +212,14 @@ export function AdminConsole() {
   }, [connect, entryUrl, loadFailed]);
 
   let body: React.ReactNode;
-  if (phase === 'connecting') body = <Loading label={t('console.connecting')} />;
+  if (phase === 'connecting') body = <Loading label={t(waking ? 'console.waking' : 'console.connecting')} />;
   else if (phase !== 'open' || loadFailed || !entryUrl) {
     const kind = phase === 'open' ? 'failed' : phase;
+    const key = kind === 'offline' ? 'offline' : kind === 'forbidden' ? 'forbidden' : kind === 'unreachable' ? 'unreachable' : 'failed';
     body = (
       <Problem
-        title={t(kind === 'offline' ? 'console.offlineTitle' : kind === 'forbidden' ? 'console.forbiddenTitle' : 'console.failedTitle')}
-        body={t(kind === 'offline' ? 'console.offlineBody' : kind === 'forbidden' ? 'console.forbiddenBody' : 'console.failedBody')}
+        title={t(`console.${key}Title`)}
+        body={t(`console.${key}Body`)}
         onRetry={kind === 'forbidden' ? undefined : () => void connect()}
         detail={detail}
         onSignOut={() => void signOut(false)}
@@ -219,7 +251,14 @@ export function AdminConsole() {
           allowUniversalAccessFromFileURLs={false}
           thirdPartyCookiesEnabled={false}
           geolocationEnabled={false}
-          // The console's own layout, as in Chrome, whatever the phone's font size.
+          // Zoom is configured on purpose, not left to defaults. The page's own viewport (device width,
+          // scale 1) is honoured (scalesPageToFit = wide viewport), so it lays out exactly as in
+          // Chrome and is already "mobile-friendly" — which turns off double-tap zoom. Pinch zoom
+          // stays on for people who need larger text; the on-screen +/- widget stays off. Text size is
+          // fixed at the page's own so the system font scale cannot break the layout (pinch to enlarge).
+          scalesPageToFit
+          setBuiltInZoomControls
+          setDisplayZoomControls={false}
           textZoom={100}
           startInLoadingState
           renderLoading={() => (

@@ -8,6 +8,7 @@ import { passwordProblem } from '../users/credentials';
 import { UsersService, type AccountProfile, type UserWithProfile } from '../users/users.service';
 import type { AuthenticatedUser, JwtPayload } from './authenticated-user';
 import { PasswordHasher } from './password-hasher';
+import { LoginAttemptLimiter } from './login-attempt.limiter';
 import { WebHandoffStore } from './web-handoff.store';
 
 /** Roles that use the office console (and so may be handed into it from the phone app). */
@@ -41,13 +42,17 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly config: AppConfigService,
     private readonly handoffs: WebHandoffStore,
+    private readonly attempts: LoginAttemptLimiter,
   ) {}
 
   async login(identifier: string, password: string, context: RequestContext): Promise<LoginResult> {
+    // Before the (deliberately slow) password check, so guessing is cheap to refuse.
+    this.attempts.assertAllowed(identifier, context.ipAddress);
     const user = await this.users.findLoginCandidate(identifier);
     const passwordMatches = await this.hasher.verify(password, user?.passwordHash ?? DUMMY_HASH);
 
     if (!user || !passwordMatches) {
+      this.attempts.recordFailure(identifier, context.ipAddress);
       await this.audit.record({
         action: 'auth.login_failed',
         entityType: 'User',
@@ -77,6 +82,7 @@ export class AuthService {
       });
     }
 
+    this.attempts.recordSuccess(identifier, context.ipAddress);
     const result = await this.issue(user);
     await this.users.markLoggedIn(user.id, new Date());
     await this.audit.record({

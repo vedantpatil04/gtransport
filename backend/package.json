@@ -9,8 +9,9 @@
   },
   "scripts": {
     "dev": "nest start --watch",
-    "start": "node dist/main",
-    "start:prod": "node dist/main.js",
+    "start": "node dist/scripts/start-production",
+    "start:prod": "node dist/scripts/start-production",
+    "start:api": "node dist/main",
     "build": "nest build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" \"prisma/**/*.ts\"",

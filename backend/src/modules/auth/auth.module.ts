@@ -4,6 +4,7 @@ import { AppConfigService } from '../../config/app-config.service';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { LoginAttemptLimiter } from './login-attempt.limiter';
 import { WebHandoffStore } from './web-handoff.store';
 
 @Module({
@@ -18,7 +19,7 @@ import { WebHandoffStore } from './web-handoff.store';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, WebHandoffStore],
+  providers: [AuthService, WebHandoffStore, LoginAttemptLimiter],
   // PasswordHasher now comes from UsersModule, which account management also needs.
   exports: [JwtModule, UsersModule],
 })

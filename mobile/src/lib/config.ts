@@ -54,3 +54,14 @@ export function mapStyleUrlSetting(): string | undefined {
 
 /** Requests give up at this point so a dead network cannot hang the UI forever. */
 export const REQUEST_TIMEOUT_MS = 15_000;
+
+/**
+ * Writes that carry a client submission id (so the server stores them once however often they are
+ * sent) wait longer: the API runs on an instance that sleeps when idle, and the first request after
+ * a quiet spell can take up to a minute while it wakes. Giving up at 15 s would turn every first
+ * submission of the morning into a failure.
+ */
+export const IDEMPOTENT_WRITE_TIMEOUT_MS = 60_000;
+
+/** A photo or PDF on a slow mobile link: total time for one upload attempt. */
+export const UPLOAD_TIMEOUT_MS = 120_000;

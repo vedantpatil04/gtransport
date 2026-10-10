@@ -2,6 +2,7 @@ import { ApiError } from '../../lib/api/client';
 import { fuelApi, operationsApi, uploadReceipt, type FuelPayload, type OperationPayload, type TyreInsurancePayload } from '../../lib/api/operations';
 import { useSession } from '../../lib/auth/session-store';
 import { offlineQueue, type FailureKind, type QueuedAction } from '../../lib/offline/queue';
+import { requestSync } from '../../lib/offline/sync';
 import { discardReceipt, type LocalReceipt } from '../../lib/receipts/storage';
 
 /**
@@ -15,7 +16,11 @@ import { discardReceipt, type LocalReceipt } from '../../lib/receipts/storage';
  *        │                      │
  *        │ no signal            └ refuses for good ──▶ REJECTED (kept, shown to the driver)
  *        ▼
- *   PENDING_SYNC ──(connection returns)──▶ sent again
+ *   PENDING_SYNC ──(connection returns, app reopened, signed in again, or its retry time comes)──▶ sent again
+ *
+ * What the driver sees: Syncing (being sent now), Waiting to sync (will retry by itself, with the
+ * reason it last failed), Failed (needs them: retry or discard). Synced entries simply leave the
+ * list — they are in the history from the server. Nothing is ever dropped to clear a warning.
  *
  * The clientSubmissionId is created once per form, so a double tap or an automatic retry
  * reaches the server as the same submission, and the server stores it exactly once.
@@ -59,9 +64,27 @@ export function classifyFailure(error: unknown): FailureKind {
   if (error instanceof SessionMissingError) return 'halt';
   if (error instanceof ApiError) {
     if (error.kind === 'unauthorized') return 'halt';
-    if (error.kind === 'validation' || error.kind === 'forbidden' || error.kind === 'notFound') return 'permanent';
+    // 'file': the receipt photo is gone from the phone — waiting will not bring it back.
+    if (error.kind === 'validation' || error.kind === 'forbidden' || error.kind === 'notFound' || error.kind === 'file') return 'permanent';
   }
   return 'retry';
+}
+
+/**
+ * Of the temporary failures: does it say the whole network (or the service) is out, so the rest of
+ * the queue would only fail the same way and waste a minute each? Or is it about this one entry — a
+ * server error on its payload, a bug — in which case the entries behind it should still go.
+ */
+export function stopsPass(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+  if (error.kind === 'network' || error.kind === 'timeout') return true;
+  return error.kind === 'server' && (error.status === 502 || error.status === 503 || error.status === 504);
+}
+
+/** What is stored about a failure: the message and the API's request reference (for the office to look up). */
+function describeFailure(error: unknown): { message?: string; requestId?: string; kind?: string } {
+  if (error instanceof ApiError) return { message: error.message, requestId: error.requestId, kind: error.kind };
+  return { message: error instanceof Error ? error.message : undefined };
 }
 
 function token(): string {
@@ -84,6 +107,10 @@ export function registerDailyHandlers(): void {
   registered = true;
 
   offlineQueue.setClassifier(classifyFailure);
+  offlineQueue.setStopsPass(stopsPass);
+  offlineQueue.setDescriber(describeFailure);
+  // Entries belong to the driver who made them: a different sign-in on the same phone never sends them.
+  offlineQueue.setOwnerResolver(() => useSession.getState().user?.id);
 
   offlineQueue.register(KIND.fuel, async (payload) => {
     const item = payload as FuelItem;
@@ -135,26 +162,43 @@ export const submitTyreInsurance = (body: TyreInsurancePayload, receipt: LocalRe
 export interface PendingEntry {
   id: string;
   kind: Kind;
-  state: 'PENDING_SYNC' | 'REJECTED';
+  /** SYNCING: being sent now. PENDING_SYNC: will retry by itself. REJECTED: failed, needs the driver. */
+  state: 'PENDING_SYNC' | 'SYNCING' | 'REJECTED';
   amount: number;
   date: string;
   label: string;
+  /** Why it last failed, if it has. */
   reason?: string;
+  /** API reference of the last failure; shown so the office can find it in the server log. */
+  reference?: string;
+  /** How many times it has been tried. */
+  attempts: number;
+  /** Failed because its receipt photo is no longer on the phone: the driver may send it without the photo. */
+  canSendWithoutPhoto: boolean;
 }
 
-export function toPendingEntry(item: QueuedAction): PendingEntry | null {
-  const state = item.status === 'rejected' ? 'REJECTED' : 'PENDING_SYNC';
+export function toPendingEntry(item: QueuedAction, activeId: string | null = null): PendingEntry | null {
+  const state: PendingEntry['state'] = item.status === 'rejected' ? 'REJECTED' : item.id === activeId ? 'SYNCING' : 'PENDING_SYNC';
+  const photoGone = item.status === 'rejected' && item.lastErrorKind === 'file' && Boolean((item.payload as { receipt?: LocalReceipt | null }).receipt);
+  const common = {
+    id: item.id,
+    state,
+    reason: item.lastError,
+    reference: item.lastRequestId?.slice(0, 8),
+    attempts: item.attempts,
+    canSendWithoutPhoto: photoGone,
+  };
   if (item.kind === KIND.fuel) {
     const { body } = item.payload as FuelItem;
-    return { id: item.id, kind: KIND.fuel, state, amount: body.amount, date: body.transactionDate, label: body.fuelStation, reason: item.lastError };
+    return { ...common, kind: KIND.fuel, amount: body.amount, date: body.transactionDate, label: body.fuelStation };
   }
   if (item.kind === KIND.operation) {
     const { body } = item.payload as OperationItem;
-    return { id: item.id, kind: KIND.operation, state, amount: body.amount, date: body.expenseDate, label: body.category, reason: item.lastError };
+    return { ...common, kind: KIND.operation, amount: body.amount, date: body.expenseDate, label: body.category };
   }
   if (item.kind === KIND.tyreInsurance) {
     const { body } = item.payload as TyreInsuranceItem;
-    return { id: item.id, kind: KIND.tyreInsurance, state, amount: body.premium ?? 0, date: body.expiryDate, label: body.insurer, reason: item.lastError };
+    return { ...common, kind: KIND.tyreInsurance, amount: body.premium ?? 0, date: body.expiryDate, label: body.insurer };
   }
   return null;
 }
@@ -165,4 +209,20 @@ export async function discardEntry(id: string): Promise<void> {
   const receipt = (item?.payload as { receipt?: LocalReceipt | null } | undefined)?.receipt;
   discardReceipt(receipt?.uri);
   await offlineQueue.remove(id);
+}
+
+/** The driver tapped Retry on a failed entry: back in line, and tried now. */
+export async function retryEntry(id: string): Promise<void> {
+  await offlineQueue.requeue(id);
+  await requestSync('manual');
+}
+
+/**
+ * The receipt photo is gone from the phone and the driver chose to send the entry without it. Only the
+ * photo is dropped — amount, date, station, category and the submission id stay exactly as entered, so
+ * the server still recognises it as the same entry and stores it once.
+ */
+export async function sendWithoutPhoto(id: string): Promise<void> {
+  await offlineQueue.updatePayload<{ receipt?: LocalReceipt | null }>(id, (payload) => ({ ...payload, receipt: null }));
+  await retryEntry(id);
 }

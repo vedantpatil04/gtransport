@@ -47,7 +47,8 @@ SEED_SUPER_ADMIN_EMAIL=you@example.com SEED_SUPER_ADMIN_PASSWORD=a-long-password
 | Script | Purpose |
 |---|---|
 | `npm run dev` | watch mode |
-| `npm run build` / `npm start` | compile to `dist/` / run the compiled API |
+| `npm run build` / `npm start` | compile to `dist/` / apply pending migrations, then run the compiled API (`SKIP_MIGRATE_ON_START=true` skips the migration step) |
+| `npm run start:api` | run the compiled API without touching migrations |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm test` | unit tests (no database) |

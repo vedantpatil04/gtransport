@@ -162,7 +162,8 @@
     "pending": "{{count}} waiting to sync",
     "errorTitle": "Unable to connect right now",
     "errorBody": "Your data is safe. Please try again.",
-    "sessionExpired": "Your session has ended. Please sign in again."
+    "sessionExpired": "Your session has ended. Please sign in again.",
+    "failed": "{{count}} need your attention"
   },
   "daily": {
     "fuelTitle": "Petrol / Diesel",
@@ -232,7 +233,13 @@
     "errFutureDate": "The date cannot be in the future",
     "errInsurer": "Enter the insurance company",
     "errExpiry": "Choose the expiry date",
-    "errStartAfterExpiry": "Start date must be before the expiry date"
+    "errStartAfterExpiry": "Start date must be before the expiry date",
+    "failed": "Failed",
+    "sendingNow": "Sending…",
+    "retryNow": "Retry now",
+    "willRetry": "Will retry automatically",
+    "reference": "Reference {{id}}",
+    "sendWithoutPhoto": "Send without photo"
   },
   "docs": {
     "title": "My Documents",
@@ -269,7 +276,11 @@
     "noVehicle": "No vehicle is assigned to you yet.",
     "pdf": "PDF document",
     "errFile": "Take a photo or choose a file first",
-    "save": "SAVE"
+    "save": "SAVE",
+    "errNetwork": "No connection to the server. Your file and details are kept — check the internet and tap Try again.",
+    "errTimeout": "The upload took too long. Your file and details are kept — tap Try again.",
+    "errServer": "The server could not save this right now. Your file and details are kept — try again in a minute.",
+    "fileMissing": "The selected file is no longer on this phone. Take a photo or choose the file again."
   },
   "password": {
     "title": "Choose your password",
@@ -604,6 +615,9 @@
     "downloading": "Downloading…",
     "noDownloadPermission": "Allow storage access to download this file.",
     "unsupportedTitle": "This account type is not supported in the app",
-    "unsupportedBody": "You are signed in, but the app does not know what to show for this account. Please contact your office."
+    "unsupportedBody": "You are signed in, but the app does not know what to show for this account. Please contact your office.",
+    "waking": "The server is waking up — this can take up to a minute…",
+    "unreachableTitle": "The server is starting up",
+    "unreachableBody": "It sleeps when it has not been used for a while. Wait a few seconds, then try again."
   }
 }

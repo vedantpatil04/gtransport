@@ -13,6 +13,7 @@ import { registerDailyHandlers } from '../features/daily/submissions';
 import '../lib/location/tracking';
 import i18n, { initI18n, languageFromApi, setLanguage } from '../i18n';
 import { useSession } from '../lib/auth/session-store';
+import { startQueueSync } from '../lib/offline/sync';
 import { colors } from '../theme/tokens';
 
 void SplashScreen.preventAutoHideAsync();
@@ -33,6 +34,10 @@ export default function RootLayout() {
       setReady(true);
     })().catch(() => setReady(true));
   }, [restore]);
+
+  // Sends queued entries when the app opens, the connection returns, the app comes back to the
+  // foreground, a session starts, or an entry's retry time arrives. See lib/offline/sync.
+  useEffect(() => startQueueSync(), []);
 
   // A driver whose office record says Kannada gets Kannada, unless they chose otherwise here.
   const driverLanguage = useSession((s) => s.driver?.employee.preferredLanguage);

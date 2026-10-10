@@ -17,7 +17,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor(config: AppConfigService) {
     const { url, poolMax } = config.database;
     super({
-      adapter: new PrismaPg({ connectionString: url, max: poolMax }),
+      adapter: new PrismaPg({
+        connectionString: url,
+        max: poolMax,
+        // Without a limit a stalled connection attempt (a pooler restarting, a network blip between
+        // Render and Supabase) holds the request until the client gives up. Failing in 15 s turns it
+        // into the retryable 503 the clients already handle, and frees the slot.
+        connectionTimeoutMillis: 15_000,
+        // Give idle connections back to the pooler instead of holding them for the life of the process.
+        idleTimeoutMillis: 30_000,
+      }),
       log: config.isProduction ? ['warn', 'error'] : ['warn', 'error'],
     });
   }

@@ -1,5 +1,6 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import { MigrationStatusService } from '../../database/migration-status.service';
 import { PrismaService } from '../../database/prisma.service';
 import { Public } from '../auth/decorators';
 
@@ -7,17 +8,26 @@ interface HealthResponse {
   status: 'ok' | 'degraded';
   uptimeSeconds: number;
   timestamp: string;
-  checks: { database: 'up' | 'down' };
+  checks: { database: 'up' | 'down'; schema: 'current' | 'behind' | 'unknown' };
+  /** Present only when the database is behind this build: which migrations still need to run. */
+  pendingMigrations?: string[];
 }
 
 /**
  * Deployment health probe. Public and outside the API version prefix so load balancers and
  * process supervisors can call it without credentials. Returns 503 when the database is
  * unreachable, so an unhealthy instance is taken out of rotation instead of serving errors.
+ *
+ * `schema` says whether the database has every migration this build ships. A database that is
+ * behind still answers 200 (restarting the instance would not fix it) but reports "degraded",
+ * so a probe that reads the body — or a person with curl — can see a deploy skipped its migration.
  */
 @Controller()
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly migrations: MigrationStatusService,
+  ) {}
 
   @Public()
   @Get()
@@ -43,12 +53,15 @@ export class HealthController {
       database = 'down';
     }
 
+    const schema = database === 'up' ? await this.migrations.check() : null;
+
     response.status(database === 'up' ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
     return {
-      status: database === 'up' ? 'ok' : 'degraded',
+      status: database === 'up' && schema?.status !== 'behind' ? 'ok' : 'degraded',
       uptimeSeconds: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
-      checks: { database },
+      checks: { database, schema: schema?.status ?? 'unknown' },
+      ...(schema?.status === 'behind' ? { pendingMigrations: [...schema.pending, ...schema.failed] } : {}),
     };
   }
 }

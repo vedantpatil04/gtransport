@@ -80,6 +80,22 @@
   }
   html {
     -webkit-tap-highlight-color: transparent;
+    /* Phones: no double-tap-to-zoom (and no tap delay) on buttons and rows, but pinch-zoom stays for
+       people who need larger text. Text is never auto-inflated by the browser's "font boosting". */
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* Browsers zoom the whole page in when a text field under 16px is focused on a touch screen,
+     which is what "the page zooms when I tap a field" is. Fields are 12-14px elsewhere (compact
+     desktop forms), so on touch devices only they are raised to 16px. Mouse and desktop layouts keep
+     their sizes. !important because the sizes come from Tailwind utility classes on each field. */
+  @media (pointer: coarse) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
   }
   body {
     @apply bg-background text-foreground antialiased;

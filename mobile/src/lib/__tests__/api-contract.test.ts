@@ -17,6 +17,7 @@ import { fuelApi, operationsApi, uploadReceipt } from '../api/operations';
 import { driverPaymentState, paymentsApi, rupees } from '../api/payments';
 import { useSession } from '../auth/session-store';
 import { clearSession } from '../storage/secure';
+import { FakeXhr } from './helpers/fake-xhr';
 
 /**
  * Replays REAL API responses (captured by backend/test/mobile-contract.e2e-spec.ts) through the
@@ -102,29 +103,36 @@ describe('API contract — real responses through mobile code', () => {
     expect(Number(page.total)).toBeGreaterThan(0);
   });
 
-  it('takes the file id from a real upload response', async () => {
-    mockFetch(jest.fn().mockResolvedValue(respond(201, receiptUpload)));
-    await expect(uploadReceipt('token', { uri: 'file:///r.jpg', mimeType: 'image/jpeg', name: 'r.jpg' })).resolves.toBe(receiptUpload.fileId);
-  });
+  describe('file uploads (multipart over XMLHttpRequest, see lib/api/upload)', () => {
+    const files = () => (jest.requireMock('expo-file-system') as { __files: Set<string> }).__files;
 
-  it('uploads document file, normalizes mime type, and reports progress fractionally', async () => {
-    const progressUpdates: number[] = [];
-    mockFetch(jest.fn().mockResolvedValue(respond(201, { fileId: 'doc-file-123' })));
-    const fileId = await uploadDocumentFile(
-      'token',
-      { uri: 'file:///rc.jpg', mimeType: 'image/jpg', name: 'rc.jpg' },
-      (p) => progressUpdates.push(p),
-    );
-    expect(fileId).toBe('doc-file-123');
-    expect(progressUpdates.length).toBeGreaterThanOrEqual(3);
-    expect(progressUpdates[progressUpdates.length - 1]).toBe(1);
-  });
+    beforeEach(() => {
+      FakeXhr.install();
+      FakeXhr.reset();
+      for (const uri of ['file:///r.jpg', 'file:///rc.jpg', 'file:///doc.exe']) files().add(uri);
+    });
 
-  it('rejects document upload with backend error message on server failure', async () => {
-    mockFetch(jest.fn().mockResolvedValue(respond(400, { error: { message: 'Invalid file format.' } })));
-    await expect(
-      uploadDocumentFile('token', { uri: 'file:///doc.exe', mimeType: 'application/octet-stream', name: 'doc.exe' }, () => {}),
-    ).rejects.toThrow('Invalid file format.');
+    it('takes the file id from a real upload response', async () => {
+      FakeXhr.reset([{ status: 201, body: receiptUpload }]);
+      await expect(uploadReceipt('token', { uri: 'file:///r.jpg', mimeType: 'image/jpeg', name: 'r.jpg' })).resolves.toBe(receiptUpload.fileId);
+    });
+
+    it('uploads document file, normalizes mime type, and reports progress fractionally', async () => {
+      const progressUpdates: number[] = [];
+      FakeXhr.reset([{ status: 201, body: { fileId: 'doc-file-123' } }]);
+      const fileId = await uploadDocumentFile('token', { uri: 'file:///rc.jpg', mimeType: 'image/jpg', name: 'rc.jpg' }, (p) => progressUpdates.push(p));
+      expect(fileId).toBe('doc-file-123');
+      expect(FakeXhr.requests[0]?.form._parts[0]?.[1]).toMatchObject({ type: 'image/jpeg' });
+      expect(progressUpdates.length).toBeGreaterThanOrEqual(2);
+      expect(progressUpdates[progressUpdates.length - 1]).toBe(1);
+    });
+
+    it('rejects document upload with backend error message on server failure', async () => {
+      FakeXhr.reset([{ status: 400, body: { error: { message: 'Invalid file format.' } } }]);
+      await expect(
+        uploadDocumentFile('token', { uri: 'file:///doc.exe', mimeType: 'application/octet-stream', name: 'doc.exe' }, () => {}),
+      ).rejects.toThrow('Invalid file format.');
+    });
   });
 
   it('maps the real error envelope onto the message and reference the driver sees', async () => {

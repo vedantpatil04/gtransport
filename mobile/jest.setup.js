@@ -30,6 +30,9 @@ jest.mock('expo-secure-store', () => {
   };
 });
 
+// Waking the API is a real network request; no test should make it.
+jest.mock('./src/lib/api/warmup', () => ({ wakeApi: jest.fn(async () => true), WAKE_TIMEOUT_MS: 75000 }));
+
 jest.mock('expo-localization', () => ({ getLocales: jest.fn(() => [{ languageCode: 'en' }]) }));
 
 jest.mock('expo-constants', () => ({

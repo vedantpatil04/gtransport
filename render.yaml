@@ -7,6 +7,9 @@ services:
     runtime: node
     rootDir: backend
     buildCommand: npm ci --include=dev && npm run db:generate && npm run build
+    # Applies migrations before the new version takes traffic. Not available on every Render plan, so the
+    # start command (`npm start` → dist/scripts/start-production) applies any pending migration as well;
+    # running both is harmless: the second finds nothing to do.
     preDeployCommand: npm run db:deploy
     startCommand: npm run start
     healthCheckPath: /health

@@ -118,7 +118,13 @@ The API is a standard 12-factor Node service: configuration from the environment
 ```bash
 npm ci && npm run build
 npm run db:deploy      # prisma migrate deploy — run before starting new code
-npm start              # node dist/main
+npm start              # applies pending migrations (see below), then node dist/main
 ```
+
+**Migrations are applied before the API serves, every start.** `npm start` runs `dist/scripts/start-production`, which executes `prisma migrate deploy` (additive migrations, applied in order under Prisma's advisory lock) and then boots the API. It exists because Render's `preDeployCommand` is not available on every plan, and a deploy that silently skipped it left the code ahead of the database: every query touching a new column then failed (Prisma `P2022`), which showed up as the Finance page's "An unexpected database error occurred". The step never prevents the API from starting — a failure is logged and the API still boots — and `SKIP_MIGRATE_ON_START=true` turns it off. `npm run start:api` starts the API alone.
+
+**Checking a deployment without credentials:** `GET /health` reports `checks.schema` — `current`, `behind` (with `pendingMigrations` listing what has not been applied; status `degraded`, still HTTP 200 so the instance is not restarted for something a restart cannot fix) or `unknown`. A database that is behind answers the affected features with a clear 503 (`SERVICE_UNAVAILABLE`) and a request reference, and the server log has one searchable line: `Database error P2022 on GET … rid=<reference>`. Searching the Render log for the reference in a screenshot leads straight to the cause.
+
+**The free Render plan sleeps** after about 15 minutes without traffic, and the first request then takes up to a minute (measured at 53 s against production). The phone app and office console are built for that (they wake the API first and use long, retried limits for submissions that are safe to repeat); a paid instance, or any external monitor that requests `/health` every ten minutes, removes the wait. Neither is configured by this repository.
 
 Nothing is tied to a specific host, so any VPS (Hetzner or otherwise) works behind a reverse proxy. Set `TRUST_PROXY=true` there so client IPs are recorded correctly in the audit trail. The runtime uses Prisma's driver adapter, so no native query-engine binary is needed. The frontend's Vercel deployment is untouched.
